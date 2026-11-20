@@ -33,7 +33,7 @@ function getAuthHeaders() {
 
 const CloudSyncEngine = {
   async pullState(notifyNewNuvem = true) {
-    if (!authToken || authToken === 'demo_token') return false;
+    if (!authToken) return false;
     const pill = document.getElementById('cloudSyncPill');
     try {
       const res = await fetch(`${BACKEND_API_URL}/api/state`, { headers: getAuthHeaders() });
@@ -84,7 +84,7 @@ const CloudSyncEngine = {
 
   async pushState(payload) {
     const pill = document.getElementById('cloudSyncPill');
-    if (!authToken || authToken === 'demo_token') return false;
+    if (!authToken) return false;
     try {
       const res = await fetch(`${BACKEND_API_URL}/api/state`, {
         method: 'PUT',
@@ -108,7 +108,7 @@ const CloudSyncEngine = {
 
 // Polling automático a cada 15 segundos para capturar pedidos novos da Nuvemshop
 setInterval(() => {
-  if (authToken && authToken !== 'demo_token') {
+  if (authToken) {
     CloudSyncEngine.pullState(true);
   }
 }, 15000);
@@ -212,36 +212,6 @@ function showToast(msg) {
 }
 
 // ============================================================================
-// ATALHO DE TESTE RÁPIDO (ADMIN vs VENDEDOR)
-// ============================================================================
-window.quickDemoLogin = function (roleType) {
-  authToken = 'demo_token';
-  if (roleType === 'admin') {
-    activeAccount = {
-      id: 1,
-      username: 'admin',
-      displayName: 'ADMINISTRADOR',
-      isAdmin: true,
-      permissions: ['dashboard', 'pdv', 'envios', 'clientes', 'historico_vendas', 'estoque', 'ferramentas', 'etiquetas', 'recompra', 'orcamentos', 'garantias', 'trocas', 'financeiro', 'admin_only']
-    };
-  } else {
-    activeAccount = {
-      id: 2,
-      username: 'vendedor',
-      displayName: 'VENDEDOR LOJA',
-      isAdmin: false,
-      permissions: ['dashboard', 'pdv', 'envios', 'clientes', 'historico_vendas', 'estoque', 'ferramentas', 'garantias', 'trocas']
-    };
-  }
-  localStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, authToken);
-  localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(activeAccount));
-  document.getElementById('loginScreenOverlay')?.classList.remove('active');
-  applyAccountVisibility(activeAccount);
-  renderAll();
-  showToast(`Logado como ${activeAccount.displayName}`);
-};
-
-// ============================================================================
 // NOTIFICAÇÃO DE ENVIOS
 // ============================================================================
 function playShippingNotificationSound() {
@@ -312,7 +282,7 @@ function logoutCurrentSession(showMsg = true) {
 }
 
 async function fetchServerUsers() {
-  if (!authToken || authToken === 'demo_token' || !isCurrentUserAdmin()) return;
+  if (!authToken || !isCurrentUserAdmin()) return;
   try {
     const res = await fetch(`${BACKEND_API_URL}/api/users`, { headers: getAuthHeaders() });
     if (res.ok) {
@@ -1249,7 +1219,7 @@ function renderDashboard() {
 }
 
 async function pushStockToNuvemshop(product) {
-  if (!product || !product.nuvemId || !product.nuvemVarId || !authToken || authToken === 'demo_token') return false;
+ if (!product || !product.nuvemId || !product.nuvemVarId || !authToken) return false;
   try {
     const res = await fetch(`${BACKEND_API_URL}/api/nuvemshop/sync-stock`, {
       method: 'POST',
