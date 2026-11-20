@@ -837,21 +837,51 @@ function renderShipments() {
 // ============================================================================
 // IMPORTADOR NUVEMSHOP (CSV / PDF)
 // ============================================================================
+function extractVolumeAndExpiryFromText(rawText = '') {
+  const clean = String(rawText || '');
+  const volMatch = clean.match(/\b(\d+(?:[.,]\d+)?\s*(?:ml|mL|ML))\b/);
+  const concMatch = clean.match(/\b(extrait|elixir|parfum|edp|edt|eau de parfum|eau de toilette)\b/i);
+
+  let battery = '';
+  if (volMatch && concMatch) {
+    battery = `${concMatch[1].toUpperCase()} ${volMatch[1].replace(/\s+/g, '').toLowerCase()}`;
+  } else if (volMatch) {
+    battery = volMatch[1].replace(/\s+/g, '').toLowerCase();
+  } else if (concMatch) {
+    battery = concMatch[1].toUpperCase();
+  }
+
+  let expiry = '';
+  const brDateMatch = clean.match(/\b(\d{2})\/(\d{2})\/(\d{4})\b/);
+  const isoDateMatch = clean.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (brDateMatch) {
+    expiry = `${brDateMatch[3]}-${brDateMatch[2]}-${brDateMatch[1]}`;
+  } else if (isoDateMatch) {
+    expiry = `${isoDateMatch[1]}-${isoDateMatch[2]}-${isoDateMatch[3]}`;
+  }
+
+  return { battery, expiry };
+}
+
 function initNuvemshopImportModule() {
   const overlay = document.getElementById('nuvemImportModalOverlay');
   const fileInput = document.getElementById('nuvemImportFileInput');
   const btnConfirm = document.getElementById('btnConfirmNuvemImport');
+  const openBtn = document.getElementById('btnOpenNuvemImportModal')
+    || document.querySelector('[data-open-nuvem-import], #btnImportNuvemshop, #btnNuvemImport');
 
-  document.getElementById('btnOpenNuvemImportModal')?.addEventListener('click', () => {
+  openBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
     parsedNuvemItems = [];
     if (fileInput) fileInput.value = '';
-    document.getElementById('nuvemImportPreviewBox').style.display = 'none';
+    const previewBox = document.getElementById('nuvemImportPreviewBox');
+    if (previewBox) previewBox.style.display = 'none';
     if (btnConfirm) btnConfirm.disabled = true;
-    overlay.classList.add('active');
+    overlay?.classList.add('active');
   });
 
-  document.getElementById('btnCloseNuvemImport')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnCancelNuvemImport')?.addEventListener('click', () => overlay.classList.remove('active'));
+  document.getElementById('btnCloseNuvemImport')?.addEventListener('click', () => overlay?.classList.remove('active'));
+  document.getElementById('btnCancelNuvemImport')?.addEventListener('click', () => overlay?.classList.remove('active'));
 
   fileInput?.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
@@ -870,39 +900,58 @@ function initNuvemshopImportModule() {
     const previewTbody = document.getElementById('nuvemImportPreviewTable');
     const countLabel = document.getElementById('nuvemImportCountLabel');
 
-    previewBox.style.display = 'block';
-    countLabel.textContent = `${parsedNuvemItems.length} item(ns) identificado(s)`;
-    btnConfirm.disabled = parsedNuvemItems.length === 0;
+    if (previewBox) previewBox.style.display = 'block';
+    if (countLabel) countLabel.textContent = `${parsedNuvemItems.length} item(ns) identificado(s)`;
+    if (btnConfirm) btnConfirm.disabled = parsedNuvemItems.length === 0;
 
-    previewTbody.innerHTML = parsedNuvemItems.slice(0, 50).map(item => `
-      <tr>
-        <td><strong>${item.name}</strong></td>
-        <td><code>${item.imei || '-'}</code></td>
-        <td>${fmtBRL(item.price)}</td>
-        <td>${item.qty} un.</td>
-      </tr>
-    `).join('');
+    if (previewTbody) {
+      previewTbody.innerHTML = parsedNuvemItems.slice(0, 50).map(item => {
+        const meta = extractVolumeAndExpiryFromText(`${item.name} ${item.imei || ''} ${item.expiry || ''}`);
+        const volLabel = item.battery || meta.battery || '-';
+        return `
+          <tr>
+            <td>
+              <strong>${item.name}</strong>
+              <div style="font-size:0.74rem; color:var(--text-muted);">Vol/Conc: ${volLabel}${meta.expiry ? ` • Val: ${meta.expiry}` : ''}</div>
+            </td>
+            <td><code>${item.imei || '-'}</code></td>
+            <td>${fmtBRL(item.price)}</td>
+            <td>${item.qty} un.</td>
+          </tr>
+        `;
+      }).join('');
+    }
   });
 
   btnConfirm?.addEventListener('click', () => {
     if (parsedNuvemItems.length === 0) return;
-    const defaultCat = document.getElementById('nuvemImportDefaultCat').value;
+    const defaultCat = document.getElementById('nuvemImportDefaultCat')?.value || 'Importado';
 
     parsedNuvemItems.forEach(item => {
+      const meta = extractVolumeAndExpiryFromText(`${item.name} ${item.imei || ''} ${item.expiry || ''}`);
+      const isDecant = item.name.toLowerCase().includes('decant') || /\b(5ml|10ml)\b/i.test(item.name);
+      const detectedBattery = item.battery || meta.battery || (isDecant ? 'Decant Vidro' : 'Frasco');
+      const detectedExpiry = item.expiry || meta.expiry || '';
+
       const existing = products.find(p => p.name.toLowerCase() === item.name.toLowerCase());
       if (existing) {
         existing.qty = item.qty;
         existing.price = item.price || existing.price;
         if (item.cost) existing.cost = item.cost;
+        if (detectedBattery && (!existing.battery || existing.battery === 'Frasco' || existing.battery === 'Decant')) {
+          existing.battery = detectedBattery;
+        }
+        if (detectedExpiry && !existing.expiry) {
+          existing.expiry = detectedExpiry;
+        }
       } else {
-        const isDecant = item.name.toLowerCase().includes('decant');
         products.unshift({
           id: 'PRD-' + String(products.length + 1).padStart(2, '0'),
           name: item.name,
           imei: item.imei || ('NUV-' + Math.floor(1000 + Math.random() * 9000)),
-          expiry: '',
+          expiry: detectedExpiry,
           condition: isDecant ? 'Decant' : defaultCat,
-          battery: isDecant ? 'Decant' : 'Frasco',
+          battery: detectedBattery,
           cost: item.cost || Number((item.price * 0.55).toFixed(2)),
           price: item.price || 0,
           qty: item.qty || 1,
@@ -914,7 +963,7 @@ function initNuvemshopImportModule() {
 
     saveAll();
     renderAll();
-    overlay.classList.remove('active');
+    overlay?.classList.remove('active');
     showToast(`${parsedNuvemItems.length} produto(s) importados da Nuvemshop!`);
   });
 }
