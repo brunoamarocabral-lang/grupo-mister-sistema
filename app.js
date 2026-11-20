@@ -1,7 +1,7 @@
 // ============================================================================
 // 1. PERSISTÊNCIA NUVEM / BACKEND POSTGRESQL + AUTENTICAÇÃO POR TOKEN
 // ============================================================================
-const BACKEND_API_URL = 'https://grupo-mister-backend.onrender.com';
+const BACKEND_API_URL = 'https://grupo-mister-backend.onrender.com';[cite: 2, 7]
 
 const STORAGE_KEYS = {
   PRODUCTS: 'gm_perfume_products_v5',
@@ -350,7 +350,7 @@ function initLoginByCredentials() {
     }
 
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/login`, {
+      const res = await fetch(`${BACKEND_API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
