@@ -1104,16 +1104,35 @@ function renderThermalLabelQueue() {
 // ============================================================================
 // 7. RECOMPRA & VALIDADES
 // ============================================================================
+function itemsToSearchText(items) {
+  if (!items) return '';
+  if (typeof items === 'string') return items;
+  if (Array.isArray(items)) {
+    return items
+      .map((item) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') {
+          return [item.name, item.title, item.nome, item.sku].filter(Boolean).join(' ');
+        }
+        return '';
+      })
+      .join(' ');
+  }
+  if (typeof items === 'object') {
+    return JSON.stringify(items);
+  }
+  return String(items);
+}
+
 function computeRecompraAlerts() {
   const today = new Date();
   const alerts = [];
   sales.forEach(s => {
-    const itemsStr = (s.items || '').toLowerCase();
+    const itemsStr = itemsToSearchText(s.items).toLowerCase();
     let estDays = 90;
     let suggestion = 'Oferecer segundo frasco ou decant de viagem';
     if (itemsStr.includes('5ml')) { estDays = 18; suggestion = 'Upgrade p/ Decant 10ml ou Frasco Lacrado'; }
     else if (itemsStr.includes('10ml') || itemsStr.includes('decant')) { estDays = 30; suggestion = 'Reposição Decant 10ml ou Frasco 100ml c/ 10% OFF'; }
-
     const saleDate = s.isoDate ? new Date(s.isoDate + 'T00:00:00') : today;
     const elapsed = Math.floor((today - saleDate) / (1000 * 60 * 60 * 24));
     const remaining = estDays - elapsed;
