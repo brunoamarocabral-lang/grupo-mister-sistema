@@ -1,7 +1,7 @@
 // ============================================================================
 // 1. PERSISTÊNCIA NUVEM / BACKEND POSTGRESQL + AUTENTICAÇÃO POR TOKEN
 // ============================================================================
-const BACKEND_API_URL = 'https://grupo-mister-backend.onrender.com';[cite: 2, 7]
+const BACKEND_API_URL = 'https://grupo-mister-backend.onrender.com';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'gm_perfume_products_v5',
