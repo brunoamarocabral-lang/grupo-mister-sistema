@@ -42,12 +42,13 @@ const CloudSyncEngine = {
       }
       if (res.ok) {
         const data = await res.json();
-        if (data && data.payload) {
-          const p = data.payload;
+        const p = data ? (data.state || data.payload) : null;
+        if (p) {
           const prevSalesIds = new Set(sales.map(s => String(s.id)));
 
           if (Array.isArray(p.products)) products = p.products;
           if (Array.isArray(p.clients)) clients = p.clients;
+          if (Array.isArray(p.customers) && !Array.isArray(p.clients)) clients = p.customers;
           if (Array.isArray(p.sales)) sales = p.sales;
           if (Array.isArray(p.warranties)) warranties = p.warranties;
           if (Array.isArray(p.quotes)) quotes = p.quotes;
@@ -85,10 +86,10 @@ const CloudSyncEngine = {
     const pill = document.getElementById('cloudSyncPill');
     if (!authToken || authToken === 'demo_token') return false;
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/state/sync`, {
-        method: 'POST',
+      const res = await fetch(`${BACKEND_API_URL}/api/state`, {
+        method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ updatedAt: new Date().toISOString(), payload })
+        body: JSON.stringify({ state: payload })
       });
       if (res.ok && pill) {
         pill.className = 'badge-tag badge-receita';
