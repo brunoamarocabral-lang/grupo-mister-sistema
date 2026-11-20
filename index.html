@@ -3,243 +3,217 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GRUPO MISTER — Gestão Perfumaria, Decants & PDV</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Libre+Barcode+39&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <title>GRUPO MISTER — Sistema PDV & Gestão Perfumaria</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
-
-  <!-- TELA DE LOGIN POR USUÁRIO E SENHA -->
-  <div id="loginScreenOverlay" class="login-overlay active">
-    <div class="login-box">
-      <div class="login-brand">
-        <i class="ph ph-crown"></i>
-        <h2>GRUPO MISTER</h2>
-        <p>Perfumaria Árabe, Importados, Nicho & Decants</p>
+  <!-- TELA DE LOGIN -->
+  <div class="modal-overlay active" id="loginScreenOverlay" style="z-index: 5000;">
+    <div class="modal-container modal-sm">
+      <div class="modal-header">
+        <div class="modal-tab"><i class="ph ph-lock-key"></i> Acesso ao Sistema — GRUPO MISTER</div>
       </div>
-      <form id="formLoginSystem" autocomplete="off">
+      <form id="formLoginSystem" class="modal-body">
         <div class="form-group">
-          <label>Usuário (Login):</label>
-          <input type="text" id="loginUsernameInput" placeholder="Digite seu usuário" required />
+          <label for="loginUsernameInput">Usuário:</label>
+          <input type="text" id="loginUsernameInput" placeholder="admin ou vendedor" required />
         </div>
         <div class="form-group">
-          <label>Senha:</label>
-          <input type="password" id="loginPasswordInput" placeholder="Digite sua senha" required />
+          <label for="loginPasswordInput">Senha:</label>
+          <input type="password" id="loginPasswordInput" placeholder="••••••••" required />
         </div>
-        <button type="submit" class="btn-primary" style="width:100%; justify-content:center; padding:0.7rem;">
-          <i class="ph ph-sign-in"></i> Entrar
+        <button type="submit" class="btn-primary" id="btnSubmitLogin" style="width: 100%; justify-content: center; margin-top: 0.4rem;">
+          <i class="ph ph-sign-in"></i> Entrar no Sistema
         </button>
+
+        <div style="margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid var(--border); text-align: center;">
+          <small style="color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Acesso rápido de demonstração / offline:</small>
+          <div style="display: flex; gap: 0.5rem; justify-content: center;">
+            <button type="button" class="btn-sm btn-blue" onclick="quickDemoLogin('admin')">Entrar como Admin</button>
+            <button type="button" class="btn-sm" onclick="quickDemoLogin('vendedor')">Entrar como Vendedor</button>
+          </div>
+        </div>
       </form>
-      <div class="login-cloud-badge" id="loginCloudStatus">
-        <i class="ph ph-shield-check"></i> Autenticação por Usuário e Senha
-      </div>
     </div>
   </div>
 
   <div class="app-layout">
-    <!-- SIDEBAR FIXA COM BUSCA E SUBABAS DE VENDAS -->
+    <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <i class="ph ph-crown brand-icon"></i>
+        <i class="ph ph-sparkle" style="color: var(--accent); font-size: 1.35rem;"></i>
         <div>
-          <h2>GRUPO MISTER</h2>
+          <strong>GRUPO MISTER</strong>
           <small>Perfumaria & Decants</small>
         </div>
       </div>
 
       <div class="sidebar-search">
-        <input type="text" id="sidebarMenuSearch" placeholder="Buscar" />
-        <button type="button" id="btnSidebarSearch" title="Buscar menu">
-          <i class="ph-bold ph-magnifying-glass"></i>
-        </button>
+        <input type="text" id="sidebarMenuSearch" placeholder="Buscar menu..." />
       </div>
 
-      <nav class="nav-menu" id="sidebarNavMenu">
+      <nav class="sidebar-nav" id="sidebarNavMenu">
         <button type="button" class="nav-item active" data-target="dashboard" data-perm="dashboard">
-          <i class="ph ph-squares-four"></i> <span>Dashboard</span>
+          <i class="ph ph-squares-four"></i><span>Dashboard</span>
         </button>
 
-        <!-- ABA EXPANSÍVEL: VENDAS E SUAS SUBABAS -->
         <div class="nav-dropdown open">
-          <button type="button" class="nav-item dropdown-toggle" data-perm="pdv">
-            <span style="display:flex; align-items:center; gap:0.75rem;">
-              <i class="ph ph-shopping-cart-simple"></i> <span>Vendas</span>
-            </span>
-            <i class="ph ph-caret-down arrow-icon"></i>
+          <button type="button" class="nav-item dropdown-toggle">
+            <i class="ph ph-shopping-cart"></i><span>Comercial & Vendas</span>
+            <i class="ph ph-caret-down" style="margin-left: auto;"></i>
           </button>
-
           <div class="submenu">
-            <button type="button" class="submenu-item" data-target="vendas" data-perm="pdv">
-              <i class="ph ph-shopping-cart"></i> <span>Venda - PDV</span>
-            </button>
-            <button type="button" class="submenu-item" data-target="clientes" data-perm="clientes">
-              <i class="ph ph-address-book"></i> <span>Clientes</span>
+            <button type="button" class="submenu-item" data-target="pdv" data-perm="pdv">
+              <i class="ph ph-cash-register"></i><span>PDV / Balcão</span>
             </button>
             <button type="button" class="submenu-item" data-target="historicoVendas" data-perm="historico_vendas">
-              <i class="ph ph-list-bullets"></i> <span>Histórico de Vendas</span>
+              <i class="ph ph-receipt"></i><span>Histórico de Vendas</span>
             </button>
-            <button type="button" class="submenu-item" data-target="estoque" data-perm="estoque">
-              <i class="ph ph-package"></i> <span>Consulta Estoque</span>
-            </button>
-            <button type="button" class="submenu-item has-sub-arrow" data-target="simuladores" data-perm="ferramentas">
-              <span class="submenu-label-wrap">
-                <i class="ph ph-wrench"></i>
-                <span>Ferramentas</span>
-                <span class="badge-novo">Novo</span>
-              </span>
-              <i class="ph ph-caret-right sub-arrow"></i>
-            </button>
-            <button type="button" class="submenu-item has-sub-arrow" data-target="perfisPermissoes" data-perm="admin_only">
-              <span class="submenu-label-wrap">
-                <i class="ph ph-gear"></i>
-                <span>Configurações</span>
-                <span class="badge-novo">ADM</span>
-              </span>
-              <i class="ph ph-caret-right sub-arrow"></i>
+            <button type="button" class="submenu-item" data-target="orcamentos" data-perm="orcamentos">
+              <i class="ph ph-file-text"></i><span>Orçamentos</span>
             </button>
           </div>
         </div>
 
-        <!-- ABA EXCLUSIVA DO ADMINISTRADOR PARA CRIAR LOGINS -->
-        <button type="button" class="nav-item" data-target="criarLogins" data-perm="admin_only">
-          <i class="ph ph-user-plus"></i> <span>Criar Logins & Acessos</span>
+        <button type="button" class="nav-item" data-target="envios" data-perm="envios">
+          <i class="ph ph-truck"></i><span>Envios & Separação</span>
+          <span class="badge-tag badge-warning" id="sidebarEnviosBadge" style="margin-left:auto; display:none;">0</span>
         </button>
 
-        <!-- MÓDULOS ESTRATÉGICOS -->
-        <button type="button" class="nav-item" data-target="etiquetasDecants" data-perm="etiquetas">
-          <i class="ph ph-barcode"></i> <span>Etiquetas & Decants</span>
+        <button type="button" class="nav-item" data-target="estoque" data-perm="estoque">
+          <i class="ph ph-package"></i><span>Estoque & Lotes</span>
         </button>
-        <button type="button" class="nav-item" data-target="recompraLotes" data-perm="recompra">
-          <i class="ph ph-bell-ringing"></i> <span>Recompra & Validades</span>
+
+        <button type="button" class="nav-item" data-target="clientes" data-perm="clientes">
+          <i class="ph ph-users"></i><span>Clientes</span>
         </button>
-        <button type="button" class="nav-item" data-target="orcamentos" data-perm="orcamentos">
-          <i class="ph ph-file-text"></i> <span>Orçamentos Olfativos</span>
-        </button>
+
         <button type="button" class="nav-item" data-target="garantias" data-perm="garantias">
-          <i class="ph ph-shield-check"></i> <span>Garantias & Fiscal</span>
+          <i class="ph ph-shield-check"></i><span>Garantias & Fiscal</span>
         </button>
-        <button type="button" class="nav-item" data-target="trocasDevolucoes" data-perm="trocas">
-          <i class="ph ph-arrows-left-right"></i> <span>Trocas e Decants</span>
+
+        <button type="button" class="nav-item" data-target="trocas" data-perm="trocas">
+          <i class="ph ph-arrows-left-right"></i><span>Trocas & Devoluções</span>
         </button>
+
+        <button type="button" class="nav-item" data-target="etiquetas" data-perm="etiquetas">
+          <i class="ph ph-barcode"></i><span>Etiquetas 50×30mm</span>
+        </button>
+
+        <button type="button" class="nav-item" data-target="recompra" data-perm="recompra">
+          <i class="ph ph-arrows-clockwise"></i><span>Recompra & Validades</span>
+        </button>
+
+        <button type="button" class="nav-item" data-target="ferramentas" data-perm="ferramentas">
+          <i class="ph ph-calculator"></i><span>Simuladores</span>
+        </button>
+
         <button type="button" class="nav-item" data-target="financeiro" data-perm="financeiro">
-          <i class="ph ph-currency-circle-dollar"></i> <span>Financeiro & DRE</span>
+          <i class="ph ph-chart-line-up"></i><span>Financeiro</span>
+        </button>
+
+        <button type="button" class="nav-item" data-target="configuracoes" data-perm="dashboard">
+          <i class="ph ph-gear"></i><span>Configurações</span>
         </button>
       </nav>
 
       <div class="sidebar-footer">
-        <button type="button" class="btn-sm btn-danger" id="btnClearData" style="width:100%; justify-content:center;">
-          <i class="ph ph-arrow-counter-clockwise"></i> Restaurar Dados
-        </button>
+        <div>
+          <strong id="loggedUserName" style="display:block; font-size:0.8rem;">ADMINISTRADOR</strong>
+          <small id="loggedUserRole" style="color:var(--text-muted); font-size:0.7rem;">Administrador</small>
+        </div>
+        <button type="button" class="btn-sm btn-danger" id="btnLogoutSystem" title="Sair"><i class="ph ph-sign-out"></i></button>
       </div>
     </aside>
 
-    <!-- CONTEÚDO PRINCIPAL -->
+    <!-- MAIN CONTENT -->
     <main class="main-content">
       <header class="topbar">
-        <div style="display:flex; align-items:center; gap:0.8rem;">
-          <h1 id="pageTitle">Dashboard</h1>
-          <span id="cloudSyncPill" class="badge-tag badge-receita" title="Status de Sincronização">
-            <i class="ph ph-cloud-check"></i> Nuvem / Sync OK
-          </span>
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <h1 id="pageTitle" style="font-size:1.15rem;">Dashboard</h1>
+          <span class="badge-tag badge-info" id="cloudSyncPill"><i class="ph ph-hard-drives"></i> Modo Local (Pronto p/ Sync)</span>
         </div>
 
-        <div class="topbar-actions">
-          <div class="active-user-pill" id="activeUserDisplay">
-            <i class="ph ph-user-circle"></i>
-            <span id="loggedUserName">ADMIN</span>
-            <small id="loggedUserRole">Administrador</small>
-          </div>
-          <button type="button" class="btn-sm" id="btnSwitchUser" title="Encerrar e trocar usuário por login e senha">
-            <i class="ph ph-arrows-clockwise"></i> Trocar Usuário
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <button type="button" class="btn-sm badge-warning" id="btnTopbarShippingAlert" style="display:none;" onclick="navigateToSection('envios', 'Envios & Separação')">
+            <i class="ph ph-bell-ringing"></i> <span id="topbarShippingCount">0</span> Envio(s) Pendente(s)
           </button>
-          <button type="button" class="btn-sm btn-blue" id="btnForceCloudSync">
-            <i class="ph ph-cloud-arrow-up"></i> Sincronizar
-          </button>
+          <button type="button" class="btn-sm btn-green" id="btnOpenFastPdvModal"><i class="ph ph-lightning"></i> Venda Express</button>
+          <button type="button" class="btn-primary" id="btnOpenPdvModal"><i class="ph ph-plus"></i> Nova Venda PDV</button>
         </div>
       </header>
 
-      <!-- ================= 1. DASHBOARD ================= -->
+      <!-- BANNER DE NOVO ENVIO -->
+      <div id="newShippingAlertBanner" class="shipping-banner" style="display:none;">
+        <div>
+          <strong id="shippingBannerTitle">Novo pedido para envio!</strong>
+          <div id="shippingBannerText" style="font-size:0.78rem; color:var(--text-muted);"></div>
+        </div>
+        <div style="display:flex; gap:0.4rem;">
+          <button type="button" class="btn-sm btn-blue" onclick="navigateToSection('envios', 'Envios & Separação'); dismissShippingBanner();">Ver Fila</button>
+          <button type="button" class="btn-sm" onclick="dismissShippingBanner()">Fechar</button>
+        </div>
+      </div>
+
+      <!-- 1. DASHBOARD -->
       <section id="dashboard" class="content-section active">
         <div class="metrics-grid">
-          <div class="metric-card green">
-            <i class="ph ph-currency-dollar metric-icon"></i>
-            <div class="metric-info">
-              <label>Receita Total Bruta</label>
-              <h3 id="dashReceita">R$ 0,00</h3>
-            </div>
+          <div class="metric-card admin-only-metric">
+            <span class="metric-label">Faturamento Total</span>
+            <strong class="metric-value" id="dashReceita">R$ 0,00</strong>
+            <small id="dashTotalQty">0 pedido(s)</small>
           </div>
-          <div class="metric-card blue">
-            <i class="ph ph-shopping-bag metric-icon"></i>
-            <div class="metric-info">
-              <label>Pedidos Realizados</label>
-              <h3 id="dashTotalQty">0 pedido(s)</h3>
-            </div>
+          <div class="metric-card admin-only-metric">
+            <span class="metric-label">Ticket Médio</span>
+            <strong class="metric-value" id="dashTicketMedio">R$ 0,00</strong>
+            <small>Média por venda</small>
           </div>
-          <div class="metric-card orange">
-            <i class="ph ph-trend-up metric-icon"></i>
-            <div class="metric-info">
-              <label>Ticket Médio</label>
-              <h3 id="dashTicketMedio">R$ 0,00</h3>
-            </div>
+          <div class="metric-card">
+            <span class="metric-label">Envios em Separação</span>
+            <strong class="metric-value" id="dashPendingShipments">0 pedido(s)</strong>
+            <small>Motoboy & Correios</small>
           </div>
-          <div class="metric-card blue">
-            <i class="ph ph-bell-ringing metric-icon"></i>
-            <div class="metric-info">
-              <label>Alertas Recompra Decant</label>
-              <h3 id="dashRecompraCount">0 clientes</h3>
-            </div>
+          <div class="metric-card">
+            <span class="metric-label">Alertas de Recompra</span>
+            <strong class="metric-value" id="dashRecompraCount">0 cliente(s)</strong>
+            <small>Decants/frascos acabando</small>
           </div>
         </div>
 
-        <!-- COMPARATIVO PRESENCIAL VS ONLINE -->
-        <div class="card">
-          <div class="card-header">
-            <h3><i class="ph ph-chart-bar"></i> Participação Presencial vs. Online (Nuvemshop)</h3>
+        <div class="card-box" style="margin-bottom: 1rem;">
+          <h3 style="font-size:0.9rem; margin-bottom:0.75rem;">Canais de Venda (Presencial vs. Nuvemshop)</h3>
+          <div style="margin-bottom:0.65rem;">
+            <div style="display:flex; justify-content:space-between; font-size:0.78rem; margin-bottom:0.25rem;">
+              <span>Presencial (<span id="dashPresencialCount">0 pedidos</span>)</span>
+              <strong id="chartBarPresencialLabel">R$ 0,00 (0%)</strong>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="chartBarPresencial" style="width:0%; background:var(--accent);"></div></div>
           </div>
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:1rem; margin-bottom:1rem;">
-            <div>
-              <small style="color:var(--text-muted);">Balcão / Presencial (<span id="dashPresencialCount">0</span>)</small>
-              <h4 id="dashPresencialVal" style="color:var(--accent);">R$ 0,00</h4>
+          <div>
+            <div style="display:flex; justify-content:space-between; font-size:0.78rem; margin-bottom:0.25rem;">
+              <span>Online / Nuvemshop (<span id="dashOnlineCount">0 pedidos</span>)</span>
+              <strong id="chartBarOnlineLabel">R$ 0,00 (0%)</strong>
             </div>
-            <div>
-              <small style="color:var(--text-muted);">Online / Nuvemshop (<span id="dashOnlineCount">0</span>)</small>
-              <h4 id="dashOnlineVal" style="color:var(--blue);">R$ 0,00</h4>
-            </div>
-          </div>
-          <div style="display:flex; flex-direction:column; gap:0.6rem;">
-            <div>
-              <div style="display:flex; justify-content:space-between; font-size:0.78rem; margin-bottom:0.25rem;">
-                <span>Presencial</span><span id="chartBarPresencialLabel">R$ 0,00 (0%)</span>
-              </div>
-              <div style="background:#0b0f17; height:10px; border-radius:99px; overflow:hidden;">
-                <div id="chartBarPresencial" style="background:var(--accent); height:100%; width:0%;"></div>
-              </div>
-            </div>
-            <div>
-              <div style="display:flex; justify-content:space-between; font-size:0.78rem; margin-bottom:0.25rem;">
-                <span>Online (Nuvemshop)</span><span id="chartBarOnlineLabel">R$ 0,00 (0%)</span>
-              </div>
-              <div style="background:#0b0f17; height:10px; border-radius:99px; overflow:hidden;">
-                <div id="chartBarOnline" style="background:var(--blue); height:100%; width:0%;"></div>
-              </div>
-            </div>
+            <div class="progress-track"><div class="progress-fill" id="chartBarOnline" style="width:0%; background:var(--blue);"></div></div>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-header">
-            <h3><i class="ph ph-clock-counter-clockwise"></i> Vendas Recentes</h3>
-          </div>
+        <div class="card-box">
+          <h3 style="font-size:0.9rem; margin-bottom:0.75rem;">Últimos Pedidos</h3>
           <div class="table-responsive">
-            <table>
+            <table class="data-table">
               <thead>
                 <tr>
-                  <th>Data / Hora</th>
+                  <th>Data</th>
                   <th>Pedido</th>
-                  <th>Fragrâncias</th>
+                  <th>Canal</th>
+                  <th>Itens</th>
+                  <th>Entrega</th>
+                  <th>Status</th>
                   <th>Pagamento</th>
-                  <th>Total</th>
+                  <th class="admin-only-col">Total</th>
                 </tr>
               </thead>
               <tbody id="dashTableSales"></tbody>
@@ -248,58 +222,39 @@
         </div>
       </section>
 
-      <!-- ================= 2. VENDA - PDV ================= -->
-      <section id="vendas" class="content-section">
-        <div class="actions-bar">
-          <div class="btn-action-group">
-            <button type="button" class="btn-primary" id="btnOpenPdvModal">
-              <i class="ph ph-plus-circle"></i> Nova Venda Completa
-            </button>
-            <button type="button" class="btn-sm btn-green" id="btnOpenFastPdvModal">
-              <i class="ph ph-lightning"></i> PDV Express (Balcão)
-            </button>
-            <button type="button" class="btn-sm" onclick="openCashMovementModal('Suprimento')">
-              <i class="ph ph-arrow-down-left"></i> Suprimento
-            </button>
-            <button type="button" class="btn-sm" onclick="openCashMovementModal('Sangria')">
-              <i class="ph ph-arrow-up-right"></i> Sangria
-            </button>
-          </div>
-          <div style="position:relative;">
-            <button type="button" class="btn-sm" id="btnTogglePdvTools">
-              <i class="ph ph-wrench"></i> Ferramentas Caixa <i class="ph ph-caret-down"></i>
-            </button>
-            <div class="dropdown-menu" id="pdvToolsMenu">
-              <a href="#" id="btnPrintLastReceipt"><i class="ph ph-printer"></i> Reimprimir Último Cupom</a>
-              <a href="#" id="btnCashSummary"><i class="ph ph-calculator"></i> Fechamento de Caixa</a>
+      <!-- 2. PDV RÁPIDO / VITRINE -->
+      <section id="pdv" class="content-section">
+        <div class="card-box">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.85rem;">
+            <div style="display:flex; gap:0.5rem; flex:1; min-width:240px;">
+              <input type="text" id="quickStockSearch" class="form-input" placeholder="Buscar fragrância, decant ou batch..." />
+              <select id="quickStockCondition" class="form-input" style="max-width:170px;">
+                <option value="todos">Todas Categorias</option>
+                <option value="Árabe">Árabe</option>
+                <option value="Nicho">Nicho</option>
+                <option value="Importado">Importado</option>
+                <option value="Decant">Decant</option>
+              </select>
+            </div>
+            <div style="position:relative;">
+              <button type="button" class="btn-sm" id="btnTogglePdvTools"><i class="ph ph-wrench"></i> Caixa & Ferramentas</button>
+              <div class="dropdown-menu" id="pdvToolsMenu">
+                <a href="#" onclick="openCashMovementModal('Suprimento'); return false;"><i class="ph ph-plus-circle"></i> Suprimento de Caixa</a>
+                <a href="#" onclick="openCashMovementModal('Sangria'); return false;"><i class="ph ph-minus-circle"></i> Sangria de Caixa</a>
+                <a href="#" id="btnPrintLastReceipt"><i class="ph ph-printer"></i> Reimprimir Último Recibo</a>
+              </div>
             </div>
           </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <h3><i class="ph ph-sparkle"></i> Vitrine Rápida de Fragrâncias & Decants</h3>
-          </div>
-          <div class="client-filter-bar">
-            <input type="text" id="quickStockSearch" placeholder="Buscar perfume, batch ou decant..." />
-            <select id="quickStockCondition">
-              <option value="todos">Todas as Categorias</option>
-              <option value="Árabe">Árabe</option>
-              <option value="Importado">Importado</option>
-              <option value="Nicho">Nicho</option>
-              <option value="Decant">Decant</option>
-            </select>
-          </div>
           <div class="table-responsive">
-            <table>
+            <table class="data-table">
               <thead>
                 <tr>
                   <th>Cód.</th>
-                  <th>Fragrância</th>
+                  <th>Fragrância / Decant</th>
                   <th>Batch / Lote</th>
                   <th>Categoria / Vol.</th>
                   <th>Preço</th>
-                  <th>Saldo</th>
+                  <th>Disponível</th>
                   <th>Ação</th>
                 </tr>
               </thead>
@@ -309,26 +264,45 @@
         </div>
       </section>
 
-      <!-- ================= 3. HISTÓRICO DE VENDAS ================= -->
+      <!-- 3. HISTÓRICO DE VENDAS -->
       <section id="historicoVendas" class="content-section">
-        <div class="actions-bar">
-          <button type="button" class="btn-sm" id="btnToggleListModel">
-            <i class="ph ph-squares-four"></i> <span id="listModelLabel">Modelo de lista: Tabela</span>
-          </button>
-          <button type="button" class="btn-sm btn-blue" id="btnExportSales">
-            <i class="ph ph-download-simple"></i> Exportar CSV
-          </button>
-        </div>
-        <div class="card" id="salesTableView">
-          <div class="table-responsive">
-            <table>
+        <div class="card-box">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.85rem;">
+            <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+              <select id="salesChannelFilter" class="form-input" style="max-width:190px;">
+                <option value="todos">Canal: Todos</option>
+                <option value="Online / Nuvemshop">Nuvemshop (Online)</option>
+                <option value="Venda Presencial">Loja Física / PDV</option>
+              </select>
+              <select id="salesStatusFilter" class="form-input" style="max-width:210px;">
+                <option value="todos">Status: Todos os Pedidos</option>
+                <option value="Em Separação">Em Separação</option>
+                <option value="Separado">Separado</option>
+                <option value="Enviado">Enviado</option>
+                <option value="Entregue">Entregue</option>
+              </select>
+              <button type="button" class="btn-sm" id="btnToggleListModel">
+                <i class="ph ph-rows"></i> <span id="listModelLabel">Modelo de lista: Tabela</span>
+              </button>
+            </div>
+            <button type="button" class="btn-primary" onclick="document.getElementById('btnOpenPdvModal').click()">
+              <i class="ph ph-plus"></i> Nova Venda
+            </button>
+          </div>
+
+          <div id="salesTableView" class="table-responsive">
+            <table class="data-table">
               <thead>
                 <tr>
-                  <th>Pedido</th>
-                  <th>Data</th>
+                  <th>ID Pedido</th>
+                  <th>Canal</th>
+                  <th>Data/Hora</th>
                   <th>Cliente</th>
-                  <th>Atendente</th>
                   <th>Itens</th>
+                  <th>Envio</th>
+                  <th>Rastreio</th>
+                  <th>Status Pedido</th>
+                  <th>Observação</th>
                   <th>Pagamento</th>
                   <th>Total</th>
                   <th>Ações</th>
@@ -337,202 +311,150 @@
               <tbody id="tableSalesHistory"></tbody>
             </table>
           </div>
-        </div>
-        <div id="salesCardsView" style="display:none;">
-          <div class="sales-cards-grid" id="cardsSalesList"></div>
-        </div>
-      </section>
 
-      <!-- ================= 4. GERADOR DE ETIQUETAS TÉRMICAS (50x30MM) ================= -->
-      <section id="etiquetasDecants" class="content-section">
-        <div class="actions-bar">
-          <div class="btn-action-group">
-            <button type="button" class="btn-primary" id="btnPrintThermalLabels">
-              <i class="ph ph-printer"></i> Imprimir Etiquetas (50×30mm)
-            </button>
-            <button type="button" class="btn-sm btn-blue" id="btnAddAllDecantsToQueue">
-              <i class="ph ph-stack-plus"></i> Adicionar Todos os Decants
-            </button>
-          </div>
-        </div>
-
-        <div class="grid-2" style="display:grid; grid-template-columns: 1fr 1.2fr; gap:1.25rem;">
-          <div class="card">
-            <div class="card-header">
-              <h3><i class="ph ph-tag"></i> Configurar Etiqueta (Decant / Frasco)</h3>
-            </div>
-            <div class="form-group">
-              <label>Fragrância do Estoque:</label>
-              <select id="labelProductSelect"></select>
-            </div>
-            <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-              <div class="form-group">
-                <label>Volume / Apresentação:</label>
-                <select id="labelVolumeSelect">
-                  <option value="Decant 5ml">Decant 5ml (~70 borrifadas)</option>
-                  <option value="Decant 10ml" selected>Decant 10ml (~140 borrifadas)</option>
-                  <option value="Decant 15ml">Decant 15ml (~210 borrifadas)</option>
-                  <option value="Frasco 70ml">Frasco Lacrado 70ml</option>
-                  <option value="Frasco 100ml">Frasco Lacrado 100ml</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Validade Envase / Lote:</label>
-                <input type="date" id="labelExpiryDate" />
-              </div>
-            </div>
-            <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-              <div class="form-group">
-                <label>Família Olfativa (Subtítulo):</label>
-                <input type="text" id="labelOlfactoryNote" placeholder="Ex: Amadeirado Especiado" />
-              </div>
-              <div class="form-group">
-                <label>Quantidade de Etiquetas:</label>
-                <input type="number" id="labelPrintQty" value="4" min="1" max="100" />
-              </div>
-            </div>
-            <button type="button" class="btn-primary" id="btnAddLabelToQueue" style="width:100%; justify-content:center;">
-              <i class="ph ph-plus"></i> Adicionar à Fila de Impressão
-            </button>
-          </div>
-
-          <div class="card">
-            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-              <h3><i class="ph ph-eye"></i> Pré-visualização Térmica 50×30mm</h3>
-              <button type="button" class="btn-sm btn-danger" id="btnClearLabelQueue">Limpar Fila</button>
-            </div>
-            <div id="thermalLabelsPreviewArea" class="thermal-preview-grid"></div>
+          <div id="salesCardsView" style="display:none;">
+            <div class="sales-cards-grid" id="cardsSalesList"></div>
           </div>
         </div>
       </section>
 
-      <!-- ================= 5. RECOMPRA DE DECANTS & VALIDADE DE LOTES ================= -->
-      <section id="recompraLotes" class="content-section">
+      <!-- 4. ENVIOS & SEPARAÇÃO -->
+      <section id="envios" class="content-section">
         <div class="metrics-grid">
-          <div class="metric-card orange">
-            <i class="ph ph-hourglass-high metric-icon"></i>
-            <div class="metric-info">
-              <label>Decants Acabando (Recompra)</label>
-              <h3 id="recMetricDue">0</h3>
-            </div>
-          </div>
-          <div class="metric-card blue">
-            <i class="ph ph-calendar-check metric-icon"></i>
-            <div class="metric-info">
-              <label>Lotes Vencendo (&lt; 60 dias)</label>
-              <h3 id="recMetricExpiringLots">0</h3>
-            </div>
-          </div>
-          <div class="metric-card green">
-            <i class="ph ph-currency-dollar metric-icon"></i>
-            <div class="metric-info">
-              <label>Potencial de Recompra</label>
-              <h3 id="recMetricPotential">R$ 0,00</h3>
-            </div>
-          </div>
+          <div class="metric-card"><span class="metric-label">Em Separação</span><strong class="metric-value" id="shipMetricPending">0</strong></div>
+          <div class="metric-card"><span class="metric-label">Motoboy Pendente</span><strong class="metric-value" id="shipMetricMotoboy">0</strong></div>
+          <div class="metric-card"><span class="metric-label">Correios Pendente</span><strong class="metric-value" id="shipMetricCorreios">0</strong></div>
+          <div class="metric-card"><span class="metric-label">Separados / Enviados</span><strong class="metric-value" id="shipMetricDone">0</strong></div>
         </div>
 
-        <div class="card">
-          <div class="card-header">
-            <h3><i class="ph ph-whatsapp-logo"></i> Radar de Recompra de Decants & Frascos</h3>
+        <div class="card-box">
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.85rem;">
+            <input type="text" id="shippingSearchInput" class="form-input" style="max-width:260px;" placeholder="Buscar pedido, cliente ou item..." />
+            <select id="shippingMethodFilter" class="form-input" style="max-width:170px;">
+              <option value="todos">Todos Métodos</option>
+              <option value="Motoboy">Motoboy</option>
+              <option value="Correios">Correios</option>
+            </select>
+            <select id="shippingStatusFilter" class="form-input" style="max-width:190px;">
+              <option value="pendentes">Em Separação</option>
+              <option value="separados">Separados / Enviados</option>
+              <option value="todos">Todos</option>
+            </select>
           </div>
-          <p style="color:var(--text-muted); font-size:0.82rem; margin-bottom:1rem;">
-            Cálculo automático baseado no volume comprado (5ml ≈ 18 dias, 10ml ≈ 30 dias, frascos ≈ 90 dias) para oferecer reposição ou upgrade para o frasco lacrado.
-          </p>
           <div class="table-responsive">
-            <table>
+            <table class="data-table">
               <thead>
                 <tr>
-                  <th>Cliente</th>
-                  <th>Fragrância Comprada</th>
-                  <th>Data Compra</th>
-                  <th>Consumo Estimado</th>
-                  <th>Sugestão Comercial</th>
-                  <th>Ação</th>
+                  <th>Status</th>
+                  <th>Pedido</th>
+                  <th>Origem</th>
+                  <th>Data</th>
+                  <th>Modalidade</th>
+                  <th>Cliente / Destino / Obs.</th>
+                  <th>Rastreio</th>
+                  <th>Itens</th>
                 </tr>
               </thead>
-              <tbody id="tableRecompraAlerts"></tbody>
+              <tbody id="tableShipmentsList"></tbody>
             </table>
           </div>
         </div>
+      </section>
 
-        <div class="card">
-          <div class="card-header">
-            <h3><i class="ph ph-flask"></i> Controle de Validade & Batch de Lotes em Estoque</h3>
+      <!-- 5. ESTOQUE -->
+      <section id="estoque" class="content-section">
+        <div class="metrics-grid" id="stockAdminMetricsGrid">
+          <div class="metric-card"><span class="metric-label">Unidades Totais</span><strong class="metric-value" id="stockMetricUnits">0</strong></div>
+          <div class="metric-card admin-only-metric"><span class="metric-label">Custo em Estoque</span><strong class="metric-value" id="stockMetricCost">R$ 0,00</strong></div>
+          <div class="metric-card admin-only-metric"><span class="metric-label">Potencial de Venda</span><strong class="metric-value" id="stockMetricSale">R$ 0,00</strong></div>
+          <div class="metric-card"><span class="metric-label">Estoque Baixo (≤2)</span><strong class="metric-value" id="stockMetricLow">0</strong></div>
+        </div>
+
+        <div id="stockSellerQuickFilterBanner" style="display:none; margin-bottom:0.75rem;">
+          <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+            <button type="button" class="btn-sm" onclick="quickFilterStockChip('todos')">Todos</button>
+            <button type="button" class="btn-sm" onclick="quickFilterStockChip('Árabe')">Árabes</button>
+            <button type="button" class="btn-sm" onclick="quickFilterStockChip('Nicho')">Nicho</button>
+            <button type="button" class="btn-sm" onclick="quickFilterStockChip('Importado')">Importados</button>
+            <button type="button" class="btn-sm" onclick="quickFilterStockChip('Decant')">Decants</button>
           </div>
+        </div>
+
+        <div class="card-box">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.85rem;">
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <input type="text" id="stockSearchInput" class="form-input" style="max-width:230px;" placeholder="Pesquisar produto ou batch..." />
+              <select id="stockConditionFilter" class="form-input" style="max-width:155px;">
+                <option value="todos">Categoria: Todas</option>
+                <option value="Árabe">Árabe</option>
+                <option value="Nicho">Nicho</option>
+                <option value="Importado">Importado</option>
+                <option value="Decant">Decant</option>
+              </select>
+              <select id="stockAvailabilityFilter" class="form-input" style="max-width:155px;">
+                <option value="todos">Disponibilidade</option>
+                <option value="disponivel">Em Estoque</option>
+                <option value="esgotado">Esgotados</option>
+              </select>
+              <button type="button" class="btn-sm" id="btnClearStockFilters">Limpar</button>
+            </div>
+            <div style="display:flex; gap:0.45rem;">
+              <button type="button" class="btn-sm btn-blue" id="btnOpenNuvemImportModal"><i class="ph ph-upload-simple"></i> Importar CSV/PDF</button>
+              <button type="button" class="btn-primary" onclick="openNewProductModal()"><i class="ph ph-plus"></i> Novo Produto</button>
+            </div>
+          </div>
+
           <div class="table-responsive">
-            <table>
+            <table class="data-table">
               <thead>
                 <tr>
                   <th>Cód.</th>
-                  <th>Fragrância</th>
+                  <th>Fragrância / Decant</th>
                   <th>Batch / Lote</th>
+                  <th>Categoria / Vol.</th>
                   <th>Validade</th>
-                  <th>Status Lote</th>
-                  <th>Saldo</th>
+                  <th class="admin-only-col">Custo</th>
+                  <th>Venda</th>
+                  <th class="admin-only-col">Margem</th>
+                  <th>Qtd.</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
-              <tbody id="tableBatchExpiry"></tbody>
+              <tbody id="tableStockDetailed"></tbody>
             </table>
           </div>
         </div>
       </section>
 
-      <!-- ================= 6. CLIENTES ================= -->
+      <!-- 6. CLIENTES -->
       <section id="clientes" class="content-section">
         <div class="metrics-grid">
-          <div class="metric-card blue">
-            <i class="ph ph-users metric-icon"></i>
-            <div class="metric-info">
-              <label>Base Total</label>
-              <h3 id="metricTotalPessoas">0</h3>
-            </div>
-          </div>
-          <div class="metric-card green">
-            <i class="ph ph-user-check metric-icon"></i>
-            <div class="metric-info">
-              <label>Clientes Ativos</label>
-              <h3 id="metricTotalClientes">0</h3>
-            </div>
-          </div>
-          <div class="metric-card orange">
-            <i class="ph ph-crown metric-icon"></i>
-            <div class="metric-info">
-              <label>Colecionadores VIP</label>
-              <h3 id="metricClientesVip">0</h3>
-            </div>
-          </div>
+          <div class="metric-card"><span class="metric-label">Base Total</span><strong class="metric-value" id="metricTotalPessoas">0</strong></div>
+          <div class="metric-card"><span class="metric-label">Clientes Ativos</span><strong class="metric-value" id="metricTotalClientes">0</strong></div>
+          <div class="metric-card"><span class="metric-label">Clientes VIP</span><strong class="metric-value" id="metricClientesVip">0</strong></div>
         </div>
-
-        <div class="actions-bar">
-          <button type="button" class="btn-primary" id="btnOpenClientModal">
-            <i class="ph ph-user-plus"></i> Novo Cliente
-          </button>
-          <button type="button" class="btn-sm btn-blue" id="btnExportClients">
-            <i class="ph ph-download-simple"></i> Exportar CSV
-          </button>
-        </div>
-
-        <div class="card">
-          <div class="client-filter-bar">
-            <input type="text" id="clientSearchInput" placeholder="Buscar por nome, CPF, telefone ou preferência olfativa..." />
-            <select id="clientCategoryFilter">
-              <option value="todos">Todas Categorias</option>
-              <option value="VIP / Recorrente">VIP / Recorrente</option>
-              <option value="Cliente Final">Cliente Final</option>
-            </select>
-            <button type="button" class="btn-sm" id="btnClearClientFilter">Limpar</button>
+        <div class="card-box">
+          <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.85rem;">
+            <div style="display:flex; gap:0.5rem;">
+              <input type="text" id="clientSearchInput" class="form-input" placeholder="Buscar por nome ou CPF..." />
+              <select id="clientCategoryFilter" class="form-input" style="max-width:180px;">
+                <option value="todos">Todos Perfis</option>
+                <option value="VIP / Recorrente">VIP / Recorrente</option>
+                <option value="Cliente Final">Cliente Final</option>
+              </select>
+            </div>
+            <button type="button" class="btn-primary" id="btnOpenClientModal"><i class="ph ph-user-plus"></i> Novo Cliente</button>
           </div>
           <div class="table-responsive">
-            <table>
+            <table class="data-table">
               <thead>
                 <tr>
                   <th>Cód.</th>
                   <th>Nome</th>
                   <th>CPF</th>
                   <th>WhatsApp</th>
-                  <th>Preferências</th>
-                  <th>Categoria</th>
+                  <th>Preferências Olfativas</th>
+                  <th>Perfil</th>
                   <th>Ação</th>
                 </tr>
               </thead>
@@ -542,291 +464,20 @@
         </div>
       </section>
 
-      <!-- ================= 7. CONSULTA ESTOQUE ================= -->
-      <section id="estoque" class="content-section">
-        <div class="metrics-grid">
-          <div class="metric-card blue">
-            <i class="ph ph-package metric-icon"></i>
-            <div class="metric-info">
-              <label>Unidades em Estoque</label>
-              <h3 id="stockMetricUnits">0</h3>
-            </div>
-          </div>
-          <div class="metric-card orange">
-            <i class="ph ph-coins metric-icon"></i>
-            <div class="metric-info">
-              <label>Custo Total</label>
-              <h3 id="stockMetricCost">R$ 0,00</h3>
-            </div>
-          </div>
-          <div class="metric-card green">
-            <i class="ph ph-tag metric-icon"></i>
-            <div class="metric-info">
-              <label>Valor de Venda</label>
-              <h3 id="stockMetricSale">R$ 0,00</h3>
-            </div>
-          </div>
-          <div class="metric-card orange">
-            <i class="ph ph-warning metric-icon"></i>
-            <div class="metric-info">
-              <label>Estoque Baixo (&le; 2)</label>
-              <h3 id="stockMetricLow">0</h3>
-            </div>
-          </div>
-        </div>
-
-        <div class="actions-bar">
-          <div class="btn-action-group">
-            <button type="button" class="btn-primary" onclick="openNewProductModal()">
-              <i class="ph ph-plus"></i> Cadastrar Fragrância / Decant
-            </button>
-            <button type="button" class="btn-sm btn-blue" id="btnSyncNuvemManual">
-              <i class="ph ph-arrows-clockwise"></i> Sincronizar Nuvemshop
-            </button>
-          </div>
-          <button type="button" class="btn-sm" id="btnExportStock">
-            <i class="ph ph-download-simple"></i> Exportar CSV
-          </button>
-        </div>
-
-        <div class="card">
-          <div class="client-filter-bar">
-            <input type="text" id="stockSearchInput" placeholder="Buscar perfume, batch ou código..." />
-            <select id="stockConditionFilter">
-              <option value="todos">Todas Categorias</option>
-              <option value="Árabe">Árabe</option>
-              <option value="Importado">Importado</option>
-              <option value="Nicho">Nicho</option>
-              <option value="Decant">Decant</option>
-            </select>
-            <select id="stockAvailabilityFilter">
-              <option value="todos">Todos Saldos</option>
-              <option value="disponivel">Disponível</option>
-              <option value="esgotado">Esgotado</option>
-            </select>
-            <button type="button" class="btn-sm" id="btnClearStockFilters">Limpar</button>
-          </div>
-          <div class="table-responsive">
-            <table>
-              <thead>
-                <tr>
-                  <th>Cód.</th>
-                  <th>Fragrância</th>
-                  <th>Batch / Lote</th>
-                  <th>Categoria / Vol.</th>
-                  <th>Validade</th>
-                  <th>Custo</th>
-                  <th>Venda</th>
-                  <th>Margem</th>
-                  <th>Qtd.</th>
-                  <th>Ajuste</th>
-                </tr>
-              </thead>
-              <tbody id="tableStockDetailed"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- ================= 8. FERRAMENTAS & SIMULADORES ================= -->
-      <section id="simuladores" class="content-section">
-        <div class="grid-2" style="display:grid; grid-template-columns: 1fr 1fr; gap:1.25rem;">
-          <div class="card">
-            <div class="card-header">
-              <h3><i class="ph ph-credit-card"></i> Simulador de Taxas & Parcelamento</h3>
-            </div>
-            <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
-              <div class="form-group">
-                <label>Valor Base (R$):</label>
-                <input type="number" id="taxSimBaseValue" value="499.90" step="0.01" />
-              </div>
-              <div class="form-group">
-                <label>Modalidade:</label>
-                <select id="taxSimMode">
-                  <option value="repasse">Repassar taxa ao cliente</option>
-                  <option value="absorver">Loja absorve a taxa</option>
-                </select>
-              </div>
-            </div>
-            <div class="table-responsive" style="max-height:280px;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Parc.</th>
-                    <th>Taxa</th>
-                    <th>Parcela</th>
-                    <th>Total</th>
-                    <th>Líquido</th>
-                  </tr>
-                </thead>
-                <tbody id="taxSimTableBody"></tbody>
-              </table>
-            </div>
-            <div style="display:flex; gap:0.5rem; margin-top:0.8rem;">
-              <button type="button" class="btn-sm btn-blue" id="btnSaveCustomRates">Salvar Taxas</button>
-              <button type="button" class="btn-sm btn-green" id="btnCopyTaxMsg"><i class="ph ph-whatsapp-logo"></i> Copiar WhatsApp</button>
-            </div>
-            <pre id="taxWhatsappPreview" style="display:none;"></pre>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <h3><i class="ph ph-gift"></i> Montador de Combo (Frasco + Decant)</h3>
-            </div>
-            <div class="form-group">
-              <label>Frasco Principal do Estoque:</label>
-              <select id="upgTargetStockSelect"></select>
-            </div>
-            <div class="grid-2" style="display:grid; grid-template-columns:1.5fr 1fr; gap:0.75rem;">
-              <div class="form-group">
-                <label>Fragrância Principal:</label>
-                <input type="text" id="upgTargetModel" value="Lattafa Khamrah EDP 100ml" />
-              </div>
-              <div class="form-group">
-                <label>Valor (R$):</label>
-                <input type="number" id="upgTargetPrice" value="249.90" step="0.01" />
-              </div>
-            </div>
-            <div class="grid-2" style="display:grid; grid-template-columns:1.5fr 1fr; gap:0.75rem;">
-              <div class="form-group">
-                <label>Decant / Segundo Item:</label>
-                <input type="text" id="upgTradeInModel" value="Decant 10ml Layton" />
-              </div>
-              <div class="form-group">
-                <label>Valor Item 2 (R$):</label>
-                <input type="number" id="upgTradeInBase" value="99.90" step="0.01" />
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Desconto Promocional Combo (R$):</label>
-              <input type="number" id="upgCashDown" value="25.00" step="0.01" />
-            </div>
-            <div style="background:#0b0f17; padding:0.75rem; border-radius:6px; margin-bottom:0.8rem;">
-              <div style="display:flex; justify-content:space-between;">
-                <span>Total Final do Combo:</span>
-                <strong id="upgRemainingDisplay" style="color:var(--success); font-size:1.1rem;">R$ 324,80</strong>
-              </div>
-            </div>
-            <pre id="upgWhatsappPreview" style="background:#0b0f17; padding:0.75rem; border-radius:6px; font-size:0.78rem; white-space:pre-wrap; margin-bottom:0.8rem;"></pre>
-            <button type="button" class="btn-sm btn-green" id="btnCopyUpgradeMsg" style="width:100%; justify-content:center;">
-              <i class="ph ph-whatsapp-logo"></i> Copiar Proposta de Combo
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- ================= 9. CRIAR LOGINS & VISIBILIDADE (EXCLUSIVO ADM) ================= -->
-      <section id="criarLogins" class="content-section">
-        <div class="grid-2" style="display:grid; grid-template-columns: 1fr 1.35fr; gap:1.25rem;">
-          <div class="card">
-            <div class="card-header">
-              <h3><i class="ph ph-user-plus"></i> Novo Login de Usuário</h3>
-            </div>
-            <form id="formCreateLoginAccount">
-              <input type="hidden" id="editAccountId" />
-              <div class="form-group">
-                <label>* Usuário (para login):</label>
-                <input type="text" id="accUsernameInput" required placeholder="Ex: joao.vendas" />
-              </div>
-              <div class="form-group">
-                <label>* Senha de Acesso:</label>
-                <input type="password" id="accPasswordInput" required placeholder="Defina a senha" />
-              </div>
-              <div class="form-group">
-                <label>Nome / Identificação:</label>
-                <input type="text" id="accDisplayNameInput" placeholder="Ex: João Silva" />
-              </div>
-              <div class="form-group">
-                <label>Tipo de Conta:</label>
-                <select id="accRoleTypeInput">
-                  <option value="user">Usuário Padrão</option>
-                  <option value="admin">Administrador (Acesso Total)</option>
-                </select>
-              </div>
-              <div class="form-group checklist-avarias">
-                <label style="color:var(--text-muted); margin-bottom:0.4rem;">Funcionalidades visíveis para este login:</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="dashboard" checked /> Dashboard</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="pdv" checked /> Venda - PDV</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="clientes" checked /> Clientes</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="historico_vendas" /> Histórico de Vendas</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="estoque" checked /> Consulta Estoque</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="ferramentas" /> Ferramentas (Taxas & Combos)</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="etiquetas" /> Etiquetas & Decants</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="recompra" /> Recompra & Validades</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="orcamentos" /> Orçamentos Olfativos</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="garantias" /> Garantias & Fiscal</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="trocas" /> Trocas e Decants</label>
-                <label><input type="checkbox" class="acc-perm-chk" value="financeiro" /> Financeiro & DRE</label>
-              </div>
-              <div style="display:flex; gap:0.5rem;">
-                <button type="submit" class="btn-primary" style="flex:1; justify-content:center;">
-                  <i class="ph ph-floppy-disk"></i> Salvar Login
-                </button>
-                <button type="button" class="btn-sm" id="btnCancelEditAccount">Limpar</button>
-              </div>
-            </form>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <h3><i class="ph ph-key"></i> Logins Cadastrados & Funcionalidades Visíveis</h3>
-            </div>
-            <div class="table-responsive">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Usuário</th>
-                    <th>Nome</th>
-                    <th>Tipo</th>
-                    <th>Funcionalidades Visíveis</th>
-                    <th>Ações</th>
-                  </tr>
-                </thead>
-                <tbody id="tableAccountsList"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ================= CONFIGURAÇÕES (ALIAS ADM) ================= -->
-      <section id="perfisPermissoes" class="content-section">
-        <div class="card">
-          <div class="card-header">
-            <h3><i class="ph ph-gear"></i> Configurações Administrativas</h3>
-          </div>
-          <p style="color:var(--text-muted); margin-bottom:1rem;">
-            Gerencie os logins, senhas e visibilidade de cada usuário na aba <strong>Criar Logins & Acessos</strong>.
-          </p>
-          <button type="button" class="btn-primary" onclick="navigateToSection('criarLogins', 'Criar Logins & Acessos')">
-            <i class="ph ph-user-plus"></i> Abrir Gerenciador de Logins
-          </button>
-        </div>
-      </section>
-
-      <!-- ================= 10. ORÇAMENTOS ================= -->
+      <!-- 7. ORÇAMENTOS -->
       <section id="orcamentos" class="content-section">
         <div class="metrics-grid">
-          <div class="metric-card blue"><i class="ph ph-file-text metric-icon"></i><div class="metric-info"><label>Total</label><h3 id="quoteMetricTotal">0</h3></div></div>
-          <div class="metric-card orange"><i class="ph ph-clock metric-icon"></i><div class="metric-info"><label>Em Aberto</label><h3 id="quoteMetricOpen">0</h3></div></div>
-          <div class="metric-card green"><i class="ph ph-check-circle metric-icon"></i><div class="metric-info"><label>Convertidos</label><h3 id="quoteMetricApproved">0</h3></div></div>
-          <div class="metric-card green"><i class="ph ph-currency-dollar metric-icon"></i><div class="metric-info"><label>Pipeline Aberto</label><h3 id="quoteMetricValue">R$ 0,00</h3></div></div>
+          <div class="metric-card"><span class="metric-label">Total Orçamentos</span><strong class="metric-value" id="quoteMetricTotal">0</strong></div>
+          <div class="metric-card"><span class="metric-label">Em Aberto</span><strong class="metric-value" id="quoteMetricOpen">0</strong></div>
+          <div class="metric-card"><span class="metric-label">Convertidos</span><strong class="metric-value" id="quoteMetricApproved">0</strong></div>
+          <div class="metric-card"><span class="metric-label">Valor em Negociação</span><strong class="metric-value" id="quoteMetricValue">R$ 0,00</strong></div>
         </div>
-        <div class="actions-bar">
-          <button type="button" class="btn-primary" id="btnOpenNewQuoteModal"><i class="ph ph-plus"></i> Novo Orçamento</button>
-          <button type="button" class="btn-sm" id="btnExportQuotes">Exportar CSV</button>
-        </div>
-        <div class="card">
-          <div class="client-filter-bar">
-            <input type="text" id="quoteSearchInput" placeholder="Buscar orçamento..." />
-            <select id="quoteStatusFilter">
-              <option value="todos">Todos</option>
-              <option value="Aberto">Aberto</option>
-              <option value="Aprovado">Aprovado</option>
-            </select>
+        <div class="card-box">
+          <div style="display:flex; justify-content:flex-end; margin-bottom:0.75rem;">
+            <button type="button" class="btn-primary" id="btnOpenNewQuoteModal"><i class="ph ph-plus"></i> Novo Orçamento</button>
           </div>
           <div class="table-responsive">
-            <table>
+            <table class="data-table">
               <thead>
                 <tr>
                   <th>Cód.</th>
@@ -834,7 +485,7 @@
                   <th>Cliente</th>
                   <th>Itens</th>
                   <th>Desconto</th>
-                  <th>Líquido</th>
+                  <th>Total Líquido</th>
                   <th>Status</th>
                   <th>Ação</th>
                 </tr>
@@ -845,41 +496,26 @@
         </div>
       </section>
 
-      <!-- ================= 11. GARANTIAS & FISCAL ================= -->
+      <!-- 8. GARANTIAS & FISCAL -->
       <section id="garantias" class="content-section">
-        <div class="metrics-grid">
-          <div class="metric-card green"><i class="ph ph-shield-check metric-icon"></i><div class="metric-info"><label>Ativas</label><h3 id="warMetricActive">0</h3></div></div>
-          <div class="metric-card orange"><i class="ph ph-warning metric-icon"></i><div class="metric-info"><label>Vencendo</label><h3 id="warMetricExpiring">0</h3></div></div>
-          <div class="metric-card blue"><i class="ph ph-x-circle metric-icon"></i><div class="metric-info"><label>Expiradas</label><h3 id="warMetricExpired">0</h3></div></div>
-          <div class="metric-card blue"><i class="ph ph-files metric-icon"></i><div class="metric-info"><label>Total Registros</label><h3 id="warMetricTotal">0</h3></div></div>
-        </div>
-        <div class="actions-bar">
-          <button type="button" class="btn-primary" id="btnOpenNewWarrantyModal"><i class="ph ph-plus"></i> Registrar Garantia</button>
-          <button type="button" class="btn-sm" id="btnExportWarranties">Exportar CSV</button>
-        </div>
-        <div class="card">
-          <div class="client-filter-bar">
-            <input type="text" id="warrantySearchInput" placeholder="Buscar garantia, batch ou NF-e..." />
-            <select id="warrantyStatusFilter">
-              <option value="todos">Todos Status</option>
-              <option value="ativa">Ativa</option>
-              <option value="vencendo">Vencendo</option>
-              <option value="expirada">Expirada</option>
-            </select>
+        <div class="card-box">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.85rem;">
+            <h3 style="font-size:0.95rem;">Certificados de Autenticidade & Garantia</h3>
+            <button type="button" class="btn-primary" id="btnOpenNewWarrantyModal"><i class="ph ph-shield-plus"></i> Nova Garantia</button>
           </div>
           <div class="table-responsive">
-            <table>
+            <table class="data-table">
               <thead>
                 <tr>
                   <th>Cód.</th>
                   <th>Cliente</th>
-                  <th>Fragrância</th>
-                  <th>Batch</th>
+                  <th>Fragrância / Item</th>
+                  <th>Batch / Lote</th>
                   <th>Termo</th>
-                  <th>Fiscal</th>
+                  <th>NF / Cupom</th>
                   <th>Vigência</th>
                   <th>Status</th>
-                  <th>Ações</th>
+                  <th>Ação</th>
                 </tr>
               </thead>
               <tbody id="tableWarrantiesList"></tbody>
@@ -888,39 +524,26 @@
         </div>
       </section>
 
-      <!-- ================= 12. TROCAS E DECANTS ================= -->
-      <section id="trocasDevolucoes" class="content-section">
-        <div class="metrics-grid">
-          <div class="metric-card blue"><i class="ph ph-arrows-left-right metric-icon"></i><div class="metric-info"><label>Total RMA</label><h3 id="rmaMetricTotal">0</h3></div></div>
-          <div class="metric-card orange"><i class="ph ph-hourglass metric-icon"></i><div class="metric-info"><label>Em Análise</label><h3 id="rmaMetricPending">0</h3></div></div>
-          <div class="metric-card green"><i class="ph ph-check metric-icon"></i><div class="metric-info"><label>Concluídos</label><h3 id="rmaMetricDone">0</h3></div></div>
-          <div class="metric-card orange"><i class="ph ph-arrow-u-up-left metric-icon"></i><div class="metric-info"><label>Estornados</label><h3 id="rmaMetricRefunded">R$ 0,00</h3></div></div>
-        </div>
-        <div class="actions-bar">
-          <button type="button" class="btn-primary" id="btnOpenRmaModal"><i class="ph ph-plus"></i> Nova Troca / Estorno</button>
-          <button type="button" class="btn-sm" id="btnExportRma">Exportar CSV</button>
-        </div>
-        <div class="card">
-          <div class="client-filter-bar">
-            <input type="text" id="rmaSearchInput" placeholder="Buscar protocolo ou cliente..." />
-            <select id="rmaTypeFilter">
-              <option value="todos">Todos Tipos</option>
-              <option value="Troca de Fragrância">Troca de Fragrância</option>
-              <option value="Devolução / Estorno">Devolução / Estorno</option>
-            </select>
+      <!-- 9. TROCAS E DEVOLUÇÕES -->
+      <section id="trocas" class="content-section">
+        <div class="card-box">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.85rem;">
+            <h3 style="font-size:0.95rem;">Registro de Trocas & Devoluções (RMA)</h3>
+            <button type="button" class="btn-primary" id="btnOpenNewRmaModal"><i class="ph ph-arrows-left-right"></i> Nova Troca</button>
           </div>
           <div class="table-responsive">
-            <table>
+            <table class="data-table">
               <thead>
                 <tr>
                   <th>Cód.</th>
                   <th>Data</th>
                   <th>Cliente</th>
-                  <th>Item</th>
+                  <th>Produto</th>
                   <th>Tipo</th>
+                  <th>Estoque</th>
                   <th>Valor</th>
                   <th>Status</th>
-                  <th>Ação</th>
+                  <th>Motivo</th>
                 </tr>
               </thead>
               <tbody id="tableRmaList"></tbody>
@@ -929,50 +552,203 @@
         </div>
       </section>
 
-      <!-- ================= 13. FINANCEIRO & DRE ================= -->
+      <!-- 10. ETIQUETAS TÉRMICAS 50x30mm -->
+      <section id="etiquetas" class="content-section">
+        <div class="card-box" style="margin-bottom:1rem;">
+          <h3 style="font-size:0.95rem; margin-bottom:0.75rem;">Gerador de Etiquetas Térmicas 50×30mm (Decants & Frascos)</h3>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:0.65rem;">
+            <div class="form-group">
+              <label>Fragrância:</label>
+              <select id="labelProductSelect"></select>
+            </div>
+            <div class="form-group">
+              <label>Volume:</label>
+              <select id="labelVolumeSelect">
+                <option value="Decant 5ml">Decant 5ml</option>
+                <option value="Decant 10ml">Decant 10ml</option>
+                <option value="Frasco 70ml">Frasco 70ml</option>
+                <option value="Frasco 100ml">Frasco 100ml</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Validade:</label>
+              <input type="date" id="labelExpiryDate" />
+            </div>
+            <div class="form-group">
+              <label>Família / Nota:</label>
+              <input type="text" id="labelOlfactoryNote" placeholder="Ex.: Amadeirado Especiado" />
+            </div>
+            <div class="form-group">
+              <label>Qtd. Etiquetas:</label>
+              <input type="number" id="labelPrintQty" value="1" min="1" max="100" />
+            </div>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button type="button" class="btn-primary" id="btnAddLabelToQueue"><i class="ph ph-plus"></i> Adicionar à Fila</button>
+            <button type="button" class="btn-sm btn-blue" id="btnAddAllDecantsToQueue">Adicionar Todos Decants</button>
+            <button type="button" class="btn-sm btn-green" id="btnPrintThermalLabels"><i class="ph ph-printer"></i> Imprimir Etiquetas</button>
+            <button type="button" class="btn-sm btn-danger" id="btnClearLabelQueue">Limpar Fila</button>
+          </div>
+        </div>
+        <div id="thermalLabelsPreviewArea" class="thermal-grid"></div>
+      </section>
+
+      <!-- 11. RECOMPRA & VALIDADES -->
+      <section id="recompra" class="content-section">
+        <div class="metrics-grid">
+          <div class="metric-card"><span class="metric-label">Clientes p/ Recompra</span><strong class="metric-value" id="recMetricDue">0</strong></div>
+          <div class="metric-card"><span class="metric-label">Lotes Vencendo (≤60d)</span><strong class="metric-value" id="recMetricExpiringLots">0</strong></div>
+          <div class="metric-card"><span class="metric-label">Receita Potencial</span><strong class="metric-value" id="recMetricPotential">R$ 0,00</strong></div>
+        </div>
+        <div class="card-box" style="margin-bottom:1rem;">
+          <h3 style="font-size:0.9rem; margin-bottom:0.65rem;">Radar de Recompra (CRM WhatsApp)</h3>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead><tr><th>Cliente</th><th>Última Compra</th><th>Data</th><th>Estimativa</th><th>Sugestão</th><th>Ação</th></tr></thead>
+              <tbody id="tableRecompraAlerts"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card-box">
+          <h3 style="font-size:0.9rem; margin-bottom:0.65rem;">Controle de Validade por Lote / Batch</h3>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead><tr><th>Cód.</th><th>Fragrância</th><th>Batch</th><th>Validade</th><th>Status</th><th>Estoque</th></tr></thead>
+              <tbody id="tableBatchExpiry"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 12. SIMULADORES -->
+      <section id="ferramentas" class="content-section">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap:1rem;">
+          <div class="card-box">
+            <h3 style="font-size:0.9rem; margin-bottom:0.65rem;">Simulador de Taxas Cartão (1x a 12x)</h3>
+            <div style="display:flex; gap:0.5rem; margin-bottom:0.65rem;">
+              <input type="number" id="taxSimBaseValue" class="form-input" value="249.90" step="0.01" />
+              <select id="taxSimMode" class="form-input">
+                <option value="repasse">Repassar Taxa ao Cliente</option>
+                <option value="absorver">Absorver Taxa na Loja</option>
+              </select>
+            </div>
+            <div class="table-responsive" style="max-height:260px;">
+              <table class="data-table">
+                <thead><tr><th>Parc.</th><th>Taxa</th><th>Parcela</th><th>Total</th><th>Líquido</th></tr></thead>
+                <tbody id="taxSimTableBody"></tbody>
+              </table>
+            </div>
+            <div style="display:flex; gap:0.5rem; margin-top:0.65rem;">
+              <button type="button" class="btn-sm btn-blue" id="btnSaveCustomRates">Salvar Taxas</button>
+              <button type="button" class="btn-sm btn-green" id="btnCopyTaxMsg">Copiar WhatsApp</button>
+            </div>
+            <pre id="taxWhatsappPreview" style="margin-top:0.65rem; background:var(--bg-main); padding:0.6rem; border-radius:6px; font-size:0.74rem; white-space:pre-wrap;"></pre>
+          </div>
+
+          <div class="card-box">
+            <h3 style="font-size:0.9rem; margin-bottom:0.65rem;">Simulador de Combo / Kit Presente</h3>
+            <div class="form-group">
+              <label>Item 1 (do Estoque):</label>
+              <select id="upgTargetStockSelect"></select>
+            </div>
+            <div style="display:grid; grid-template-columns:2fr 1fr; gap:0.5rem;">
+              <div class="form-group"><label>Nome Item 1:</label><input type="text" id="upgTargetModel" value="Lattafa Khamrah 100ml" /></div>
+              <div class="form-group"><label>Valor (R$):</label><input type="number" id="upgTargetPrice" value="249.90" step="0.01" /></div>
+            </div>
+            <div style="display:grid; grid-template-columns:2fr 1fr; gap:0.5rem;">
+              <div class="form-group"><label>Item 2 / Decant:</label><input type="text" id="upgTradeInModel" value="Decant 10ml Layton" /></div>
+              <div class="form-group"><label>Valor (R$):</label><input type="number" id="upgTradeInBase" value="99.90" step="0.01" /></div>
+            </div>
+            <div class="form-group"><label>Desconto Combo (R$):</label><input type="number" id="upgCashDown" value="30.00" step="0.01" /></div>
+            <div style="margin-bottom:0.65rem;">Total Final: <strong id="upgRemainingDisplay" style="color:var(--success); font-size:1.05rem;">R$ 319,80</strong></div>
+            <button type="button" class="btn-sm btn-green" id="btnCopyUpgradeMsg">Copiar Proposta WhatsApp</button>
+            <pre id="upgWhatsappPreview" style="margin-top:0.65rem; background:var(--bg-main); padding:0.6rem; border-radius:6px; font-size:0.74rem; white-space:pre-wrap;"></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- 13. FINANCEIRO -->
       <section id="financeiro" class="content-section">
         <div class="metrics-grid">
-          <div class="metric-card green"><i class="ph ph-trend-up metric-icon"></i><div class="metric-info"><label>Faturamento Bruto</label><h3 id="finMetricGross">R$ 0,00</h3></div></div>
-          <div class="metric-card orange"><i class="ph ph-package metric-icon"></i><div class="metric-info"><label>CMV Estimado</label><h3 id="finMetricCmv">R$ 0,00</h3></div></div>
-          <div class="metric-card orange"><i class="ph ph-receipt metric-icon"></i><div class="metric-info"><label>Despesas Pagas</label><h3 id="finMetricExpenses">R$ 0,00</h3></div></div>
-          <div class="metric-card blue"><i class="ph ph-wallet metric-icon"></i><div class="metric-info"><label>Lucro Líquido</label><h3 id="finMetricNetProfit">R$ 0,00</h3></div></div>
+          <div class="metric-card"><span class="metric-label">Receita Bruta</span><strong class="metric-value" id="finMetricGross">R$ 0,00</strong></div>
+          <div class="metric-card"><span class="metric-label">CMV Estimado</span><strong class="metric-value" id="finMetricCmv">R$ 0,00</strong></div>
+          <div class="metric-card"><span class="metric-label">Despesas</span><strong class="metric-value" id="finMetricExpenses">R$ 0,00</strong></div>
+          <div class="metric-card"><span class="metric-label">Lucro Líquido</span><strong class="metric-value" id="finMetricNetProfit">R$ 0,00</strong></div>
         </div>
-        <div class="actions-bar">
-          <div class="btn-action-group">
-            <button type="button" class="btn-primary" onclick="openFinEntryModal('Receita')"><i class="ph ph-plus"></i> Lançar Receita</button>
-            <button type="button" class="btn-sm btn-danger" onclick="openFinEntryModal('Despesa')"><i class="ph ph-minus"></i> Lançar Despesa</button>
-          </div>
-          <button type="button" class="btn-sm" id="btnExportFin">Exportar CSV</button>
-        </div>
-        <div class="card">
-          <div class="client-filter-bar">
-            <input type="text" id="finSearchInput" placeholder="Buscar lançamento..." />
-            <select id="finTypeFilter">
-              <option value="todos">Todos Tipos</option>
-              <option value="Receita">Receita</option>
-              <option value="Despesa">Despesa</option>
-            </select>
-            <select id="finStatusFilter">
-              <option value="todos">Todos Status</option>
-              <option value="Pago">Pago</option>
-              <option value="Pendente">Pendente</option>
-            </select>
-          </div>
+        <div class="card-box">
           <div class="table-responsive">
-            <table>
-              <thead>
-                <tr>
-                  <th>Cód.</th>
-                  <th>Data</th>
-                  <th>Descrição</th>
-                  <th>Categoria</th>
-                  <th>Tipo</th>
-                  <th>Valor</th>
-                  <th>Status</th>
-                  <th>Ação</th>
-                </tr>
-              </thead>
+            <table class="data-table">
+              <thead><tr><th>Cód.</th><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Obs.</th></tr></thead>
               <tbody id="tableFinEntries"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 14. CONFIGURAÇÕES (INCLUI GERENCIAMENTO DE LOGINS APENAS AQUI) -->
+      <section id="configuracoes" class="content-section">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:1rem; margin-bottom:1rem;">
+          <div class="card-box">
+            <h3 style="font-size:0.9rem; margin-bottom:0.65rem;"><i class="ph ph-cloud-arrow-up"></i> Sincronização & Integração Nuvemshop</h3>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:0.75rem;">Sincronize os dados locais com o PostgreSQL ou busque novos pedidos da loja online.</p>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <button type="button" class="btn-primary" id="btnForceCloudSync"><i class="ph ph-arrows-clockwise"></i> Sincronizar Agora</button>
+              <button type="button" class="btn-sm btn-blue" id="btnPullFromCloud"><i class="ph ph-cloud-arrow-down"></i> Buscar Pedidos Nuvemshop</button>
+              <button type="button" class="btn-sm" id="btnSwitchUser"><i class="ph ph-user-switch"></i> Trocar Operador</button>
+            </div>
+          </div>
+
+          <div class="card-box">
+            <h3 style="font-size:0.9rem; margin-bottom:0.65rem;"><i class="ph ph-key"></i> Alterar Minha Senha</h3>
+            <form id="formChangeOwnPassword">
+              <div class="form-group"><label>Senha Atual:</label><input type="password" id="ownCurrentPassword" required /></div>
+              <div class="form-group"><label>Nova Senha:</label><input type="password" id="ownNewPassword" required /></div>
+              <button type="submit" class="btn-sm btn-blue">Atualizar Senha</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- GERENCIAMENTO DE LOGINS (VISÍVEL SOMENTE PARA ADMIN DENTRO DE CONFIGURAÇÕES) -->
+        <div class="card-box admin-only-metric">
+          <h3 style="font-size:0.95rem; margin-bottom:0.75rem;"><i class="ph ph-users-three"></i> Gerenciamento de Logins & Permissões (Acesso Exclusivo Admin)</h3>
+          <form id="formCreateLoginAccount" style="margin-bottom:1rem;">
+            <input type="hidden" id="editAccountId" />
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:0.65rem;">
+              <div class="form-group"><label>Login (usuário):</label><input type="text" id="accUsernameInput" required /></div>
+              <div class="form-group"><label>Senha:</label><input type="password" id="accPasswordInput" placeholder="Obrigatória ao criar" /></div>
+              <div class="form-group"><label>Nome de Exibição:</label><input type="text" id="accDisplayNameInput" required /></div>
+              <div class="form-group">
+                <label>Perfil:</label>
+                <select id="accRoleTypeInput">
+                  <option value="user">Vendedor / Estoque</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex; gap:0.75rem; flex-wrap:wrap; font-size:0.76rem; margin-bottom:0.75rem;">
+              <label><input type="checkbox" class="acc-perm-chk" value="dashboard" checked /> Dashboard</label>
+              <label><input type="checkbox" class="acc-perm-chk" value="pdv" checked /> PDV</label>
+              <label><input type="checkbox" class="acc-perm-chk" value="historico_vendas" checked /> Histórico Vendas</label>
+              <label><input type="checkbox" class="acc-perm-chk" value="envios" checked /> Envios</label>
+              <label><input type="checkbox" class="acc-perm-chk" value="estoque" checked /> Estoque</label>
+              <label><input type="checkbox" class="acc-perm-chk" value="clientes" checked /> Clientes</label>
+              <label><input type="checkbox" class="acc-perm-chk" value="garantias" checked /> Garantias</label>
+              <label><input type="checkbox" class="acc-perm-chk" value="trocas" checked /> Trocas</label>
+              <label><input type="checkbox" class="acc-perm-chk" value="etiquetas" /> Etiquetas</label>
+              <label><input type="checkbox" class="acc-perm-chk" value="recompra" /> Recompra</label>
+              <label><input type="checkbox" class="acc-perm-chk" value="orcamentos" /> Orçamentos</label>
+              <label><input type="checkbox" class="acc-perm-chk" value="financeiro" /> Financeiro</label>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+              <button type="submit" class="btn-primary">Salvar Usuário</button>
+              <button type="button" class="btn-sm" id="btnCancelEditAccount">Limpar</button>
+            </div>
+          </form>
+
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead><tr><th>Usuário</th><th>Nome</th><th>Perfil</th><th>Permissões</th><th>Ações</th></tr></thead>
+              <tbody id="tableAccountsList"></tbody>
             </table>
           </div>
         </div>
@@ -981,58 +757,35 @@
   </div>
 
   <!-- ================= MODAIS ================= -->
-  <!-- MODAL PDV COMPLETO -->
+
+  <!-- MODAL NOVA VENDA PDV -->
   <div class="modal-overlay" id="pdvModalOverlay">
     <div class="modal-container">
       <div class="modal-header">
-        <div class="modal-tabs"><span class="modal-tab"><i class="ph ph-shopping-cart"></i> Nova Venda — PDV</span></div>
+        <div class="modal-tab"><i class="ph ph-shopping-cart"></i> Nova Venda PDV</div>
         <button type="button" class="btn-close-modal" id="btnClosePdvModal">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-          <div class="form-group">
-            <label>Cliente:</label>
-            <select id="modalClientSelect"></select>
-          </div>
-          <div class="form-group">
-            <label>Atendente:</label>
-            <input type="text" id="modalSellerSelect" value="ADMIN" />
-          </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.65rem;">
+          <div class="form-group"><label>Cliente:</label><select id="modalClientSelect"></select></div>
+          <div class="form-group"><label>Vendedor:</label><input type="text" id="modalSellerSelect" readonly /></div>
         </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1.5fr 0.6fr 0.9fr; gap:0.75rem;">
-          <div class="form-group">
-            <label>Fragrância / Decant:</label>
-            <select id="modalProductSelect"></select>
-          </div>
-          <div class="form-group">
-            <label>Qtd.:</label>
-            <input type="number" id="modalProductQty" value="1" min="1" />
-          </div>
-          <div class="form-group">
-            <label>Preço Unit. (R$):</label>
-            <input type="number" id="modalProductDisplayPrice" step="0.01" />
-          </div>
+        <div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:0.5rem; align-items:end;">
+          <div class="form-group"><label>Produto:</label><select id="modalProductSelect"></select></div>
+          <div class="form-group"><label>Preço:</label><input type="number" id="modalProductDisplayPrice" step="0.01" /></div>
+          <div class="form-group"><label>Qtd.:</label><input type="number" id="modalProductQty" value="1" min="1" /></div>
+          <div class="form-group"><label>Desc. Item:</label><input type="number" id="modalProductDiscount" value="0" step="0.01" /></div>
         </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; align-items:end;">
-          <div class="form-group">
-            <label>Desconto Item (R$):</label>
-            <input type="number" id="modalProductDiscount" value="0" step="0.01" />
-          </div>
-          <div class="form-group">
-            <button type="button" class="btn-sm btn-blue" id="btnAddModalProduct" style="width:100%; justify-content:center; padding:0.55rem;">
-              <i class="ph ph-plus"></i> Adicionar ao Carrinho
-            </button>
-          </div>
-        </div>
-        <div class="table-responsive" style="margin-bottom:0.8rem;">
-          <table>
-            <thead>
-              <tr><th>Item</th><th>Qtd</th><th>Unit.</th><th>Total</th></tr>
-            </thead>
+        <button type="button" class="btn-sm btn-blue" id="btnAddModalProduct" style="margin-bottom:0.75rem;">+ Adicionar Item</button>
+
+        <div class="table-responsive" style="margin-bottom:0.75rem;">
+          <table class="data-table">
+            <thead><tr><th>Item</th><th>Qtd.</th><th>Unit.</th><th>Subtotal</th></tr></thead>
             <tbody id="modalCartTable"></tbody>
           </table>
         </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.75rem;">
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem;">
           <div class="form-group">
             <label>Pagamento:</label>
             <select id="modalPayMethod">
@@ -1042,19 +795,26 @@
               <option value="Dinheiro">Dinheiro</option>
             </select>
           </div>
+          <div class="form-group"><label>Desc. Geral (R$):</label><input type="number" id="modalGeneralDiscount" value="0" step="0.01" /></div>
+          <div class="form-group"><label>Total Final:</label><input type="text" id="modalPayValue" readonly style="font-weight:700; color:var(--success);" /></div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
           <div class="form-group">
-            <label>Garantia:</label>
-            <select id="modalWarrantyTermSelect">
-              <option value="90">Originalidade 90d</option>
-              <option value="30">Decant 30d</option>
+            <label>Modalidade de Envio:</label>
+            <select id="modalShippingMethod">
+              <option value="Retirada na Loja">Retirada na Loja</option>
+              <option value="Motoboy">Motoboy</option>
+              <option value="Correios">Correios</option>
             </select>
           </div>
-          <div class="form-group">
-            <label>Total Final:</label>
-            <input type="text" id="modalPayValue" readonly value="R$ 0,00" style="font-weight:700; color:var(--success);" />
-          </div>
+          <div class="form-group"><label>Endereço / CEP Envio:</label><input type="text" id="modalShippingNotes" placeholder="Opcional..." /></div>
         </div>
-        <input type="hidden" id="modalSaleDate" />
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+          <div class="form-group"><label>Observação do Pedido:</label><input type="text" id="modalOrderObservation" placeholder="Ex.: Enviar amostra extra..." /></div>
+          <div class="form-group"><label>Data/Hora:</label><input type="text" id="modalSaleDate" /></div>
+        </div>
       </div>
       <div class="modal-footer" style="gap:0.5rem;">
         <button type="button" class="btn-sm" id="btnModalCancelSale">Cancelar</button>
@@ -1063,132 +823,275 @@
     </div>
   </div>
 
-  <!-- MODAL PDV EXPRESS -->
+  <!-- MODAL VENDA EXPRESS -->
   <div class="modal-overlay" id="fastPdvModalOverlay">
     <div class="modal-container modal-sm">
       <div class="modal-header">
-        <span class="modal-tab"><i class="ph ph-lightning"></i> PDV Express Balcão</span>
+        <div class="modal-tab"><i class="ph ph-lightning"></i> Venda Express</div>
         <button type="button" class="btn-close-modal" id="btnCloseFastPdv">&times;</button>
       </div>
       <form id="formFastPdv" class="modal-body">
-        <div class="form-group">
-          <label>Item Rápido:</label>
-          <select id="fastPdvItemSelect" required></select>
+        <div class="form-group"><label>Item:</label><select id="fastPdvItemSelect" required></select></div>
+        <div class="form-group" id="fastPdvCustomDescGroup" style="display:none;"><label>Descrição Avulsa:</label><input type="text" id="fastPdvCustomDesc" /></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem;">
+          <div class="form-group"><label>Qtd.:</label><input type="number" id="fastPdvQty" value="1" min="1" required /></div>
+          <div class="form-group"><label>Preço (R$):</label><input type="number" id="fastPdvPrice" step="0.01" required /></div>
+          <div class="form-group"><label>Desc. (R$):</label><input type="number" id="fastPdvDiscount" value="0" step="0.01" /></div>
         </div>
-        <div class="form-group" id="fastPdvCustomDescGroup" style="display:none;">
-          <label>Descrição Avulsa:</label>
-          <input type="text" id="fastPdvCustomDesc" placeholder="Ex: Amostra 2ml" />
-        </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-          <div class="form-group">
-            <label>Qtd.:</label>
-            <input type="number" id="fastPdvQty" value="1" min="1" />
-          </div>
-          <div class="form-group">
-            <label>Unitário (R$):</label>
-            <input type="number" id="fastPdvPrice" step="0.01" required />
-          </div>
-        </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
           <div class="form-group">
             <label>Pagamento:</label>
-            <select id="fastPdvPayMethod">
-              <option value="Pix">Pix</option>
-              <option value="Dinheiro">Dinheiro</option>
-              <option value="Cartão">Cartão</option>
-            </select>
+            <select id="fastPdvPayMethod"><option value="Pix">Pix</option><option value="Cartão de Crédito">Cartão Crédito</option><option value="Dinheiro">Dinheiro</option></select>
           </div>
           <div class="form-group">
-            <label>Operador:</label>
-            <input type="text" id="fastPdvSeller" value="ADMIN" />
+            <label>Envio:</label>
+            <select id="fastPdvShippingMethod"><option value="Retirada na Loja">Retirada na Loja</option><option value="Motoboy">Motoboy</option><option value="Correios">Correios</option></select>
           </div>
         </div>
-        <div style="font-size:1.1rem; font-weight:700; color:var(--success); margin-bottom:0.8rem;">
-          Total: <span id="fastPdvTotalDisplay">R$ 0,00</span>
-        </div>
-        <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+        <div class="form-group"><label>Endereço / CEP:</label><input type="text" id="fastPdvShippingNotes" /></div>
+        <div class="form-group"><label>Observação do Pedido:</label><input type="text" id="fastPdvObservation" placeholder="Opcional..." /></div>
+        <input type="hidden" id="fastPdvSeller" />
+        <div style="margin-bottom:0.75rem;">Total: <strong id="fastPdvTotalDisplay" style="color:var(--success);">R$ 0,00</strong></div>
+        <div class="modal-footer" style="padding:0.75rem 0 0 0; gap:0.5rem;">
           <button type="button" class="btn-sm" id="btnCancelFastPdv">Cancelar</button>
-          <button type="submit" class="btn-primary">Concluir Venda</button>
+          <button type="submit" class="btn-primary">Confirmar</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- MODAL NOVO PRODUTO -->
-  <div class="modal-overlay" id="productModalOverlay">
+  <!-- MODAL EDITAR VENDA -->
+  <div class="modal-overlay" id="editSaleModalOverlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-tab"><i class="ph ph-pencil-simple"></i> Editar Pedido #<span id="editSaleHeaderId"></span></div>
+        <button type="button" class="btn-close-modal" id="btnCloseEditSaleModal">&times;</button>
+      </div>
+      <form id="formEditSale" class="modal-body">
+        <input type="hidden" id="editSaleId" />
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
+          <div class="form-group"><label>Cliente:</label><input type="text" id="editSaleClient" required /></div>
+          <div class="form-group"><label>Vendedor:</label><input type="text" id="editSaleSeller" /></div>
+        </div>
+        <div class="form-group"><label>Itens:</label><input type="text" id="editSaleItems" required /></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.6rem;">
+          <div class="form-group"><label>Data/Hora:</label><input type="text" id="editSaleDate" /></div>
+          <div class="form-group">
+            <label>Pagamento:</label>
+            <select id="editSalePayment"><option value="Pix">Pix</option><option value="Cartão de Crédito">Cartão de Crédito</option><option value="Cartão de Débito">Cartão de Débito</option><option value="Dinheiro">Dinheiro</option><option value="Nuvem Pago">Nuvem Pago</option></select>
+          </div>
+          <div class="form-group">
+            <label>Status do Pedido:</label>
+            <select id="editSaleOrderStatus">
+              <option value="Em Separação">Em Separação</option>
+              <option value="Separado">Separado</option>
+              <option value="Enviado">Enviado</option>
+              <option value="Entregue">Entregue</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
+          <div class="form-group">
+            <label>Modalidade de Envio:</label>
+            <select id="editSaleShippingMethod"><option value="Retirada na Loja">Retirada na Loja</option><option value="Motoboy">Motoboy</option><option value="Correios">Correios</option></select>
+          </div>
+          <div class="form-group"><label>Código de Rastreio (Correios / Motoboy):</label><input type="text" id="editSaleTrackingCode" placeholder="Ex.: SX123456789BR" /></div>
+        </div>
+        <div class="form-group"><label>Destino / Endereço:</label><input type="text" id="editSaleShippingNotes" /></div>
+        <div class="form-group"><label>Observação do Pedido:</label><input type="text" id="editSaleObservation" /></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
+          <div class="form-group"><label>Desconto (R$):</label><input type="number" id="editSaleDiscount" step="0.01" /></div>
+          <div class="form-group"><label>Total Final (R$):</label><input type="number" id="editSaleTotal" step="0.01" required /></div>
+        </div>
+        <div class="modal-footer" style="padding:0.75rem 0 0 0; gap:0.5rem;">
+          <button type="button" class="btn-sm" id="btnCancelEditSaleModal">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar Alterações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL RÁPIDO DE OBSERVAÇÃO -->
+  <div class="modal-overlay" id="orderObsModalOverlay">
     <div class="modal-container modal-sm">
       <div class="modal-header">
-        <span class="modal-tab"><i class="ph ph-package"></i> Cadastrar Fragrância</span>
+        <div class="modal-tab"><i class="ph ph-note-pencil"></i> Observação do Pedido #<span id="obsSaleHeaderId"></span></div>
+        <button type="button" class="btn-close-modal" id="btnCloseObsModal">&times;</button>
+      </div>
+      <form id="formOrderObs" class="modal-body">
+        <input type="hidden" id="obsSaleId" />
+        <div class="form-group">
+          <label for="obsSaleTextarea">Anotações internas / instruções de entrega:</label>
+          <textarea id="obsSaleTextarea" rows="3" style="width:100%; background:var(--bg-main); border:1px solid var(--border); color:var(--text-main); padding:0.5rem; border-radius:6px;" placeholder="Ex.: Enviar amostra extra, embrulhar para presente..."></textarea>
+        </div>
+        <div class="modal-footer" style="padding:0.75rem 0 0 0; gap:0.5rem;">
+          <button type="button" class="btn-sm" id="btnCancelObsModal">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar Observação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL RÁPIDO DE RASTREIO -->
+  <div class="modal-overlay" id="trackingModalOverlay">
+    <div class="modal-container modal-sm">
+      <div class="modal-header">
+        <div class="modal-tab"><i class="ph ph-barcode"></i> Rastreio do Pedido #<span id="trackingSaleHeaderId"></span></div>
+        <button type="button" class="btn-close-modal" id="btnCloseTrackingModal">&times;</button>
+      </div>
+      <form id="formOrderTracking" class="modal-body">
+        <input type="hidden" id="trackingSaleId" />
+        <div class="form-group">
+          <label for="trackingCodeInput">Código de Rastreio (Correios) ou Identificação Motoboy:</label>
+          <input type="text" id="trackingCodeInput" placeholder="Ex.: AA123456789BR ou MOTOBOY-02" />
+        </div>
+        <div class="modal-footer" style="padding:0.75rem 0 0 0; gap:0.5rem;">
+          <button type="button" class="btn-sm" id="btnCancelTrackingModal">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar Rastreio</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL NOVA GARANTIA -->
+  <div class="modal-overlay" id="warrantyModalOverlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-tab"><i class="ph ph-shield-check"></i> Emitir Certificado de Garantia / Autenticidade</div>
+        <button type="button" class="btn-close-modal" id="btnCloseWarrantyModal">&times;</button>
+      </div>
+      <form id="formNewWarranty" class="modal-body">
+        <div class="form-group">
+          <label for="warSaleSelect">Vincular a Pedido Existente (opcional — preenche automático):</label>
+          <select id="warSaleSelect"></select>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
+          <div class="form-group"><label>Nome do Cliente:</label><input type="text" id="warClientName" required /></div>
+          <div class="form-group"><label>WhatsApp do Cliente:</label><input type="text" id="warClientPhone" placeholder="(11) 99999-9999" /></div>
+        </div>
+        <div style="display:grid; grid-template-columns:2fr 1fr; gap:0.6rem;">
+          <div class="form-group"><label>Fragrância / Item:</label><input type="text" id="warProductModel" required /></div>
+          <div class="form-group"><label>Batch / Lote:</label><input type="text" id="warBatchCode" placeholder="Ex.: BATCH-2026A" /></div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.6rem;">
+          <div class="form-group">
+            <label>Termo de Garantia:</label>
+            <select id="warTermSelect">
+              <option value="AUTENTICIDADE & LACRE (90 DIAS)" data-days="90">Frasco Lacrado (90 dias)</option>
+              <option value="GARANTIA DECANTS (30 DIAS)" data-days="30">Decants (30 dias)</option>
+              <option value="GARANTIA VIP (180 DIAS)" data-days="180">VIP Estendida (180 dias)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Data Início:</label><input type="date" id="warStartDate" required /></div>
+          <div class="form-group"><label>NF-e / Cupom:</label><input type="text" id="warInvoiceNumber" placeholder="Cupom Balcão" /></div>
+        </div>
+        <div class="modal-footer" style="padding:0.75rem 0 0 0; gap:0.5rem;">
+          <button type="button" class="btn-sm" id="btnCancelWarrantyModal">Cancelar</button>
+          <button type="submit" class="btn-primary">Emitir Garantia</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL NOVA TROCA / DEVOLUÇÃO -->
+  <div class="modal-overlay" id="rmaModalOverlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-tab"><i class="ph ph-arrows-left-right"></i> Registrar Nova Troca / Devolução</div>
+        <button type="button" class="btn-close-modal" id="btnCloseRmaModal">&times;</button>
+      </div>
+      <form id="formNewRma" class="modal-body">
+        <div class="form-group">
+          <label for="rmaSaleSelect">Vincular a Pedido Existente (opcional):</label>
+          <select id="rmaSaleSelect"></select>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
+          <div class="form-group"><label>Cliente:</label><input type="text" id="rmaClientName" required /></div>
+          <div class="form-group"><label>Produto Devolvido / Trocado:</label><input type="text" id="rmaDeviceName" required /></div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.6rem;">
+          <div class="form-group">
+            <label>Tipo de Solicitação:</label>
+            <select id="rmaTypeSelect">
+              <option value="Troca de Fragrância">Troca de Fragrância</option>
+              <option value="Defeito no Borrifador">Defeito no Borrifador</option>
+              <option value="Devolução / Estorno">Devolução / Estorno</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Destino no Estoque:</label>
+            <select id="rmaStockActionSelect">
+              <option value="retornar_estoque">Retornar +1 ao Estoque</option>
+              <option value="avaria_descarte">Avaria / Não Retornar</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Valor (R$):</label><input type="number" id="rmaAmountInput" step="0.01" value="0" /></div>
+        </div>
+        <div class="form-group"><label>Motivo / Observação da Troca:</label><input type="text" id="rmaReasonInput" placeholder="Ex.: Cliente preferiu trocar por outro aroma" /></div>
+        <div class="modal-footer" style="padding:0.75rem 0 0 0; gap:0.5rem;">
+          <button type="button" class="btn-sm" id="btnCancelRmaModal">Cancelar</button>
+          <button type="submit" class="btn-primary">Confirmar Troca</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL PRODUTO ESTOQUE -->
+  <div class="modal-overlay" id="productModalOverlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-tab" id="productModalTitle"><i class="ph ph-package"></i> Cadastrar Fragrância</div>
         <button type="button" class="btn-close-modal" id="btnCloseProductModal">&times;</button>
       </div>
       <form id="formNewProduct" class="modal-body">
-        <div class="form-group">
-          <label>Nome do Perfume / Decant:</label>
-          <input type="text" id="prodName" required placeholder="Ex: Lattafa Khamrah 100ml" />
+        <input type="hidden" id="editProdId" />
+        <div style="display:grid; grid-template-columns:1fr 2fr; gap:0.6rem;">
+          <div class="form-group"><label>Código:</label><input type="text" id="prodCodeDisplay" required /></div>
+          <div class="form-group"><label>Nome da Fragrância:</label><input type="text" id="prodName" required /></div>
         </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-          <div class="form-group">
-            <label>Batch / Lote:</label>
-            <input type="text" id="prodImei" placeholder="BATCH-2026A" />
-          </div>
-          <div class="form-group">
-            <label>Validade do Lote:</label>
-            <input type="date" id="prodExpiry" />
-          </div>
-        </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.6rem;">
+          <div class="form-group"><label>Batch / Lote:</label><input type="text" id="prodImei" /></div>
           <div class="form-group">
             <label>Categoria:</label>
-            <select id="prodCondition">
-              <option value="Árabe">Árabe</option>
-              <option value="Importado">Importado</option>
-              <option value="Nicho">Nicho</option>
-              <option value="Decant">Decant</option>
-            </select>
+            <select id="prodCondition"><option value="Árabe">Árabe</option><option value="Nicho">Nicho</option><option value="Importado">Importado</option><option value="Decant">Decant</option></select>
           </div>
-          <div class="form-group">
-            <label>Volume / Concentração:</label>
-            <input type="text" id="prodBattery" placeholder="EDP 100ml / Decant 10ml" />
-          </div>
+          <div class="form-group"><label>Volume / Tipo:</label><input type="text" id="prodBattery" placeholder="EDP 100ml" /></div>
         </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.75rem;">
-          <div class="form-group"><label>Custo (R$):</label><input type="number" id="prodCost" step="0.01" required /></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:0.6rem;">
+          <div class="form-group"><label>Validade:</label><input type="date" id="prodExpiry" /></div>
+          <div class="form-group" id="prodCostFieldGroup"><label>Custo (R$):</label><input type="number" id="prodCost" step="0.01" /></div>
           <div class="form-group"><label>Venda (R$):</label><input type="number" id="prodPrice" step="0.01" required /></div>
-          <div class="form-group"><label>Qtd.:</label><input type="number" id="prodQty" value="1" required /></div>
+          <div class="form-group"><label>Qtd.:</label><input type="number" id="prodQty" required /></div>
         </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-          <div class="form-group"><label>ID Nuvemshop:</label><input type="text" id="prodNuvemId" /></div>
-          <div class="form-group"><label>ID Variante Nuvemshop:</label><input type="text" id="prodNuvemVariantId" /></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
+          <div class="form-group"><label>Nuvemshop Product ID:</label><input type="text" id="prodNuvemId" placeholder="Ex.: 314890101" /></div>
+          <div class="form-group"><label>Nuvemshop Variant ID:</label><input type="text" id="prodNuvemVariantId" placeholder="Ex.: 994120101" /></div>
         </div>
-        <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
-          <button type="button" class="btn-sm" id="btnCancelProductModal">Cancelar</button>
-          <button type="submit" class="btn-primary">Salvar no Estoque</button>
+        <div class="modal-footer" style="padding:0.75rem 0 0 0; justify-content:space-between;">
+          <button type="button" class="btn-sm btn-danger" id="btnDeleteProductInModal" style="display:none;">Excluir Produto</button>
+          <div style="display:flex; gap:0.5rem; margin-left:auto;">
+            <button type="button" class="btn-sm" id="btnCancelProductModal">Cancelar</button>
+            <button type="submit" class="btn-primary" id="btnSubmitProductModal">Salvar</button>
+          </div>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- MODAL NOVO CLIENTE -->
+  <!-- MODAL CLIENTE -->
   <div class="modal-overlay" id="clientModalOverlay">
     <div class="modal-container modal-sm">
       <div class="modal-header">
-        <span class="modal-tab"><i class="ph ph-user-plus"></i> Novo Cliente</span>
+        <div class="modal-tab"><i class="ph ph-user-plus"></i> Novo Cliente</div>
         <button type="button" class="btn-close-modal" id="btnCloseClientModal">&times;</button>
       </div>
       <form id="formNewClient" class="modal-body">
         <div class="form-group"><label>Nome Completo:</label><input type="text" id="newClientName" required /></div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-          <div class="form-group"><label>CPF:</label><input type="text" id="newClientCpf" required /></div>
-          <div class="form-group"><label>WhatsApp:</label><input type="text" id="newClientPhone" required /></div>
-        </div>
-        <div class="form-group"><label>Categoria:</label>
-          <select id="newClientCategory">
-            <option value="Cliente Final">Cliente Final</option>
-            <option value="VIP / Recorrente">VIP / Recorrente</option>
-          </select>
-        </div>
-        <div class="form-group"><label>Notas Olfativas Preferidas:</label><input type="text" id="newClientNotes" placeholder="Ex: Amadeirado, Oud, Gourmand..." /></div>
-        <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+        <div class="form-group"><label>CPF:</label><input type="text" id="newClientCpf" /></div>
+        <div class="form-group"><label>WhatsApp:</label><input type="text" id="newClientPhone" /></div>
+        <div class="form-group"><label>Perfil:</label><select id="newClientCategory"><option value="Cliente Final">Cliente Final</option><option value="VIP / Recorrente">VIP / Recorrente</option></select></div>
+        <div class="form-group"><label>Notas Olfativas Favoritas:</label><input type="text" id="newClientNotes" /></div>
+        <div class="modal-footer" style="padding:0.75rem 0 0 0; gap:0.5rem;">
           <button type="button" class="btn-sm" id="btnCancelClientModal">Cancelar</button>
           <button type="submit" class="btn-primary">Cadastrar</button>
         </div>
@@ -1200,34 +1103,30 @@
   <div class="modal-overlay" id="quoteModalOverlay">
     <div class="modal-container">
       <div class="modal-header">
-        <span class="modal-tab"><i class="ph ph-file-text"></i> Novo Orçamento Olfativo</span>
+        <div class="modal-tab"><i class="ph ph-file-text"></i> Novo Orçamento</div>
         <button type="button" class="btn-close-modal" id="btnCloseQuoteModal">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-          <div class="form-group"><label>Cliente Cadastrado:</label><select id="quoteClientSelect"></select></div>
-          <div class="form-group"><label>Nome Cliente:</label><input type="text" id="quoteClientName" required /></div>
-        </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
+          <div class="form-group"><label>Cliente:</label><input type="text" id="quoteClientName" required /></div>
           <div class="form-group"><label>WhatsApp:</label><input type="text" id="quoteClientPhone" /></div>
-          <div class="form-group"><label>Consultor:</label><input type="text" id="quoteSellerSelect" value="ADMIN" /></div>
         </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:2fr 0.6fr 0.8fr; gap:0.5rem; align-items:end;">
+        <input type="hidden" id="quoteSellerSelect" />
+        <div style="display:grid; grid-template-columns:3fr 1fr auto; gap:0.5rem; align-items:end;">
           <div class="form-group"><label>Fragrância:</label><select id="quoteProductSelect"></select></div>
           <div class="form-group"><label>Qtd.:</label><input type="number" id="quoteProductQty" value="1" min="1" /></div>
-          <div class="form-group"><button type="button" class="btn-sm btn-blue" id="btnAddQuoteItem" style="width:100%;">+ Item</button></div>
+          <div class="form-group"><button type="button" class="btn-sm btn-blue" id="btnAddQuoteItem">+ Item</button></div>
         </div>
-        <div class="table-responsive" style="margin-bottom:0.8rem;">
-          <table>
-            <thead><tr><th>Fragrância</th><th>Qtd</th><th>Unit.</th><th>Sub</th><th></th></tr></thead>
+        <div class="table-responsive" style="margin-bottom:0.75rem;">
+          <table class="data-table">
+            <thead><tr><th>Item</th><th>Qtd.</th><th>Unit.</th><th>Total</th><th></th></tr></thead>
             <tbody id="quoteItemsTableBody"></tbody>
           </table>
         </div>
-        <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem;">
-          <div class="form-group"><label>Desconto (R$):</label><input type="number" id="quoteTradeInVal" value="0" step="0.01" /></div>
-          <div class="form-group"><label>Validade (dias):</label><input type="number" id="quoteValidityDays" value="3" /></div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="form-group" style="margin:0;"><label>Desconto (R$):</label><input type="number" id="quoteTradeInVal" value="0" step="0.01" oninput="renderQuoteCart()" /></div>
+          <div>Total Orçamento: <strong id="quoteGrandTotalDisplay" style="color:var(--success);">R$ 0,00</strong></div>
         </div>
-        <div style="font-size:1.1rem; font-weight:700; color:var(--success);">Total: <span id="quoteGrandTotalDisplay">R$ 0,00</span></div>
       </div>
       <div class="modal-footer" style="gap:0.5rem;">
         <button type="button" class="btn-sm" id="btnCancelQuoteModal">Cancelar</button>
@@ -1236,11 +1135,40 @@
     </div>
   </div>
 
-  <!-- MODAL GENÉRICO CAIXA / RECIBOS -->
+  <!-- MODAL IMPORTAR NUVEMSHOP -->
+  <div class="modal-overlay" id="nuvemImportModalOverlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-tab"><i class="ph ph-upload-simple"></i> Importar Produtos (CSV / PDF)</div>
+        <button type="button" class="btn-close-modal" id="btnCloseNuvemImport">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:grid; grid-template-columns:2fr 1fr; gap:0.6rem;">
+          <div class="form-group"><label>Arquivo (.csv ou .pdf):</label><input type="file" id="nuvemImportFileInput" accept=".csv,.pdf" /></div>
+          <div class="form-group"><label>Categoria Padrão:</label><select id="nuvemImportDefaultCat"><option value="Árabe">Árabe</option><option value="Importado">Importado</option><option value="Nicho">Nicho</option></select></div>
+        </div>
+        <div id="nuvemImportPreviewBox" style="display:none;">
+          <small id="nuvemImportCountLabel" style="color:var(--success); font-weight:600;"></small>
+          <div class="table-responsive" style="max-height:200px; margin-top:0.5rem;">
+            <table class="data-table">
+              <thead><tr><th>Produto</th><th>SKU/Batch</th><th>Preço</th><th>Qtd.</th></tr></thead>
+              <tbody id="nuvemImportPreviewTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="gap:0.5rem;">
+        <button type="button" class="btn-sm" id="btnCancelNuvemImport">Cancelar</button>
+        <button type="button" class="btn-primary" id="btnConfirmNuvemImport" disabled>Importar para Estoque</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL GENÉRICO (RECIBO / CAIXA) -->
   <div class="modal-overlay" id="cashToolModalOverlay">
     <div class="modal-container modal-sm">
       <div class="modal-header">
-        <span class="modal-tab" id="cashToolModalTitle">Ferramenta</span>
+        <div class="modal-tab" id="cashToolModalTitle">Comprovante</div>
         <button type="button" class="btn-close-modal" id="btnCloseCashTool">&times;</button>
       </div>
       <div class="modal-body" id="cashToolModalBody"></div>
@@ -1248,6 +1176,6 @@
   </div>
 
   <div class="toast" id="toast"></div>
-  <script src="script.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
