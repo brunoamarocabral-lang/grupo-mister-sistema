@@ -22,7 +22,12 @@ let activeAccount = JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSION_USER)) 
 let serverUsersList = [];
 
 function isCurrentUserAdmin() {
-  return Boolean(activeAccount && (activeAccount.isAdmin === true || activeAccount.role === 'admin' || String(activeAccount.username || '').toLowerCase() === 'admin'));
+  return Boolean(
+    activeAccount &&
+    (activeAccount.isAdmin === true ||
+      activeAccount.role === 'admin' ||
+      String(activeAccount.username || '').toLowerCase() === 'admin')
+  );
 }
 
 function getAuthHeaders() {
@@ -39,6 +44,7 @@ const CloudSyncEngine = {
       const res = await fetch(`${BACKEND_API_URL}/api/state`, { headers: getAuthHeaders() });
       if (res.status === 401) {
         logoutCurrentSession(false);
+        return false;
       }
       if (res.ok) {
         const data = await res.json();
@@ -91,6 +97,10 @@ const CloudSyncEngine = {
         headers: getAuthHeaders(),
         body: JSON.stringify({ state: payload })
       });
+      if (res.status === 401) {
+        logoutCurrentSession(false);
+        return false;
+      }
       if (res.ok && pill) {
         pill.className = 'badge-tag badge-receita';
         pill.innerHTML = '<i class="ph ph-cloud-check"></i> Nuvem Sincronizada';
@@ -271,13 +281,16 @@ function getAllowedPermissionsForAccount(account) {
 function logoutCurrentSession(showMsg = true) {
   activeAccount = null;
   authToken = null;
+  serverUsersList = [];
   localStorage.removeItem(STORAGE_KEYS.SESSION_USER);
   localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
   const overlay = document.getElementById('loginScreenOverlay');
-  document.getElementById('loginUsernameInput').value = '';
-  document.getElementById('loginPasswordInput').value = '';
+  const userInput = document.getElementById('loginUsernameInput');
+  const passInput = document.getElementById('loginPasswordInput');
+  if (userInput) userInput.value = '';
+  if (passInput) passInput.value = '';
   overlay?.classList.add('active');
-  document.getElementById('loginUsernameInput')?.focus();
+  userInput?.focus();
   if (showMsg) showToast('Logout realizado com sucesso.');
 }
 
@@ -285,8 +298,13 @@ async function fetchServerUsers() {
   if (!authToken || !isCurrentUserAdmin()) return;
   try {
     const res = await fetch(`${BACKEND_API_URL}/api/users`, { headers: getAuthHeaders() });
+    if (res.status === 401) {
+      logoutCurrentSession(false);
+      return;
+    }
     if (res.ok) {
-      serverUsersList = await res.json();
+      const data = await res.json();
+      serverUsersList = Array.isArray(data) ? data : (Array.isArray(data.users) ? data.users : []);
       renderAccountsTable();
     }
   } catch (_) {}
@@ -301,9 +319,9 @@ function initLoginByCredentials() {
   if (activeAccount && authToken) {
     overlay?.classList.remove('active');
     applyAccountVisibility(activeAccount);
-    CloudSyncEngine.pullState(false).then(() => {
+    CloudSyncEngine.pullState(false).then(async () => {
+      if (isCurrentUserAdmin()) await fetchServerUsers();
       renderAll();
-      if (isCurrentUserAdmin()) fetchServerUsers();
     });
   } else {
     overlay?.classList.add('active');
@@ -326,9 +344,9 @@ function initLoginByCredentials() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
+      if (!res.ok || !data.token || !data.user) {
         showToast(data.error || 'Usuário ou senha inválidos.');
       } else {
         authToken = data.token;
@@ -373,12 +391,12 @@ function initLoginByCredentials() {
     const currentPassword = document.getElementById('ownCurrentPassword').value;
     const newPassword = document.getElementById('ownNewPassword').value;
     try {
-      const res = await fetch(`${BACKEND_API_URL}/api/users/change-password`, {
-        method: 'POST',
+      const res = await fetch(`${BACKEND_API_URL}/api/users/me/password`, {
+        method: 'PUT',
         headers: getAuthHeaders(),
         body: JSON.stringify({ currentPassword, newPassword })
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) return showToast(data.error || 'Erro ao alterar senha.');
       e.target.reset();
       showToast('Senha atualizada com segurança no banco de dados!');
@@ -434,14 +452,15 @@ function initAdminAccountCreation() {
 
   btnClear?.addEventListener('click', () => {
     form?.reset();
-    document.getElementById('editAccountId').value = '';
+    const editIdEl = document.getElementById('editAccountId');
+    if (editIdEl) editIdEl.value = '';
   });
 
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode criar ou editar logins.');
 
-    const editId = document.getElementById('editAccountId').value;
+    const editId = document.getElementById('editAccountId')?.value || '';
     const username = document.getElementById('accUsernameInput').value.trim();
     const password = document.getElementById('accPasswordInput').value;
     const displayName = document.getElementById('accDisplayNameInput').value.trim() || username;
@@ -455,19 +474,26 @@ function initAdminAccountCreation() {
       : checkedPerms.filter(p => p !== 'admin_only');
 
     try {
-      const url = editId ? `${BACKEND_API_URL}/api/users/${editId}` : `${BACKEND_API_URL}/api/users`;
+      const url = editId
+        ? `${BACKEND_API_URL}/api/users/${editId}/permissions`
+        : `${BACKEND_API_URL}/api/users`;
       const method = editId ? 'PUT' : 'POST';
+      const bodyPayload = editId
+        ? { displayName, permissions }
+        : { username, password, displayName, isAdmin, permissions };
+
       const res = await fetch(url, {
         method,
         headers: getAuthHeaders(),
-        body: JSON.stringify({ username, password, displayName, isAdmin, permissions })
+        body: JSON.stringify(bodyPayload)
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) return showToast(data.error || 'Erro ao salvar usuário.');
 
-      showToast(editId ? 'Usuário atualizado no PostgreSQL!' : 'Novo login criado com segurança!');
+      showToast(editId ? 'Usuário atualizado no PostgreSQL!' : 'Novo login criado com segurança no PostgreSQL!');
       form.reset();
-      document.getElementById('editAccountId').value = '';
+      const editIdEl = document.getElementById('editAccountId');
+      if (editIdEl) editIdEl.value = '';
       await fetchServerUsers();
     } catch (_) {
       showToast('Erro de conexão com o servidor.');
@@ -478,8 +504,8 @@ function initAdminAccountCreation() {
 function renderAccountsTable() {
   const tbody = document.getElementById('tableAccountsList');
   if (!tbody) return;
-  if (!serverUsersList || serverUsersList.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Conectado ao servidor PostgreSQL em produção.</td></tr>';
+  if (!Array.isArray(serverUsersList) || serverUsersList.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Nenhum usuário adicional cadastrado no PostgreSQL.</td></tr>';
     return;
   }
   tbody.innerHTML = serverUsersList.map(acc => `
@@ -498,9 +524,10 @@ function renderAccountsTable() {
 
 window.editLoginAccount = function (id) {
   if (!isCurrentUserAdmin()) return;
-  const acc = serverUsersList.find(a => a.id === id);
+  const acc = serverUsersList.find(a => Number(a.id) === Number(id));
   if (!acc) return;
-  document.getElementById('editAccountId').value = acc.id;
+  const editIdEl = document.getElementById('editAccountId');
+  if (editIdEl) editIdEl.value = acc.id;
   document.getElementById('accUsernameInput').value = acc.username;
   document.getElementById('accPasswordInput').value = '';
   document.getElementById('accDisplayNameInput').value = acc.displayName;
@@ -521,8 +548,13 @@ window.removeLoginAccount = async function (id) {
     if (res.ok) {
       showToast('Usuário removido.');
       await fetchServerUsers();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      showToast(data.error || 'Não foi possível excluir o usuário.');
     }
-  } catch (_) {}
+  } catch (_) {
+    showToast('Erro de conexão com o servidor.');
+  }
 };
 
 // ============================================================================
@@ -1219,7 +1251,7 @@ function renderDashboard() {
 }
 
 async function pushStockToNuvemshop(product) {
- if (!product || !product.nuvemId || !product.nuvemVarId || !authToken) return false;
+  if (!product || !product.nuvemId || !product.nuvemVarId || !authToken) return false;
   try {
     const res = await fetch(`${BACKEND_API_URL}/api/nuvemshop/sync-stock`, {
       method: 'POST',
