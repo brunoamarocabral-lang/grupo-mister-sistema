@@ -47,93 +47,6 @@ function formatDateSafe(dateStr, fallback = '-') {
   return d.toLocaleDateString('pt-BR');
 }
 
-const CloudSyncEngine = {
-  async pullState(notifyNewNuvem = true) {
-    if (!authToken) return false;
-    const pill = document.getElementById('cloudSyncPill');
-    try {
-      const res = await fetch(`${BACKEND_API_URL}/api/state`, { headers: getAuthHeaders() });
-      if (res.status === 401) {
-        logoutCurrentSession(false);
-        return false;
-      }
-      if (res.ok) {
-        const data = await res.json();
-        const p = data ? (data.state || data.payload) : null;
-        if (p && typeof p === 'object') {
-          const prevSalesIds = new Set(sales.map(s => String(s.id)));
-
-          if (Array.isArray(p.products)) products = p.products;
-          if (Array.isArray(p.clients)) clients = p.clients;
-          else if (Array.isArray(p.customers)) clients = p.customers;
-          if (Array.isArray(p.sales)) sales = p.sales;
-          if (Array.isArray(p.warranties)) warranties = p.warranties;
-          if (Array.isArray(p.quotes)) quotes = p.quotes;
-          if (Array.isArray(p.finEntries)) finEntries = p.finEntries;
-
-          normalizeSalesArray();
-
-          const newNuvemOrder = notifyNewNuvem
-            ? sales.find(s => s.type === 'Online / Nuvemshop' && !prevSalesIds.has(String(s.id)) && s.orderStatus === 'Em Separação')
-            : null;
-
-          persistLocalOnly();
-          renderAll();
-
-          if (newNuvemOrder) {
-            triggerNewShippingNotification(newNuvemOrder);
-          }
-        }
-        if (pill) {
-          pill.className = 'badge-tag badge-receita';
-          pill.innerHTML = '<i class="ph ph-cloud-check"></i> PostgreSQL Sincronizado';
-        }
-        return true;
-      }
-    } catch (_) {
-      if (pill) {
-        pill.className = 'badge-tag badge-warning';
-        pill.innerHTML = '<i class="ph ph-cloud-slash"></i> Modo Offline / Preview';
-      }
-    }
-    return false;
-  },
-
-  async pushState(payload) {
-    const pill = document.getElementById('cloudSyncPill');
-    if (!authToken) return false;
-    try {
-      const res = await fetch(`${BACKEND_API_URL}/api/state`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ state: payload })
-      });
-      if (res.status === 401) {
-        logoutCurrentSession(false);
-        return false;
-      }
-      if (res.ok && pill) {
-        pill.className = 'badge-tag badge-receita';
-        pill.innerHTML = '<i class="ph ph-cloud-check"></i> Nuvem Sincronizada';
-        return true;
-      }
-    } catch (_) {
-      if (pill) {
-        pill.className = 'badge-tag badge-info';
-        pill.innerHTML = '<i class="ph ph-hard-drives"></i> Modo Local (Pronto p/ Sync)';
-      }
-    }
-    return false;
-  }
-};
-
-// Polling automático a cada 15 segundos para capturar pedidos novos da Nuvemshop
-setInterval(() => {
-  if (authToken) {
-    CloudSyncEngine.pullState(true);
-  }
-}, 15000);
-
 // ============================================================================
 // 2. DADOS INICIAIS
 // ============================================================================
@@ -209,6 +122,12 @@ function normalizeSalesArray() {
 }
 normalizeSalesArray();
 
+const seenShippingOrderIds = new Set(
+  sales
+    .filter(s => (s.orderStatus || 'Em Separação') === 'Em Separação' && s.shippingMethod && s.shippingMethod !== 'Retirada na Loja')
+    .map(s => String(s.id))
+);
+
 let modalCart = [];
 let quoteCart = [];
 let thermalLabelQueue = [];
@@ -243,6 +162,99 @@ function showToast(msg) {
 }
 
 // ============================================================================
+// SINCRONIZAÇÃO COM POSTGRESQL / NUVEMSHOP
+// ============================================================================
+const CloudSyncEngine = {
+  async pullState(notifyNewNuvem = true) {
+    if (!authToken) return false;
+    const pill = document.getElementById('cloudSyncPill');
+    try {
+      const res = await fetch(`${BACKEND_API_URL}/api/state`, { headers: getAuthHeaders() });
+      if (res.status === 401) {
+        logoutCurrentSession(false);
+        return false;
+      }
+      if (res.ok) {
+        const data = await res.json();
+        const p = data ? (data.state || data.payload) : null;
+        if (p && typeof p === 'object') {
+          if (Array.isArray(p.products)) products = p.products;
+          if (Array.isArray(p.clients)) clients = p.clients;
+          else if (Array.isArray(p.customers)) clients = p.customers;
+          if (Array.isArray(p.sales)) sales = p.sales;
+          if (Array.isArray(p.warranties)) warranties = p.warranties;
+          if (Array.isArray(p.quotes)) quotes = p.quotes;
+          if (Array.isArray(p.finEntries)) finEntries = p.finEntries;
+
+          normalizeSalesArray();
+          persistLocalOnly();
+          renderAll();
+
+          const pendingShippingSales = sales.filter(
+            s => (s.orderStatus || 'Em Separação') === 'Em Separação' && s.shippingMethod && s.shippingMethod !== 'Retirada na Loja'
+          );
+
+          if (notifyNewNuvem) {
+            const brandNewOrders = pendingShippingSales.filter(s => !seenShippingOrderIds.has(String(s.id)));
+            brandNewOrders.forEach(order => {
+              seenShippingOrderIds.add(String(order.id));
+              triggerNewShippingNotification(order);
+            });
+          } else {
+            pendingShippingSales.forEach(order => seenShippingOrderIds.add(String(order.id)));
+          }
+        }
+        if (pill) {
+          pill.className = 'badge-tag badge-receita';
+          pill.innerHTML = '<i class="ph ph-cloud-check"></i> PostgreSQL Sincronizado';
+        }
+        return true;
+      }
+    } catch (_) {
+      if (pill) {
+        pill.className = 'badge-tag badge-warning';
+        pill.innerHTML = '<i class="ph ph-cloud-slash"></i> Modo Offline / Preview';
+      }
+    }
+    return false;
+  },
+
+  async pushState(payload) {
+    const pill = document.getElementById('cloudSyncPill');
+    if (!authToken) return false;
+    try {
+      const res = await fetch(`${BACKEND_API_URL}/api/state`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ state: payload })
+      });
+      if (res.status === 401) {
+        logoutCurrentSession(false);
+        return false;
+      }
+      if (res.ok && pill) {
+        pill.className = 'badge-tag badge-receita';
+        pill.innerHTML = '<i class="ph ph-cloud-check"></i> Nuvem Sincronizada';
+        return true;
+      }
+    } catch (_) {
+      if (pill) {
+        pill.className = 'badge-tag badge-info';
+        pill.innerHTML = '<i class="ph ph-hard-drives"></i> Modo Local (Pronto p/ Sync)';
+      }
+    }
+    return false;
+  }
+};
+
+// Polling automático a cada 15 segundos para capturar pedidos novos da Nuvemshop
+setInterval(() => {
+  if (authToken) {
+    CloudSyncEngine.pullState(true);
+  }
+}, 15000);
+
+// ============================================================================
 // NOTIFICAÇÃO DE ENVIOS
 // ============================================================================
 function playShippingNotificationSound() {
@@ -266,6 +278,7 @@ function playShippingNotificationSound() {
 
 function triggerNewShippingNotification(sale) {
   if (!sale || !sale.shippingMethod || sale.shippingMethod === 'Retirada na Loja') return;
+  seenShippingOrderIds.add(String(sale.id));
   playShippingNotificationSound();
   const banner = document.getElementById('newShippingAlertBanner');
   const titleEl = document.getElementById('shippingBannerTitle');
