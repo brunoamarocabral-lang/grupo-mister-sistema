@@ -18,15 +18,16 @@ const STORAGE_KEYS = {
 };
 
 let authToken = localStorage.getItem(STORAGE_KEYS.SESSION_TOKEN) || null;
-let activeAccount = JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSION_USER)) || null;
+let activeAccount = JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSION_USER) || 'null');
 let serverUsersList = [];
 
 function isCurrentUserAdmin() {
+  if (!activeAccount) return false;
   return Boolean(
-    activeAccount &&
-    (activeAccount.isAdmin === true ||
-      activeAccount.role === 'admin' ||
-      String(activeAccount.username || '').toLowerCase() === 'admin')
+    activeAccount.isAdmin === true ||
+    activeAccount.is_admin === true ||
+    String(activeAccount.role || '').toLowerCase() === 'admin' ||
+    String(activeAccount.username || '').toLowerCase() === 'admin'
   );
 }
 
@@ -34,6 +35,16 @@ function getAuthHeaders() {
   const headers = { 'Content-Type': 'application/json' };
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
   return headers;
+}
+
+function formatDateSafe(dateStr, fallback = '-') {
+  if (!dateStr) return fallback;
+  const isoCandidate = /^\d{4}-\d{2}-\d{2}$/.test(String(dateStr).trim())
+    ? `${String(dateStr).trim()}T00:00:00`
+    : String(dateStr).trim();
+  const d = new Date(isoCandidate);
+  if (Number.isNaN(d.getTime())) return String(dateStr);
+  return d.toLocaleDateString('pt-BR');
 }
 
 const CloudSyncEngine = {
@@ -49,12 +60,12 @@ const CloudSyncEngine = {
       if (res.ok) {
         const data = await res.json();
         const p = data ? (data.state || data.payload) : null;
-        if (p) {
+        if (p && typeof p === 'object') {
           const prevSalesIds = new Set(sales.map(s => String(s.id)));
 
           if (Array.isArray(p.products)) products = p.products;
           if (Array.isArray(p.clients)) clients = p.clients;
-          if (Array.isArray(p.customers) && !Array.isArray(p.clients)) clients = p.customers;
+          else if (Array.isArray(p.customers)) clients = p.customers;
           if (Array.isArray(p.sales)) sales = p.sales;
           if (Array.isArray(p.warranties)) warranties = p.warranties;
           if (Array.isArray(p.quotes)) quotes = p.quotes;
@@ -168,17 +179,27 @@ const DEFAULT_FINANCE = [
 
 const DEFAULT_RATES = [0, 3.49, 4.99, 5.89, 6.79, 7.69, 8.59, 9.49, 10.39, 11.29, 12.19, 12.99, 13.89];
 
-let products = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS)) || DEFAULT_PRODUCTS;
-let clients = JSON.parse(localStorage.getItem(STORAGE_KEYS.CLIENTS)) || DEFAULT_CLIENTS;
-let sales = JSON.parse(localStorage.getItem(STORAGE_KEYS.SALES)) || DEFAULT_SALES;
-let warranties = JSON.parse(localStorage.getItem(STORAGE_KEYS.WARRANTIES)) || DEFAULT_WARRANTIES;
-let quotes = JSON.parse(localStorage.getItem(STORAGE_KEYS.QUOTES)) || DEFAULT_QUOTES;
-let cashMoves = JSON.parse(localStorage.getItem(STORAGE_KEYS.CASH_MOVES)) || [];
-let cardRates = JSON.parse(localStorage.getItem(STORAGE_KEYS.RATES)) || DEFAULT_RATES;
-let rmaList = JSON.parse(localStorage.getItem(STORAGE_KEYS.RMA)) || DEFAULT_RMA;
-let finEntries = JSON.parse(localStorage.getItem(STORAGE_KEYS.FINANCE)) || DEFAULT_FINANCE;
+function loadJsonKey(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+let products = loadJsonKey(STORAGE_KEYS.PRODUCTS, DEFAULT_PRODUCTS);
+let clients = loadJsonKey(STORAGE_KEYS.CLIENTS, DEFAULT_CLIENTS);
+let sales = loadJsonKey(STORAGE_KEYS.SALES, DEFAULT_SALES);
+let warranties = loadJsonKey(STORAGE_KEYS.WARRANTIES, DEFAULT_WARRANTIES);
+let quotes = loadJsonKey(STORAGE_KEYS.QUOTES, DEFAULT_QUOTES);
+let cashMoves = loadJsonKey(STORAGE_KEYS.CASH_MOVES, []);
+let cardRates = loadJsonKey(STORAGE_KEYS.RATES, DEFAULT_RATES);
+let rmaList = loadJsonKey(STORAGE_KEYS.RMA, DEFAULT_RMA);
+let finEntries = loadJsonKey(STORAGE_KEYS.FINANCE, DEFAULT_FINANCE);
 
 function normalizeSalesArray() {
+  if (!Array.isArray(sales)) sales = [...DEFAULT_SALES];
   sales.forEach(s => {
     if (!s.orderStatus) s.orderStatus = s.shippingPacked ? 'Entregue' : 'Em Separação';
     if (typeof s.observation !== 'string') s.observation = '';
@@ -275,7 +296,19 @@ function getAllowedPermissionsForAccount(account) {
       'trocas', 'financeiro', 'admin_only'
     ];
   }
-  return (account.permissions || ['dashboard']).filter(p => p !== 'admin_only');
+  return (Array.isArray(account.permissions) ? account.permissions : ['dashboard']).filter(p => p !== 'admin_only');
+}
+
+function setLoginOverlayVisible(visible) {
+  const overlay = document.getElementById('loginScreenOverlay');
+  if (!overlay) return;
+  if (visible) {
+    overlay.classList.add('active');
+    overlay.style.display = 'flex';
+  } else {
+    overlay.classList.remove('active');
+    overlay.style.display = 'none';
+  }
 }
 
 function logoutCurrentSession(showMsg = true) {
@@ -284,12 +317,11 @@ function logoutCurrentSession(showMsg = true) {
   serverUsersList = [];
   localStorage.removeItem(STORAGE_KEYS.SESSION_USER);
   localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
-  const overlay = document.getElementById('loginScreenOverlay');
   const userInput = document.getElementById('loginUsernameInput');
   const passInput = document.getElementById('loginPasswordInput');
   if (userInput) userInput.value = '';
   if (passInput) passInput.value = '';
-  overlay?.classList.add('active');
+  setLoginOverlayVisible(true);
   userInput?.focus();
   if (showMsg) showToast('Logout realizado com sucesso.');
 }
@@ -311,20 +343,19 @@ async function fetchServerUsers() {
 }
 
 function initLoginByCredentials() {
-  const overlay = document.getElementById('loginScreenOverlay');
   const form = document.getElementById('formLoginSystem');
   const btnSwitch = document.getElementById('btnSwitchUser');
   const btnLogout = document.getElementById('btnLogoutSystem');
 
   if (activeAccount && authToken) {
-    overlay?.classList.remove('active');
+    setLoginOverlayVisible(false);
     applyAccountVisibility(activeAccount);
     CloudSyncEngine.pullState(false).then(async () => {
       if (isCurrentUserAdmin()) await fetchServerUsers();
       renderAll();
     });
   } else {
-    overlay?.classList.add('active');
+    setLoginOverlayVisible(true);
   }
 
   form?.addEventListener('submit', async (e) => {
@@ -356,7 +387,7 @@ function initLoginByCredentials() {
 
         document.getElementById('loginUsernameInput').value = '';
         document.getElementById('loginPasswordInput').value = '';
-        overlay?.classList.remove('active');
+        setLoginOverlayVisible(false);
         applyAccountVisibility(activeAccount);
         await CloudSyncEngine.pullState(false);
         if (isCurrentUserAdmin()) await fetchServerUsers();
@@ -516,7 +547,7 @@ function renderAccountsTable() {
       <td>${(acc.permissions || []).filter(p => p !== 'admin_only').map(p => `<span class="badge-tag badge-info">${p.toUpperCase()}</span>`).join(' ')}</td>
       <td style="display:flex; gap:0.35rem;">
         <button type="button" class="btn-sm btn-blue" onclick="editLoginAccount(${acc.id})">Editar</button>
-        ${acc.username.toLowerCase() !== 'admin' ? `<button type="button" class="btn-sm btn-danger" onclick="removeLoginAccount(${acc.id})">Excluir</button>` : ''}
+        ${String(acc.username || '').toLowerCase() !== 'admin' ? `<button type="button" class="btn-sm btn-danger" onclick="removeLoginAccount(${acc.id})">Excluir</button>` : ''}
       </td>
     </tr>
   `).join('');
@@ -655,7 +686,7 @@ function initNavigation() {
         return;
       }
       const text = btn.textContent.toLowerCase();
-      btn.style.display = text.includes(q) ? 'flex' : 'none';
+      btn.style.display = (!q || text.includes(q)) ? 'flex' : 'none';
     });
   });
 }
@@ -1055,7 +1086,7 @@ function initThermalLabelsModule() {
         name: prod.name,
         volume: vol,
         note,
-        expiry: expiry ? new Date(expiry + 'T00:00:00').toLocaleDateString('pt-BR') : '12 meses',
+        expiry: expiry ? formatDateSafe(expiry, '12 meses') : '12 meses',
         price: fmtBRL(prod.price)
       });
     }
@@ -1071,7 +1102,7 @@ function initThermalLabelsModule() {
         name: d.name,
         volume: d.battery || 'Decant 10ml',
         note: 'Decant Original Fracionado',
-        expiry: d.expiry ? new Date(d.expiry + 'T00:00:00').toLocaleDateString('pt-BR') : '12 meses',
+        expiry: d.expiry ? formatDateSafe(d.expiry, '12 meses') : '12 meses',
         price: fmtBRL(d.price)
       });
     });
@@ -1135,8 +1166,9 @@ function computeRecompraAlerts() {
     let suggestion = 'Oferecer segundo frasco ou decant de viagem';
     if (itemsStr.includes('5ml')) { estDays = 18; suggestion = 'Upgrade p/ Decant 10ml ou Frasco Lacrado'; }
     else if (itemsStr.includes('10ml') || itemsStr.includes('decant')) { estDays = 30; suggestion = 'Reposição Decant 10ml ou Frasco 100ml c/ 10% OFF'; }
-    const saleDate = s.isoDate ? new Date(s.isoDate + 'T00:00:00') : today;
-    const elapsed = Math.floor((today - saleDate) / (1000 * 60 * 60 * 24));
+    const saleDate = s.isoDate ? new Date(`${s.isoDate}T00:00:00`) : today;
+    const validSaleDate = Number.isNaN(saleDate.getTime()) ? today : saleDate;
+    const elapsed = Math.floor((today - validSaleDate) / (1000 * 60 * 60 * 24));
     const remaining = estDays - elapsed;
 
     if (remaining <= 7 && s.client !== 'CONSUMIDOR BALCÃO') {
@@ -1144,7 +1176,7 @@ function computeRecompraAlerts() {
         client: s.client,
         phone: s.phone || clients.find(c => c.name === s.client)?.phone || '',
         items: s.items,
-        date: s.date.split(' ')[0],
+        date: String(s.date || '').split(' ')[0] || '-',
         elapsed,
         remaining,
         suggestion,
@@ -1163,11 +1195,12 @@ function renderRecompraAndBatches() {
   const batchTbody = document.getElementById('tableBatchExpiry');
   if (batchTbody) {
     batchTbody.innerHTML = products.map(p => {
-      const expDate = p.expiry ? new Date(p.expiry + 'T00:00:00') : null;
-      const daysLeft = expDate ? Math.ceil((expDate - today) / (1000 * 60 * 60 * 24)) : 365;
+      const expDate = p.expiry ? new Date(`${p.expiry}T00:00:00`) : null;
+      const validExp = expDate && !Number.isNaN(expDate.getTime());
+      const daysLeft = validExp ? Math.ceil((expDate - today) / (1000 * 60 * 60 * 24)) : 365;
       if (daysLeft <= 60) expiringLots++;
       const badge = daysLeft < 0 ? `<span class="badge-tag badge-despesa">Vencido</span>` : daysLeft <= 60 ? `<span class="badge-tag badge-warning">Vence em ${daysLeft}d</span>` : `<span class="badge-tag badge-receita">Válido (${daysLeft}d)</span>`;
-      return `<tr><td>${p.id}</td><td><strong>${p.name}</strong></td><td><code>${p.imei || '-'}</code></td><td>${expDate ? expDate.toLocaleDateString('pt-BR') : '-'}</td><td>${badge}</td><td><strong>${p.qty} un.</strong></td></tr>`;
+      return `<tr><td>${p.id}</td><td><strong>${p.name}</strong></td><td><code>${p.imei || '-'}</code></td><td>${validExp ? expDate.toLocaleDateString('pt-BR') : '-'}</td><td>${badge}</td><td><strong>${p.qty} un.</strong></td></tr>`;
     }).join('');
   }
 
@@ -1757,7 +1790,7 @@ function renderWarranties() {
         <td><code>${w.imei}</code></td>
         <td><span class="badge-tag badge-info">${w.term}</span></td>
         <td>${w.invoiceNumber || 'Pendente'}</td>
-        <td>${w.startDate} (${w.days}d)</td>
+        <td>${formatDateSafe(w.startDate)} (${w.days}d)</td>
         <td><span class="badge-tag badge-receita">Ativa</span></td>
         <td>
           <a href="${waHref}" target="_blank" class="btn-sm btn-green" style="text-decoration:none;" onclick="showToast('Abrindo certificado no WhatsApp...')">
@@ -1838,7 +1871,7 @@ function renderClients() {
   setTxt('metricTotalPessoas', clients.length);
   setTxt('metricTotalClientes', clients.length);
   setTxt('metricClientesVip', clients.filter(c => c.category === 'VIP / Recorrente').length);
-  const filtered = clients.filter(c => (c.name.toLowerCase().includes(term) || c.cpf.includes(term)) && (cat === 'todos' || c.category === cat));
+  const filtered = clients.filter(c => (c.name.toLowerCase().includes(term) || (c.cpf || '').includes(term)) && (cat === 'todos' || c.category === cat));
   const tbody = document.getElementById('tableClientsDetailed');
   if (tbody) tbody.innerHTML = filtered.map(c => `<tr><td>${c.cod}</td><td><strong>${c.name}</strong></td><td>${c.cpf}</td><td>${c.phone}</td><td>${c.notes || '-'}</td><td><span class="badge-tag badge-info">${c.category}</span></td><td><button type="button" class="btn-sm btn-blue" onclick="selectClientForSale('${c.cod}')">Vender</button></td></tr>`).join('');
 }
@@ -2076,7 +2109,7 @@ function renderStock() {
         <td class="editable-cell" title="Clique para editar Volume" onclick="quickEditProductField('${p.id}', 'battery')">
           <span class="badge-tag badge-info">${p.condition}</span> <small style="color:var(--text-muted);">${p.battery || ''}</small>
         </td>
-        <td class="editable-cell" title="Clique para editar Validade" onclick="quickEditProductField('${p.id}', 'expiry')">${p.expiry ? new Date(p.expiry + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</td>
+        <td class="editable-cell" title="Clique para editar Validade" onclick="quickEditProductField('${p.id}', 'expiry')">${formatDateSafe(p.expiry)}</td>
         ${adminFlag ? `<td class="editable-cell" title="Clique para editar Custo" onclick="quickEditProductField('${p.id}', 'cost')">${fmtBRL(p.cost)}</td>` : ''}
         <td class="editable-cell" title="Clique para editar Preço de Venda" onclick="quickEditProductField('${p.id}', 'price')"><strong>${fmtBRL(p.price)}</strong></td>
         ${adminFlag ? `<td><span class="badge-tag badge-receita">${margin}%</span></td>` : ''}
@@ -2176,8 +2209,8 @@ function renderRma() {
 
 function initFinanceModule() {}
 function renderFinance() {
-  const vendas = sales.reduce((a, s) => a + s.total, 0);
-  const desp = finEntries.filter(f => f.type === 'Despesa').reduce((a, f) => a + f.amount, 0);
+  const vendas = sales.reduce((a, s) => a + Number(s.total || 0), 0);
+  const desp = finEntries.filter(f => f.type === 'Despesa').reduce((a, f) => a + Number(f.amount || 0), 0);
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   setTxt('finMetricGross', fmtBRL(vendas));
   setTxt('finMetricCmv', fmtBRL(vendas * 0.55));
