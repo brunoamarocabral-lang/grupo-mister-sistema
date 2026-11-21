@@ -164,6 +164,7 @@ body {
 }
 
 .shipping-banner {
+  display: flex;
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.35);
   border-radius: 8px;
@@ -328,6 +329,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 
 .thermal-label-header {
@@ -615,6 +618,11 @@ body {
 }
 
 @media print {
+  @page {
+    size: 50mm 30mm;
+    margin: 0;
+  }
+
   body * {
     visibility: hidden;
   }
