@@ -56,7 +56,7 @@ function formatDateSafe(dateStr, fallback = '-') {
 }
 
 // ============================================================================
-// IDENTIDADE VISUAL GLOBAL DO SISTEMA (CORES SEMÂNTICAS, TABELAS & MODAIS)
+// IDENTIDADE VISUAL GLOBAL DO SISTEMA (CORES SEMÂNTICAS, BOTÃO AÇÕES & CARDS)
 // ============================================================================
 function injectLayoutAndActionStyles() {
   if (document.getElementById('gmPdvCompactAndGithubMenuStyles')) return;
@@ -126,6 +126,33 @@ function injectLayoutAndActionStyles() {
       font-size: 0.84rem !important;
     }
 
+    /* Histórico de vendas sempre apenas em cards */
+    #btnToggleListModel,
+    #salesTableView {
+      display: none !important;
+    }
+
+    #salesCardsView {
+      display: block !important;
+    }
+
+    #cardsSalesList {
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+
+    .sale-card-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border, #252a34);
+      border-left: 3px solid #60a5fa;
+      border-radius: 10px;
+      padding: 0.8rem 0.95rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
     /* Badges semânticos globais para fácil identificação visual */
     .badge-tag {
       display: inline-flex;
@@ -191,10 +218,10 @@ function injectLayoutAndActionStyles() {
     }
 
     select.status-inline-select {
-      min-width: 138px !important;
+      min-width: 142px !important;
       width: auto !important;
-      padding: 0.34rem 1.5rem 0.34rem 0.58rem !important;
-      border-radius: 6px !important;
+      padding: 0.36rem 1.7rem 0.36rem 0.65rem !important;
+      border-radius: 8px !important;
       font-size: 0.78rem !important;
       font-weight: 700 !important;
       line-height: 1.25 !important;
@@ -234,7 +261,7 @@ function injectLayoutAndActionStyles() {
       flex-shrink: 0;
     }
 
-    /* Menu estilo GitHub */
+    /* Botão "Ações ▾" e menu suspenso */
     .gm-gh-action-wrap {
       position: relative;
       display: inline-flex;
@@ -245,30 +272,34 @@ function injectLayoutAndActionStyles() {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 30px;
-      height: 28px;
-      border-radius: 6px;
+      gap: 0.4rem;
+      height: 32px;
+      padding: 0 0.72rem;
+      border-radius: 8px;
       border: 1px solid #30363d;
-      background: #21262d;
-      color: #e6edf3;
+      background: #181d26;
+      color: #f3f4f6;
+      font-size: 0.78rem;
+      font-weight: 600;
+      white-space: nowrap;
       cursor: pointer;
       transition: background 0.15s ease, border-color 0.15s ease;
     }
 
     .gm-gh-pencil-btn:hover {
-      background: #30363d;
-      border-color: #8b949e;
+      background: #232a36;
+      border-color: #60a5fa;
     }
 
     .gm-gh-dropdown {
       display: none;
       position: fixed;
-      min-width: 145px;
+      min-width: 185px;
       background: #161b22;
       border: 1px solid #30363d;
-      border-radius: 8px;
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
-      padding: 4px;
+      border-radius: 10px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65);
+      padding: 5px;
       z-index: 99999;
     }
 
@@ -281,18 +312,33 @@ function injectLayoutAndActionStyles() {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 7px 10px;
+      padding: 8px 11px;
       border: none;
       background: transparent;
       color: #e6edf3;
       font-size: 0.8rem;
+      font-weight: 500;
       text-align: left;
-      border-radius: 6px;
+      border-radius: 7px;
       cursor: pointer;
     }
 
     .gm-gh-dropdown-item:hover {
       background: #21262d;
+    }
+
+    .gm-gh-dropdown-item.danger-item {
+      color: #f87171;
+    }
+
+    .gm-gh-dropdown-item.danger-item:hover {
+      background: rgba(239, 68, 68, 0.14);
+    }
+
+    .gm-gh-dropdown-divider {
+      height: 1px;
+      background: #262c36;
+      margin: 4px 2px;
     }
 
     /* Identidade unificada dos modais e blocos do modal de edição */
@@ -484,7 +530,7 @@ let modalCart = [];
 let quoteCart = [];
 let thermalLabelQueue = [];
 let parsedNuvemItems = [];
-let salesViewMode = 'table';
+let salesViewMode = 'cards';
 let editingSaleItemsDraft = [];
 
 function persistLocalOnly() {
@@ -2131,7 +2177,7 @@ function renderRecompraAndBatches() {
 }
 
 // ============================================================================
-// 8. DASHBOARD, PDV, MENU LÁPIS GITHUB, EDIÇÃO ITEM POR ITEM & VISUALIZAÇÃO
+// 8. DASHBOARD, PDV, BOTÃO AÇÕES ▾, EDIÇÃO ITEM POR ITEM & VISUALIZAÇÃO
 // ============================================================================
 function renderDashboard() {
   const adminFlag = isCurrentUserAdmin();
@@ -2401,12 +2447,12 @@ function initSalesAndPdv() {
     triggerNewShippingNotification(newSale);
   });
 
-  document.getElementById('btnToggleListModel')?.addEventListener('click', () => {
-    salesViewMode = salesViewMode === 'table' ? 'cards' : 'table';
-    document.getElementById('listModelLabel').textContent = `Modelo de lista: ${salesViewMode === 'table' ? 'Tabela' : 'Cards'}`;
-    document.getElementById('salesTableView').style.display = salesViewMode === 'table' ? 'block' : 'none';
-    document.getElementById('salesCardsView').style.display = salesViewMode === 'cards' ? 'block' : 'none';
-  });
+  // Histórico de vendas permanece sempre apenas em cards
+  salesViewMode = 'cards';
+  const tableViewEl = document.getElementById('salesTableView');
+  const cardsViewEl = document.getElementById('salesCardsView');
+  if (tableViewEl) tableViewEl.style.display = 'none';
+  if (cardsViewEl) cardsViewEl.style.display = 'block';
 
   document.getElementById('salesStatusFilter')?.addEventListener('change', renderSales);
   document.getElementById('salesChannelFilter')?.addEventListener('change', renderSales);
@@ -2415,7 +2461,7 @@ function initSalesAndPdv() {
 }
 
 // ============================================================================
-// MENU SUSPENSO LÁPIS ESTILO GITHUB (EDITAR / VISUALIZAR)
+// MENU SUSPENSO "AÇÕES ▾" COM TODOS OS ITENS DA VENDA
 // ============================================================================
 function closeAllGithubActionMenus() {
   document.querySelectorAll('.gm-gh-dropdown.open').forEach(el => el.classList.remove('open'));
@@ -2447,6 +2493,23 @@ window.toggleSaleGithubMenu = function (event, saleId) {
         <i class="ph ph-eye" style="color:#34d399;"></i>
         <span>Visualizar</span>
       </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openOrderTrackingModal('${saleId}')">
+        <i class="ph ph-barcode" style="color:#38bdf8;"></i>
+        <span>Rastreio</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openOrderObsModal('${saleId}')">
+        <i class="ph ph-note-pencil" style="color:#fbbf24;"></i>
+        <span>Obs.</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openReceiptModal('${saleId}')">
+        <i class="ph ph-printer" style="color:#c084fc;"></i>
+        <span>Recibo</span>
+      </button>
+      <div class="gm-gh-dropdown-divider"></div>
+      <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteSaleRecord('${saleId}')">
+        <i class="ph ph-trash"></i>
+        <span>Apagar</span>
+      </button>
     `;
     document.body.appendChild(menu);
   }
@@ -2454,9 +2517,12 @@ window.toggleSaleGithubMenu = function (event, saleId) {
   if (!wasOpen) {
     const rect = event.currentTarget.getBoundingClientRect();
     menu.classList.add('open');
-    const menuWidth = menu.offsetWidth || 150;
+    const menuWidth = menu.offsetWidth || 185;
+    const menuHeight = menu.offsetHeight || 235;
     const leftPos = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
-    const topPos = Math.min(window.innerHeight - 90, rect.bottom + 4);
+    const topPos = (rect.bottom + menuHeight + 8 > window.innerHeight)
+      ? Math.max(8, rect.top - menuHeight - 4)
+      : rect.bottom + 4;
     menu.style.left = `${leftPos}px`;
     menu.style.top = `${topPos}px`;
   }
@@ -2467,12 +2533,12 @@ function renderGithubPencilActionButton(saleId) {
     <div class="gm-gh-action-wrap">
       <button type="button"
         class="gm-gh-pencil-btn"
-        title="Opções da venda (Editar / Visualizar)"
-        aria-label="Opções da venda"
+        title="Ações da venda"
+        aria-label="Ações da venda"
         onclick="toggleSaleGithubMenu(event, '${saleId}')">
-        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.253.253 0 0 0-.064.108l-.558 1.953 1.953-.558a.253.253 0 0 0 .108-.064Zm1.238-3.763a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Z"></path>
-        </svg>
+        <i class="ph ph-squares-four" style="font-size:15px; color:#60a5fa;"></i>
+        <span>Ações</span>
+        <i class="ph ph-caret-down" style="font-size:12px; color:#9ca3af;"></i>
       </button>
     </div>
   `;
@@ -2899,6 +2965,13 @@ function renderSales() {
   const statusFilter = document.getElementById('salesStatusFilter')?.value || 'todos';
   const channelFilter = document.getElementById('salesChannelFilter')?.value || 'todos';
 
+  const tableViewEl = document.getElementById('salesTableView');
+  const cardsViewEl = document.getElementById('salesCardsView');
+  const toggleBtnEl = document.getElementById('btnToggleListModel');
+  if (toggleBtnEl) toggleBtnEl.style.display = 'none';
+  if (tableViewEl) tableViewEl.style.display = 'none';
+  if (cardsViewEl) cardsViewEl.style.display = 'block';
+
   const filteredSales = sales.filter(s => {
     const st = s.orderStatus || 'Em Separação';
     const matchStatus = statusFilter === 'todos' || st === statusFilter;
@@ -2906,80 +2979,34 @@ function renderSales() {
     return matchStatus && matchChannel;
   });
 
-  const tbody = document.getElementById('tableSalesHistory');
   const cards = document.getElementById('cardsSalesList');
-
-  if (tbody) tbody.innerHTML = filteredSales.map(s => {
+  if (cards) cards.innerHTML = filteredSales.map(s => {
+    const st = s.orderStatus || 'Em Separação';
     const ship = s.shippingMethod || 'Retirada na Loja';
     const shipBadge = ship === 'Motoboy'
       ? `<span class="badge-tag badge-motoboy">Motoboy</span>`
       : ship === 'Correios'
       ? `<span class="badge-tag badge-correios">Correios</span>`
-      : `<span class="badge-tag badge-info">Loja</span>`;
-    const channelBadge = s.type === 'Online / Nuvemshop'
-      ? `<span class="badge-tag badge-nuvem">Nuvemshop</span>`
-      : `<span class="badge-tag badge-info">PDV</span>`;
-    const st = s.orderStatus || 'Em Separação';
-    const hasObs = Boolean(s.observation && s.observation.trim().length > 0);
-    const hasTrack = Boolean(s.trackingCode && s.trackingCode.trim().length > 0);
+      : `<span class="badge-tag badge-info">${ship}</span>`;
 
-    return `
-      <tr>
-        <td style="white-space:nowrap;"><strong>#${s.id}</strong></td>
-        <td style="white-space:nowrap;">${channelBadge}</td>
-        <td style="white-space:nowrap;">${s.date}</td>
-        <td><strong>${s.client}</strong></td>
-        <td>${s.items}</td>
-        <td style="white-space:nowrap;">${shipBadge}</td>
-        <td style="white-space:nowrap;">
-          <button type="button" class="btn-sm ${hasTrack ? 'btn-green' : ''}" onclick="openOrderTrackingModal('${s.id}')" title="Informar ou alterar código de rastreio">
-            <i class="ph ph-barcode"></i> ${hasTrack ? `<code>${s.trackingCode}</code>` : '+ Rastreio'}
-          </button>
-        </td>
-        <td>
-          <div class="gm-status-cell-wrap">
-            ${renderStatusSelectControl(s.id, st)}
-          </div>
-        </td>
-        <td style="white-space:nowrap;">
-          <button type="button" class="btn-sm ${hasObs ? 'btn-blue' : ''}" onclick="openOrderObsModal('${s.id}')" title="${hasObs ? s.observation : 'Adicionar observação'}">
-            <i class="ph ph-note-pencil"></i> ${hasObs ? (s.observation.length > 18 ? s.observation.slice(0, 18) + '...' : s.observation) : '+ Obs.'}
-          </button>
-        </td>
-        <td style="white-space:nowrap;"><span class="badge-tag badge-info">${s.payment}</span></td>
-        <td style="white-space:nowrap;"><strong style="color:#34d399;">${fmtBRL(s.total)}</strong></td>
-        <td style="white-space:nowrap;">
-          <div style="display:inline-flex; align-items:center; gap:0.3rem;">
-            ${renderGithubPencilActionButton(s.id)}
-            <button type="button" class="btn-sm" onclick="openReceiptModal('${s.id}')"><i class="ph ph-printer"></i> Recibo</button>
-            <button type="button" class="btn-sm btn-danger" onclick="deleteSaleRecord('${s.id}')" title="Apagar compra errada"><i class="ph ph-trash"></i> Apagar</button>
-          </div>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  if (cards) cards.innerHTML = filteredSales.map(s => {
-    const st = s.orderStatus || 'Em Separação';
     return `
       <div class="sale-card-item">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
-          <strong>#${s.id} ${s.type === 'Online / Nuvemshop' ? '(Nuvemshop)' : ''}</strong>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+          <div style="display:inline-flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
+            <strong>#${s.id} ${s.type === 'Online / Nuvemshop' ? '(Nuvemshop)' : ''}</strong>
+            ${shipBadge}
+          </div>
           ${renderStatusSelectControl(s.id, st)}
         </div>
-        <strong>${s.client}</strong>
-        <small style="color:var(--text-muted);">${s.date} • ${s.items}</small>
+        <div>
+          <strong>${s.client}</strong>
+          <small style="color:var(--text-muted); margin-left:0.35rem;">${s.date} • ${s.items}</small>
+        </div>
         ${s.trackingCode ? `<small style="color:#34d399;"><i class="ph ph-barcode"></i> Rastreio: <strong>${s.trackingCode}</strong></small>` : ''}
         ${s.observation ? `<small style="color:#fbbf24;"><i class="ph ph-note"></i> ${s.observation}</small>` : ''}
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.35rem; margin-top:0.25rem;">
-          <strong style="color:#34d399;">${fmtBRL(s.total)}</strong>
-          <div style="display:inline-flex; align-items:center; gap:0.3rem; flex-wrap:wrap;">
-            ${renderGithubPencilActionButton(s.id)}
-            <button type="button" class="btn-sm" onclick="openOrderTrackingModal('${s.id}')">Rastreio</button>
-            <button type="button" class="btn-sm" onclick="openOrderObsModal('${s.id}')">Obs.</button>
-            <button type="button" class="btn-sm" onclick="openReceiptModal('${s.id}')">Recibo</button>
-            <button type="button" class="btn-sm btn-danger" onclick="deleteSaleRecord('${s.id}')">Apagar</button>
-          </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem; margin-top:0.2rem;">
+          <strong style="color:#34d399; font-size:0.95rem;">${fmtBRL(s.total)}</strong>
+          ${renderGithubPencilActionButton(s.id)}
         </div>
       </div>
     `;
