@@ -56,83 +56,132 @@ function formatDateSafe(dateStr, fallback = '-') {
 }
 
 // ============================================================================
-// ESTILOS DE STATUS SEM CORTE, CORES ORIGINAIS, HISTÓRICO LEGÍVEL & MODAIS
+// IDENTIDADE VISUAL GLOBAL DO SISTEMA (CORES SEMÂNTICAS, TABELAS & MODAIS)
 // ============================================================================
 function injectLayoutAndActionStyles() {
   if (document.getElementById('gmPdvCompactAndGithubMenuStyles')) return;
   const style = document.createElement('style');
   style.id = 'gmPdvCompactAndGithubMenuStyles';
   style.textContent = `
-    #pdv,
-    #historico_vendas,
-    #envios,
-    #estoque {
+    .content-section,
+    .content-section .table-responsive,
+    .modal-overlay .modal-content {
       max-width: 100% !important;
       box-sizing: border-box !important;
     }
 
-    #pdv .table-responsive,
-    #historico_vendas .table-responsive,
-    #envios .table-responsive,
-    #estoque .table-responsive {
+    .content-section .table-responsive {
       width: 100% !important;
-      max-width: 100% !important;
       overflow-x: auto !important;
       -webkit-overflow-scrolling: touch;
-      box-sizing: border-box !important;
+      border-radius: 10px;
     }
 
-    #pdv .form-row,
-    #pdv .grid-2,
-    #pdv .grid-3,
-    #pdv .pdv-layout,
-    #pdvModalOverlay .modal-content,
-    #fastPdvModalOverlay .modal-content {
-      max-width: 100% !important;
-      box-sizing: border-box !important;
-      flex-wrap: wrap !important;
-      gap: 0.55rem !important;
-    }
-
-    #pdv input,
-    #pdv select,
-    #pdv textarea,
-    #pdvModalOverlay input,
-    #pdvModalOverlay select,
-    #pdvModalOverlay textarea,
-    #fastPdvModalOverlay input,
-    #fastPdvModalOverlay select,
-    #fastPdvModalOverlay textarea {
-      max-width: 100% !important;
-      min-width: 0 !important;
-      box-sizing: border-box !important;
-      font-size: 0.85rem !important;
-    }
-
-    #historico_vendas table,
-    #envios table,
-    #estoque table,
-    #tableQuickStock {
+    .content-section table {
       width: 100% !important;
       border-collapse: collapse !important;
     }
 
-    #historico_vendas th,
-    #historico_vendas td,
-    #envios th,
-    #envios td,
-    #estoque th,
-    #estoque td {
-      padding: 0.55rem 0.5rem !important;
+    .content-section th,
+    .content-section td {
+      padding: 0.58rem 0.55rem !important;
       font-size: 0.8rem !important;
       vertical-align: middle !important;
+      line-height: 1.38;
     }
 
-    #historico_vendas td,
-    #envios td {
-      line-height: 1.35;
+    .content-section th {
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid var(--border, #252a34);
+      font-weight: 700;
+      letter-spacing: 0.02em;
     }
 
+    .content-section td {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .content-section tbody tr:hover {
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .content-section .form-row,
+    .content-section .grid-2,
+    .content-section .grid-3,
+    .content-section .pdv-layout,
+    .modal-overlay .modal-content {
+      flex-wrap: wrap !important;
+      gap: 0.6rem !important;
+    }
+
+    .content-section input,
+    .content-section select,
+    .content-section textarea,
+    .modal-overlay input,
+    .modal-overlay select,
+    .modal-overlay textarea {
+      max-width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
+      font-size: 0.84rem !important;
+    }
+
+    /* Badges semânticos globais para fácil identificação visual */
+    .badge-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.22rem 0.55rem;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+
+    .badge-tag.badge-receita {
+      background: rgba(16, 185, 129, 0.16) !important;
+      color: #34d399 !important;
+      border-color: rgba(16, 185, 129, 0.4) !important;
+    }
+
+    .badge-tag.badge-despesa {
+      background: rgba(239, 68, 68, 0.16) !important;
+      color: #f87171 !important;
+      border-color: rgba(239, 68, 68, 0.4) !important;
+    }
+
+    .badge-tag.badge-warning {
+      background: rgba(245, 158, 11, 0.16) !important;
+      color: #fbbf24 !important;
+      border-color: rgba(245, 158, 11, 0.4) !important;
+    }
+
+    .badge-tag.badge-info {
+      background: rgba(59, 130, 246, 0.16) !important;
+      color: #60a5fa !important;
+      border-color: rgba(59, 130, 246, 0.38) !important;
+    }
+
+    .badge-tag.badge-motoboy {
+      background: rgba(168, 85, 247, 0.18) !important;
+      color: #c084fc !important;
+      border-color: rgba(168, 85, 247, 0.42) !important;
+    }
+
+    .badge-tag.badge-correios {
+      background: rgba(14, 165, 233, 0.18) !important;
+      color: #38bdf8 !important;
+      border-color: rgba(14, 165, 233, 0.42) !important;
+    }
+
+    .badge-tag.badge-nuvem {
+      background: rgba(99, 102, 241, 0.2) !important;
+      color: #a5b4fc !important;
+      border-color: rgba(99, 102, 241, 0.45) !important;
+    }
+
+    /* Seletor de status sem corte + cores distintas */
     .gm-status-cell-wrap {
       display: inline-flex;
       align-items: center;
@@ -142,9 +191,9 @@ function injectLayoutAndActionStyles() {
     }
 
     select.status-inline-select {
-      min-width: 134px !important;
+      min-width: 138px !important;
       width: auto !important;
-      padding: 0.34rem 1.5rem 0.34rem 0.55rem !important;
+      padding: 0.34rem 1.5rem 0.34rem 0.58rem !important;
       border-radius: 6px !important;
       font-size: 0.78rem !important;
       font-weight: 700 !important;
@@ -157,25 +206,25 @@ function injectLayoutAndActionStyles() {
     select.status-inline-select.st-separacao {
       background-color: rgba(245, 158, 11, 0.18) !important;
       color: #fbbf24 !important;
-      border-color: rgba(245, 158, 11, 0.45) !important;
+      border-color: rgba(245, 158, 11, 0.48) !important;
     }
 
     select.status-inline-select.st-separado {
       background-color: rgba(59, 130, 246, 0.2) !important;
       color: #60a5fa !important;
-      border-color: rgba(59, 130, 246, 0.45) !important;
+      border-color: rgba(59, 130, 246, 0.48) !important;
     }
 
     select.status-inline-select.st-enviado {
       background-color: rgba(168, 85, 247, 0.2) !important;
       color: #c084fc !important;
-      border-color: rgba(168, 85, 247, 0.45) !important;
+      border-color: rgba(168, 85, 247, 0.48) !important;
     }
 
     select.status-inline-select.st-entregue {
       background-color: rgba(16, 185, 129, 0.2) !important;
       color: #34d399 !important;
-      border-color: rgba(16, 185, 129, 0.45) !important;
+      border-color: rgba(16, 185, 129, 0.48) !important;
     }
 
     .gm-sep-tag {
@@ -185,6 +234,7 @@ function injectLayoutAndActionStyles() {
       flex-shrink: 0;
     }
 
+    /* Menu estilo GitHub */
     .gm-gh-action-wrap {
       position: relative;
       display: inline-flex;
@@ -245,16 +295,46 @@ function injectLayoutAndActionStyles() {
       background: #21262d;
     }
 
+    /* Identidade unificada dos modais e blocos do modal de edição */
+    .gm-modal-section-card {
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--border, #252a34);
+      border-left: 3px solid #60a5fa;
+      border-radius: 8px;
+      padding: 0.7rem 0.8rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .gm-modal-section-card.accent-amber {
+      border-left-color: #fbbf24;
+    }
+
+    .gm-modal-section-card.accent-emerald {
+      border-left-color: #34d399;
+    }
+
+    .gm-modal-section-title {
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #9ca3af;
+      margin-bottom: 0.55rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
     .gm-sale-item-row {
       display: grid;
       grid-template-columns: minmax(140px, 1.8fr) 74px 105px 95px 32px;
-      gap: 0.4rem;
+      gap: 0.45rem;
       align-items: center;
       margin-bottom: 0.45rem;
-      background: rgba(255, 255, 255, 0.02);
-      padding: 0.4rem;
+      background: rgba(15, 23, 42, 0.45);
+      padding: 0.42rem 0.5rem;
       border-radius: 6px;
-      border: 1px solid var(--border, #252a34);
+      border: 1px solid rgba(96, 165, 250, 0.22);
     }
 
     .gm-sale-item-row input {
@@ -262,11 +342,11 @@ function injectLayoutAndActionStyles() {
       min-width: 0;
       box-sizing: border-box;
       font-size: 0.8rem;
-      padding: 0.35rem 0.45rem;
+      padding: 0.36rem 0.48rem;
     }
 
     .gm-edit-sale-card {
-      max-width: 720px !important;
+      max-width: 740px !important;
       width: 95% !important;
       max-height: 90vh;
       overflow-y: auto;
@@ -289,12 +369,13 @@ function injectLayoutAndActionStyles() {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
       gap: 0.65rem;
-      margin-bottom: 1rem;
+      margin-bottom: 0.85rem;
     }
 
     .gm-view-box {
       background: rgba(255, 255, 255, 0.03);
       border: 1px solid var(--border, #252a34);
+      border-left: 3px solid rgba(96, 165, 250, 0.65);
       border-radius: 8px;
       padding: 0.6rem 0.75rem;
     }
@@ -1268,6 +1349,15 @@ function getOrderStatusClass(status) {
   }
 }
 
+function getOrderStatusBadgeClass(status) {
+  switch (status) {
+    case 'Separado': return 'badge-info';
+    case 'Enviado': return 'badge-motoboy';
+    case 'Entregue': return 'badge-receita';
+    default: return 'badge-warning';
+  }
+}
+
 function renderStatusSelectControl(saleId, status) {
   const st = status || 'Em Separação';
   return `
@@ -1469,11 +1559,11 @@ function renderShipments() {
 
   let html = '';
   if (toSeparateRows.length > 0) {
-    html += `<tr><td colspan="8" style="background:rgba(245,158,11,0.12); color:#fbbf24; font-weight:700;">⏳ PARA SEPARAR (${toSeparateRows.length})</td></tr>`;
+    html += `<tr><td colspan="8" style="background:rgba(245,158,11,0.14); color:#fbbf24; font-weight:700;">⏳ PARA SEPARAR (${toSeparateRows.length})</td></tr>`;
     html += toSeparateRows.map(renderShipmentRow).join('');
   }
   if (alreadySeparatedRows.length > 0) {
-    html += `<tr><td colspan="8" style="background:rgba(16,185,129,0.12); color:#34d399; font-weight:700;">✅ JÁ SEPARADO / EM ANDAMENTO (${alreadySeparatedRows.length})</td></tr>`;
+    html += `<tr><td colspan="8" style="background:rgba(16,185,129,0.14); color:#34d399; font-weight:700;">✅ JÁ SEPARADO / EM ANDAMENTO (${alreadySeparatedRows.length})</td></tr>`;
     html += alreadySeparatedRows.map(renderShipmentRow).join('');
   }
 
@@ -2092,9 +2182,9 @@ function renderDashboard() {
           <td>${channelBadge}</td>
           <td>${s.items || 'Venda PDV'}</td>
           <td>${shipBadge}</td>
-          <td><span class="badge-tag badge-warning">${st}</span></td>
+          <td><span class="badge-tag ${getOrderStatusBadgeClass(st)}">${st}</span></td>
           <td><span class="badge-tag badge-info">${s.payment || 'Pix'}</span></td>
-          ${adminFlag ? `<td><strong>${fmtBRL(s.total)}</strong></td>` : ''}
+          ${adminFlag ? `<td><strong style="color:#34d399;">${fmtBRL(s.total)}</strong></td>` : ''}
         </tr>
       `;
     }).join('');
@@ -2142,7 +2232,7 @@ function syncPdvLiveClockBadge() {
   if (pdvSection && !document.getElementById('gmPdvDateTimeBanner')) {
     const banner = document.createElement('div');
     banner.id = 'gmPdvDateTimeBanner';
-    banner.style.cssText = 'margin-bottom:10px; padding:7px 10px; border-radius:8px; background:#181c24; border:1px solid #252a34; font-size:12px; color:#fbbf24; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;';
+    banner.style.cssText = 'margin-bottom:10px; padding:7px 10px; border-radius:8px; background:#181c24; border:1px solid #252a34; border-left:3px solid #fbbf24; font-size:12px; color:#fbbf24; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;';
     banner.innerHTML = `<span><strong>Data/Hora:</strong> <span id="gmPdvLiveDateTime">${getNowBrDateTime()}</span></span><span style="color:#9ca3af;">PDV GRUPO MISTER</span>`;
     pdvSection.prepend(banner);
   }
@@ -2464,9 +2554,9 @@ window.openViewSaleModal = function (saleId) {
       <div class="gm-view-box"><small>Data / Hora</small><strong>${s.date || '-'}</strong></div>
       <div class="gm-view-box"><small>Canal / Vendedor</small><strong>${s.type || 'Venda Presencial'} • ${s.seller || '-'}</strong></div>
       <div class="gm-view-box"><small>Pagamento</small><strong>${s.payment || '-'}</strong></div>
-      <div class="gm-view-box"><small>Entrega / Status</small><strong>${s.shippingMethod || 'Retirada na Loja'} • ${s.orderStatus || 'Em Separação'}</strong></div>
+      <div class="gm-view-box"><small>Entrega / Status</small><strong>${s.shippingMethod || 'Retirada na Loja'} • <span class="badge-tag ${getOrderStatusBadgeClass(s.orderStatus)}">${s.orderStatus || 'Em Separação'}</span></strong></div>
       <div class="gm-view-box"><small>Código de Rastreio</small><strong>${s.trackingCode || 'Não informado'}</strong></div>
-      <div class="gm-view-box"><small>Desconto</small><strong>${fmtBRL(s.discount || 0)}</strong></div>
+      <div class="gm-view-box"><small>Desconto</small><strong style="color:#fbbf24;">${fmtBRL(s.discount || 0)}</strong></div>
       <div class="gm-view-box"><small>Total da Venda</small><strong style="color:#34d399; font-size:1.05rem;">${fmtBRL(s.total || 0)}</strong></div>
     </div>
     <div class="gm-view-box" style="margin-bottom:0.75rem;">
@@ -2495,7 +2585,7 @@ function initViewSaleModule() {
 }
 
 // ============================================================================
-// MODAL DE EDIÇÃO DE VENDA LANÇADA (PADRÃO DOS DEMAIS MODAIS + ITEM POR ITEM)
+// MODAL DE EDIÇÃO DE VENDA LANÇADA (PADRÃO DOS DEMAIS MODAIS + CORES POR BLOCO)
 // ============================================================================
 function ensureEditSaleModalStructure() {
   let overlay = document.getElementById('editSaleModalOverlay');
@@ -2506,80 +2596,92 @@ function ensureEditSaleModalStructure() {
     overlay.innerHTML = `
       <div class="modal-content gm-edit-sale-card">
         <div class="modal-header">
-          <h3><i class="ph ph-pencil-simple"></i> Editar Venda <span id="editSaleHeaderId"></span></h3>
+          <h3><i class="ph ph-pencil-simple" style="color:#60a5fa;"></i> Editar Venda <span id="editSaleHeaderId" style="color:#fbbf24;"></span></h3>
           <button type="button" id="btnCloseEditSaleModal" class="btn-close">&times;</button>
         </div>
         <form id="formEditSale" class="modal-body">
           <input type="hidden" id="editSaleId" />
-          <div class="gm-edit-sale-grid">
-            <div class="form-group">
-              <label for="editSaleClient">Cliente:</label>
-              <input type="text" id="editSaleClient" required />
-            </div>
-            <div class="form-group">
-              <label for="editSaleSeller">Vendedor:</label>
-              <input type="text" id="editSaleSeller" />
-            </div>
-            <div class="form-group">
-              <label for="editSaleDate">Data / Hora:</label>
-              <input type="text" id="editSaleDate" />
-            </div>
-            <div class="form-group">
-              <label for="editSalePayment">Pagamento:</label>
-              <select id="editSalePayment">
-                <option value="Pix">Pix</option>
-                <option value="Dinheiro">Dinheiro</option>
-                <option value="Crédito">Crédito</option>
-                <option value="Débito">Débito</option>
-                <option value="Link / Online">Link / Online</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="editSaleShippingMethod">Modalidade de Envio:</label>
-              <select id="editSaleShippingMethod">
-                <option value="Retirada na Loja">Retirada na Loja</option>
-                <option value="Motoboy">Motoboy</option>
-                <option value="Correios">Correios</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="editSaleOrderStatus">Status do Pedido:</label>
-              <select id="editSaleOrderStatus">
-                <option value="Em Separação">Em Separação</option>
-                <option value="Separado">Separado</option>
-                <option value="Enviado">Enviado</option>
-                <option value="Entregue">Entregue</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="editSaleTrackingCode">Código de Rastreio:</label>
-              <input type="text" id="editSaleTrackingCode" placeholder="Ex: BR123456789BR" />
-            </div>
-            <div class="form-group">
-              <label for="editSaleShippingNotes">Endereço / Detalhes de Envio:</label>
-              <input type="text" id="editSaleShippingNotes" />
+
+          <div class="gm-modal-section-card">
+            <div class="gm-modal-section-title"><i class="ph ph-user-list" style="color:#60a5fa;"></i> Dados do Pedido e Cliente</div>
+            <div class="gm-edit-sale-grid">
+              <div class="form-group">
+                <label for="editSaleClient">Cliente:</label>
+                <input type="text" id="editSaleClient" required />
+              </div>
+              <div class="form-group">
+                <label for="editSaleSeller">Vendedor:</label>
+                <input type="text" id="editSaleSeller" />
+              </div>
+              <div class="form-group">
+                <label for="editSaleDate">Data / Hora:</label>
+                <input type="text" id="editSaleDate" />
+              </div>
+              <div class="form-group">
+                <label for="editSalePayment">Pagamento:</label>
+                <select id="editSalePayment">
+                  <option value="Pix">Pix</option>
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Crédito">Crédito</option>
+                  <option value="Débito">Débito</option>
+                  <option value="Link / Online">Link / Online</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          <div class="form-group" style="margin-top:0.5rem;">
+          <div class="gm-modal-section-card accent-amber">
+            <div class="gm-modal-section-title"><i class="ph ph-truck" style="color:#fbbf24;"></i> Envio, Status e Rastreio</div>
+            <div class="gm-edit-sale-grid">
+              <div class="form-group">
+                <label for="editSaleShippingMethod">Modalidade de Envio:</label>
+                <select id="editSaleShippingMethod">
+                  <option value="Retirada na Loja">Retirada na Loja</option>
+                  <option value="Motoboy">Motoboy</option>
+                  <option value="Correios">Correios</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="editSaleOrderStatus">Status do Pedido:</label>
+                <select id="editSaleOrderStatus">
+                  <option value="Em Separação">Em Separação</option>
+                  <option value="Separado">Separado</option>
+                  <option value="Enviado">Enviado</option>
+                  <option value="Entregue">Entregue</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="editSaleTrackingCode">Código de Rastreio:</label>
+                <input type="text" id="editSaleTrackingCode" placeholder="Ex: BR123456789BR" />
+              </div>
+              <div class="form-group">
+                <label for="editSaleShippingNotes">Endereço / Detalhes de Envio:</label>
+                <input type="text" id="editSaleShippingNotes" />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" style="display:none;">
             <label for="editSaleItems">Resumo dos Itens:</label>
             <input type="text" id="editSaleItems" />
           </div>
 
-          <div class="gm-edit-sale-grid" style="margin-top:0.5rem;">
-            <div class="form-group">
-              <label for="editSaleDiscount">Desconto (R$):</label>
-              <input type="number" id="editSaleDiscount" step="0.01" min="0" />
+          <div class="gm-modal-section-card accent-emerald">
+            <div class="gm-modal-section-title"><i class="ph ph-currency-circle-dollar" style="color:#34d399;"></i> Valores e Observações</div>
+            <div class="gm-edit-sale-grid">
+              <div class="form-group">
+                <label for="editSaleDiscount">Desconto (R$):</label>
+                <input type="number" id="editSaleDiscount" step="0.01" min="0" />
+              </div>
+              <div class="form-group">
+                <label for="editSaleTotal">Total da Venda (R$):</label>
+                <input type="number" id="editSaleTotal" step="0.01" min="0" required />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="editSaleTotal">Total da Venda (R$):</label>
-              <input type="number" id="editSaleTotal" step="0.01" min="0" required />
+            <div class="form-group" style="margin-top:0.5rem;">
+              <label for="editSaleObservation">Observação Interna:</label>
+              <input type="text" id="editSaleObservation" placeholder="Observações da venda ou entrega..." />
             </div>
-          </div>
-
-          <div class="form-group" style="margin-top:0.5rem;">
-            <label for="editSaleObservation">Observação Interna:</label>
-            <input type="text" id="editSaleObservation" placeholder="Observações da venda ou entrega..." />
           </div>
 
           <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
@@ -2601,13 +2703,13 @@ function ensureSaleItemsEditorInsideModal() {
   const itemsInput = document.getElementById('editSaleItems');
   const block = document.createElement('div');
   block.id = 'gmSaleItemsEditorBlock';
-  block.style.cssText = 'margin:0.75rem 0; padding:0.65rem; border-radius:8px; border:1px solid var(--border,#252a34); background:rgba(255,255,255,0.02);';
+  block.className = 'gm-modal-section-card';
   block.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.45rem; gap:0.5rem; flex-wrap:wrap;">
-      <label style="margin:0; font-weight:700;"><i class="ph ph-list-checks"></i> Editar Itens Unitários (Item por Item)</label>
+      <div class="gm-modal-section-title" style="margin:0;"><i class="ph ph-list-checks" style="color:#60a5fa;"></i> Itens Unitários (Item por Item)</div>
       <button type="button" id="gmBtnAddEditSaleItem" class="btn-sm btn-blue"><i class="ph ph-plus"></i> Adicionar Item</button>
     </div>
-    <div style="display:grid; grid-template-columns:minmax(140px,1.8fr) 74px 105px 95px 32px; gap:0.4rem; font-size:0.72rem; color:var(--text-muted); padding:0 0.4rem 0.25rem;">
+    <div style="display:grid; grid-template-columns:minmax(140px,1.8fr) 74px 105px 95px 32px; gap:0.45rem; font-size:0.72rem; color:var(--text-muted); padding:0 0.5rem 0.25rem;">
       <span>Item / Fragrância</span>
       <span>Qtd</span>
       <span>Unit. (R$)</span>
@@ -2619,7 +2721,6 @@ function ensureSaleItemsEditorInsideModal() {
 
   if (itemsInput?.parentElement) {
     itemsInput.parentElement.insertAdjacentElement('afterend', block);
-    itemsInput.parentElement.style.display = 'none';
   } else {
     form.prepend(block);
   }
@@ -2789,7 +2890,7 @@ function renderModalCart() {
   const gross = modalCart.reduce((acc, i) => acc + i.total, 0);
   const generalDisc = parseFloat(document.getElementById('modalGeneralDiscount')?.value) || 0;
   const finalTotal = Math.max(0, gross - generalDisc);
-  tbody.innerHTML = modalCart.map(i => `<tr><td>${i.name}</td><td>${i.qty}</td><td>${fmtBRL(i.unitPrice)}</td><td><strong>${fmtBRL(i.total)}</strong></td></tr>`).join('');
+  tbody.innerHTML = modalCart.map(i => `<tr><td>${i.name}</td><td>${i.qty}</td><td>${fmtBRL(i.unitPrice)}</td><td><strong style="color:#34d399;">${fmtBRL(i.total)}</strong></td></tr>`).join('');
   if (payVal) payVal.value = fmtBRL(finalTotal);
 }
 
@@ -2845,8 +2946,8 @@ function renderSales() {
             <i class="ph ph-note-pencil"></i> ${hasObs ? (s.observation.length > 18 ? s.observation.slice(0, 18) + '...' : s.observation) : '+ Obs.'}
           </button>
         </td>
-        <td style="white-space:nowrap;">${s.payment}</td>
-        <td style="white-space:nowrap;"><strong>${fmtBRL(s.total)}</strong></td>
+        <td style="white-space:nowrap;"><span class="badge-tag badge-info">${s.payment}</span></td>
+        <td style="white-space:nowrap;"><strong style="color:#34d399;">${fmtBRL(s.total)}</strong></td>
         <td style="white-space:nowrap;">
           <div style="display:inline-flex; align-items:center; gap:0.3rem;">
             ${renderGithubPencilActionButton(s.id)}
@@ -2871,7 +2972,7 @@ function renderSales() {
         ${s.trackingCode ? `<small style="color:#34d399;"><i class="ph ph-barcode"></i> Rastreio: <strong>${s.trackingCode}</strong></small>` : ''}
         ${s.observation ? `<small style="color:#fbbf24;"><i class="ph ph-note"></i> ${s.observation}</small>` : ''}
         <div style="display:flex; justify-content:space-between; align-items:center; gap:0.35rem; margin-top:0.25rem;">
-          <strong style="color:var(--success);">${fmtBRL(s.total)}</strong>
+          <strong style="color:#34d399;">${fmtBRL(s.total)}</strong>
           <div style="display:inline-flex; align-items:center; gap:0.3rem; flex-wrap:wrap;">
             ${renderGithubPencilActionButton(s.id)}
             <button type="button" class="btn-sm" onclick="openOrderTrackingModal('${s.id}')">Rastreio</button>
@@ -2891,7 +2992,7 @@ function renderQuickStock() {
   const term = (document.getElementById('quickStockSearch')?.value || '').toLowerCase();
   const cond = document.getElementById('quickStockCondition')?.value || 'todos';
   const filtered = products.filter(p => (p.name.toLowerCase().includes(term) || (p.imei || '').toLowerCase().includes(term)) && (cond === 'todos' || p.condition === cond));
-  tbody.innerHTML = filtered.map(p => `<tr><td>${p.id}</td><td><strong>${p.name}</strong></td><td><code>${p.imei || '-'}</code></td><td><span class="badge-tag badge-info">${p.condition}</span> <small>${p.battery || ''}</small></td><td><strong>${fmtBRL(p.price)}</strong></td><td>${p.qty > 0 ? `<span class="badge-tag badge-info">${p.qty} un.</span>` : `<span class="badge-tag badge-despesa">Esgotado</span>`}</td><td><button type="button" class="btn-sm btn-green" ${p.qty <= 0 ? 'disabled' : ''} onclick="quickAddToPdv('${p.id}')">Vender</button></td></tr>`).join('');
+  tbody.innerHTML = filtered.map(p => `<tr><td>${p.id}</td><td><strong>${p.name}</strong></td><td><code>${p.imei || '-'}</code></td><td><span class="badge-tag badge-info">${p.condition}</span> <small>${p.battery || ''}</small></td><td><strong style="color:#34d399;">${fmtBRL(p.price)}</strong></td><td>${p.qty > 0 ? `<span class="badge-tag badge-receita">${p.qty} un.</span>` : `<span class="badge-tag badge-despesa">Esgotado</span>`}</td><td><button type="button" class="btn-sm btn-green" ${p.qty <= 0 ? 'disabled' : ''} onclick="quickAddToPdv('${p.id}')">Vender</button></td></tr>`).join('');
 }
 
 window.quickAddToPdv = function (prodId) {
@@ -2945,7 +3046,7 @@ function renderQuotes() {
   setTxt('quoteMetricApproved', quotes.filter(q => q.status === 'Aprovado').length);
   setTxt('quoteMetricValue', fmtBRL(quotes.filter(q => q.status === 'Aberto').reduce((acc, q) => acc + q.netTotal, 0)));
   const tbody = document.getElementById('tableQuotesList');
-  if (tbody) tbody.innerHTML = quotes.map(q => `<tr><td><strong>${q.cod}</strong></td><td>${q.date}</td><td>${q.clientName}</td><td>${q.items.map(i => `${i.name} (${i.qty}x)`).join('<br>')}</td><td>${fmtBRL(q.tradeInVal)}</td><td><strong>${fmtBRL(q.netTotal)}</strong></td><td><span class="badge-tag badge-warning">${q.status}</span></td><td>${q.status === 'Aberto' ? `<button type="button" class="btn-sm btn-green" onclick="convertQuoteToSale('${q.cod}')">Converter</button>` : '-'}</td></tr>`).join('');
+  if (tbody) tbody.innerHTML = quotes.map(q => `<tr><td><strong>${q.cod}</strong></td><td>${q.date}</td><td>${q.clientName}</td><td>${q.items.map(i => `${i.name} (${i.qty}x)`).join('<br>')}</td><td>${fmtBRL(q.tradeInVal)}</td><td><strong style="color:#34d399;">${fmtBRL(q.netTotal)}</strong></td><td><span class="badge-tag ${q.status === 'Aprovado' ? 'badge-receita' : 'badge-warning'}">${q.status}</span></td><td>${q.status === 'Aberto' ? `<button type="button" class="btn-sm btn-green" onclick="convertQuoteToSale('${q.cod}')">Converter</button>` : '-'}</td></tr>`).join('');
 }
 
 window.convertQuoteToSale = function (cod) {
@@ -3066,7 +3167,7 @@ function updateTaxSimulator() {
     const rate = cardRates[i] ?? 0;
     const tot = mode === 'repasse' ? base / (1 - rate / 100) : base;
     const net = mode === 'repasse' ? base : base * (1 - rate / 100);
-    html += `<tr><td>${i}x</td><td><input type="number" class="rate-input" data-idx="${i}" value="${rate}" step="0.01" style="width:60px;background:#0b0f17;border:1px solid var(--border);color:#fff;padding:2px;" />%</td><td><strong>${fmtBRL(tot / i)}</strong></td><td>${fmtBRL(tot)}</td><td style="color:var(--success);">${fmtBRL(net)}</td></tr>`;
+    html += `<tr><td>${i}x</td><td><input type="number" class="rate-input" data-idx="${i}" value="${rate}" step="0.01" style="width:60px;background:#0b0f17;border:1px solid var(--border);color:#fff;padding:2px;" />%</td><td><strong>${fmtBRL(tot / i)}</strong></td><td>${fmtBRL(tot)}</td><td style="color:#34d399;">${fmtBRL(net)}</td></tr>`;
     if ([1, 3, 6, 12].includes(i)) lines.push(`${i}x de ${fmtBRL(tot / i)}`);
   }
   tbody.innerHTML = html;
@@ -3109,7 +3210,7 @@ function renderClients() {
   setTxt('metricClientesVip', clients.filter(c => c.category === 'VIP / Recorrente').length);
   const filtered = clients.filter(c => (c.name.toLowerCase().includes(term) || (c.cpf || '').includes(term)) && (cat === 'todos' || c.category === cat));
   const tbody = document.getElementById('tableClientsDetailed');
-  if (tbody) tbody.innerHTML = filtered.map(c => `<tr><td>${c.cod}</td><td><strong>${c.name}</strong></td><td>${c.cpf}</td><td>${c.phone}</td><td>${c.notes || '-'}</td><td><span class="badge-tag badge-info">${c.category}</span></td><td><button type="button" class="btn-sm btn-blue" onclick="selectClientForSale('${c.cod}')">Vender</button></td></tr>`).join('');
+  if (tbody) tbody.innerHTML = filtered.map(c => `<tr><td>${c.cod}</td><td><strong>${c.name}</strong></td><td>${c.cpf}</td><td>${c.phone}</td><td>${c.notes || '-'}</td><td><span class="badge-tag ${c.category === 'VIP / Recorrente' ? 'badge-warning' : 'badge-info'}">${c.category}</span></td><td><button type="button" class="btn-sm btn-blue" onclick="selectClientForSale('${c.cod}')">Vender</button></td></tr>`).join('');
 }
 
 window.selectClientForSale = function (cod) {
@@ -3435,6 +3536,7 @@ function renderStock() {
   if (tbody) tbody.innerHTML = filtered.map(p => {
     const margin = p.price > 0 ? (((p.price - p.cost) / p.price) * 100).toFixed(1) : '0.0';
     const supLabel = p.supplier || 'Sem fornecedor';
+    const qtyBadgeClass = p.qty === 0 ? 'badge-despesa' : (p.qty <= 2 ? 'badge-warning' : 'badge-receita');
     return `
       <tr>
         <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'id')">${p.id}</td>
@@ -3454,10 +3556,10 @@ function renderStock() {
           <span class="badge-tag badge-info">${p.condition}</span> <small style="color:var(--text-muted);">${p.battery || ''}</small>
         </td>
         <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'expiry')">${formatDateSafe(p.expiry)}</td>
-        ${canManageStock ? `<td class="editable-cell" onclick="quickEditProductField('${p.id}', 'cost')">${fmtBRL(p.cost)}</td>` : ''}
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'price')"><strong>${fmtBRL(p.price)}</strong></td>
+        ${canManageStock ? `<td class="editable-cell" onclick="quickEditProductField('${p.id}', 'cost')" style="color:#fbbf24;">${fmtBRL(p.cost)}</td>` : ''}
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'price')"><strong style="color:#34d399;">${fmtBRL(p.price)}</strong></td>
         ${canManageStock ? `<td><span class="badge-tag badge-receita">${margin}%</span></td>` : ''}
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'qty')"><strong>${p.qty}</strong></td>
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'qty')"><span class="badge-tag ${qtyBadgeClass}">${p.qty} un.</span></td>
         <td style="white-space:nowrap;">
           <div style="display:inline-flex; align-items:center; gap:0.3rem;">
             ${canManageStock ? editIconBtn(p.id, 'Editar todos os campos do item') : ''}
@@ -3564,7 +3666,7 @@ function renderFinance() {
   setTxt('finMetricExpenses', fmtBRL(desp));
   setTxt('finMetricNetProfit', fmtBRL(vendas - vendas * 0.55 - desp));
   const tbody = document.getElementById('tableFinEntries');
-  if (tbody) tbody.innerHTML = finEntries.map(f => `<tr><td><strong>${f.cod}</strong></td><td>${f.date}</td><td>${f.desc}</td><td>${f.category}</td><td><span class="badge-tag badge-despesa">${f.type}</span></td><td><strong>${fmtBRL(f.amount)}</strong></td><td>${f.status}</td><td>-</td></tr>`).join('');
+  if (tbody) tbody.innerHTML = finEntries.map(f => `<tr><td><strong>${f.cod}</strong></td><td>${f.date}</td><td>${f.desc}</td><td>${f.category}</td><td><span class="badge-tag ${f.type === 'Receita' ? 'badge-receita' : 'badge-despesa'}">${f.type}</span></td><td><strong>${fmtBRL(f.amount)}</strong></td><td>${f.status}</td><td>-</td></tr>`).join('');
 }
 
 function initCashAndTools() {
