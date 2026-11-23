@@ -1237,6 +1237,35 @@ function detectCategoryFromNuvemData(rawCategory = '', productName = '', volumeT
   return 'Importado';
 }
 
+function isDescriptionNoiseText(txt = '') {
+  const s = String(txt || '').trim();
+  if (!s) return true;
+  if (/<[a-z][\s\S]*>/i.test(s)) return true;
+  if (s.includes(';;;;')) return true;
+  if (s.length > 110) return true;
+  const lower = s.toLowerCase();
+  const noisePhrases = [
+    'a escolha perfeita para',
+    'que desejam transmitir',
+    'que nunca sai de moda',
+    'fragrância marcante',
+    'ideal para ocasiões',
+    'notas de topo',
+    'notas de coração',
+    'notas de fundo',
+    'familia olfativa',
+    'família olfativa'
+  ];
+  return noisePhrases.some(p => lower.includes(p));
+}
+
+function sanitizeVariationValue(rawVar = '') {
+  const v = String(rawVar || '').trim();
+  if (!v) return '';
+  if (v.includes(';') || /<[^>]+>/.test(v) || v.length > 28) return '';
+  return v;
+}
+
 function parseCsvMatrixRfc4180(text) {
   const clean = String(text || '').replace(/^\uFEFF/, '');
   let inQuotes = false;
@@ -1451,14 +1480,18 @@ function parseNuvemshopCsv(csvText) {
     const cols = rows[i];
     if (!cols || cols.every(c => !c)) continue;
 
-    const urlId = idxUrl >= 0 ? (cols[idxUrl] || '') : '';
-    const cellName = idxName >= 0 ? (cols[idxName] || '') : '';
-    const cellCat = idxCat >= 0 ? (cols[idxCat] || '') : '';
-    const varVal = idxVarVal >= 0 ? (cols[idxVarVal] || '') : '';
+    const urlId = idxUrl >= 0 ? String(cols[idxUrl] || '').trim() : '';
+    const rawCellName = idxName >= 0 ? String(cols[idxName] || '').trim() : '';
+    const cellName = isDescriptionNoiseText(rawCellName) ? '' : rawCellName;
+    const rawCellCat = idxCat >= 0 ? String(cols[idxCat] || '').trim() : '';
+    const cellCat = isDescriptionNoiseText(rawCellCat) ? '' : rawCellCat;
+    const varVal = sanitizeVariationValue(idxVarVal >= 0 ? cols[idxVarVal] : '');
+
+    if (!urlId && !cellName && !varVal) continue;
 
     if (urlId && urlId !== lastUrl) {
       lastUrl = urlId;
-      lastName = cellName || lastName;
+      lastName = cellName || '';
       lastCategory = cellCat || '';
     } else {
       if (cellName) lastName = cellName;
@@ -1466,7 +1499,8 @@ function parseNuvemshopCsv(csvText) {
     }
 
     const baseName = (cellName || lastName || '').trim();
-    if (!baseName || baseName.toLowerCase().includes('frete')) continue;
+    if (!baseName || isDescriptionNoiseText(baseName)) continue;
+    if (baseName.toLowerCase().includes('frete')) continue;
 
     const fullName = varVal ? `${baseName} (${varVal})` : baseName;
     const category = detectCategoryFromNuvemData(lastCategory, fullName, varVal);
@@ -1475,19 +1509,23 @@ function parseNuvemshopCsv(csvText) {
     if (price <= 0 && idxPromoPrice >= 0) {
       price = parseMoneyValueSmart(cols[idxPromoPrice]);
     }
+    if (price > 50000) price = 0;
+
     const cost = parseMoneyValueSmart(idxCost >= 0 ? cols[idxCost] : 0);
-    const qtyRaw = idxStock >= 0 ? (cols[idxStock] || '') : '';
-    const qty = qtyRaw === '' ? 0 : Math.max(0, parseInt(parseMoneyValueSmart(qtyRaw), 10) || 0);
-    const sku = idxSku >= 0 ? (cols[idxSku] || '') : '';
+    const qtyRaw = idxStock >= 0 ? String(cols[idxStock] || '').trim() : '';
+    const qtyNum = parseMoneyValueSmart(qtyRaw);
+    const qty = qtyRaw === '' ? 0 : Math.max(0, Math.min(5000, parseInt(qtyNum, 10) || 0));
+    const sku = idxSku >= 0 ? String(cols[idxSku] || '').trim() : '';
+    const cleanSku = sku.length > 40 ? '' : sku;
 
     items.push({
       name: fullName,
       category,
       battery: varVal || '',
       price,
-      cost,
+      cost: cost > 50000 ? 0 : cost,
       qty,
-      imei: sku
+      imei: cleanSku
     });
   }
 
@@ -2540,8 +2578,8 @@ window.quickFilterStockChip = function (category) {
 function initStockModule() {
   ensureStockToolbarActions();
   const overlay = document.getElementById('productModalOverlay');
-  document.getElementById('btnCloseProductModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnCancelProductModal')?.addEventListener('click', () => overlay.classList.remove('active'));
+  document.getElementById('btnCloseProductModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
+  document.getElementById('btnCancelProductModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
 
   document.getElementById('btnDeleteProductInModal')?.addEventListener('click', () => {
     const targetId = document.getElementById('editProdId').value;
@@ -2550,7 +2588,7 @@ function initStockModule() {
     products = products.filter(p => p.id !== targetId);
     saveAll();
     renderAll();
-    overlay.classList.remove('active');
+    overlay?.classList.remove('active');
     showToast('Produto excluído do estoque.');
   });
 
@@ -2578,7 +2616,7 @@ function initStockModule() {
       }
       saveAll();
       renderAll();
-      overlay.classList.remove('active');
+      overlay?.classList.remove('active');
       showToast('Todas as informações do produto foram atualizadas!');
     } else {
       const newProd = {
@@ -2598,7 +2636,7 @@ function initStockModule() {
       pushStockToNuvemshop(newProd);
       saveAll();
       renderAll();
-      overlay.classList.remove('active');
+      overlay?.classList.remove('active');
       showToast('Fragrância cadastrada!');
     }
   });
@@ -2637,14 +2675,14 @@ function renderStock() {
 
   if (canManageStock) {
     const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    setTxt('stockMetricUnits', products.reduce((a, p) => a + p.qty, 0));
-    setTxt('stockMetricCost', fmtBRL(products.reduce((a, p) => a + p.cost * p.qty, 0)));
-    setTxt('stockMetricSale', fmtBRL(products.reduce((a, p) => a + p.price * p.qty, 0)));
-    setTxt('stockMetricLow', products.filter(p => p.qty <= 2).length);
+    setTxt('stockMetricUnits', products.reduce((a, p) => a + (Number(p.qty) || 0), 0));
+    setTxt('stockMetricCost', fmtBRL(products.reduce((a, p) => a + (Number(p.cost) || 0) * (Number(p.qty) || 0), 0)));
+    setTxt('stockMetricSale', fmtBRL(products.reduce((a, p) => a + (Number(p.price) || 0) * (Number(p.qty) || 0), 0)));
+    setTxt('stockMetricLow', products.filter(p => (Number(p.qty) || 0) <= 2).length);
   }
 
   const filtered = products.filter(p =>
-    (p.name.toLowerCase().includes(term) || (p.imei || '').toLowerCase().includes(term) || (p.id || '').toLowerCase().includes(term) || (p.battery || '').toLowerCase().includes(term))
+    (String(p.name || '').toLowerCase().includes(term) || String(p.imei || '').toLowerCase().includes(term) || String(p.id || '').toLowerCase().includes(term) || String(p.battery || '').toLowerCase().includes(term))
     && (cond === 'todos' || p.condition === cond)
     && (avail === 'todos' || (avail === 'disponivel' && p.qty > 0) || (avail === 'esgotado' && p.qty === 0))
   );
@@ -2655,7 +2693,14 @@ function renderStock() {
     return `
       <tr>
         <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'id')">${p.id}</td>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'name')"><strong>${p.name}</strong></td>
+        <td class="editable-cell">
+          <div onclick="quickEditProductField('${p.id}', 'name')"><strong>${p.name}</strong></div>
+          <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn-sm btn-blue" onclick="openEditProductModal('${p.id}')"><i class="ph ph-pencil-simple"></i> Editar Produto</button>
+            <button type="button" class="btn-sm" onclick="quickEditProductField('${p.id}', 'price')">Preço: ${fmtBRL(p.price)}</button>
+            <button type="button" class="btn-sm" onclick="quickEditProductField('${p.id}', 'qty')">Qtd: ${p.qty}</button>
+          </div>
+        </td>
         <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'imei')"><code>${p.imei || '-'}</code></td>
         <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'battery')">
           <span class="badge-tag badge-info">${p.condition}</span> <small style="color:var(--text-muted);">${p.battery || ''}</small>
