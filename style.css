@@ -21,7 +21,7 @@
   --blue: #3b82f6;
 
   --header-h: 64px;
-  --sidebar-w: 268px;
+  --sidebar-w: 284px;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -180,8 +180,10 @@ aside.sidebar,
 aside.sidebar .submenu,
 .sidebar .submenu {
   display: none;
-  padding-left: 10px;
-  margin-bottom: 4px;
+  padding-left: 8px;
+  padding-right: 4px;
+  margin-top: 2px;
+  margin-bottom: 6px;
   width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -190,11 +192,12 @@ aside.sidebar .submenu,
 .nav-dropdown.open .submenu {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 aside.sidebar .submenu-item,
 .sidebar .submenu-item {
-  padding: 8px 8px;
+  padding: 8px 10px;
   font-size: 12.5px;
   width: 100%;
   min-width: 0;
@@ -246,19 +249,18 @@ aside.sidebar .submenu-item,
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  padding: 8px 8px;
-  padding-right: 8px;
-  margin-bottom: 4px;
+  padding: 9px 10px;
+  margin-bottom: 5px;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   background: transparent;
   border: none;
   font-size: 12.5px;
-  line-height: 1.25;
+  line-height: 1.35;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
@@ -271,15 +273,16 @@ aside.sidebar .submenu-item span:not(.badge-tag),
 .sidebar .submenu-item span:not(.badge-tag) {
   flex: 1 1 auto;
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 aside.sidebar .nav-item .badge-tag,
 .sidebar .nav-item .badge-tag {
   flex: 0 0 auto;
   margin-left: auto;
+  padding-left: 8px;
 }
 
 aside.sidebar .nav-item i,
@@ -823,7 +826,7 @@ tr:hover td {
 }
 
 /* =========================================================
-   CORREÇÃO ESPECÍFICA — ITENS E BADGES DA SIDEBAR (ÁREA CIRCULADA)
+   RESPIRO E ESPAÇAMENTO — COMERCIAL & VENDAS E SUBMENU
    ========================================================= */
 
 aside.sidebar .sidebar-nav .nav-item,
@@ -831,73 +834,15 @@ aside.sidebar .sidebar-nav .submenu-item {
   display: flex !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  gap: 8px !important;
-  width: 100% !important;
-  min-width: 0 !important;
-  max-width: 100% !important;
-  padding: 8px 10px !important;
-  box-sizing: border-box !important;
-  overflow: hidden !important;
-}
-
-aside.sidebar .sidebar-nav .submenu {
-  padding-left: 6px !important;
-  padding-right: 0 !important;
-  width: 100% !important;
-  min-width: 0 !important;
-  box-sizing: border-box !important;
-}
-
-aside.sidebar .sidebar-nav .submenu-item {
-  padding: 7px 6px !important;
-  gap: 6px !important;
-}
-
-aside.sidebar .sidebar-nav .nav-item > span:not(.badge-tag),
-aside.sidebar .sidebar-nav .submenu-item > span:not(.badge-tag) {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  font-size: 12.5px !important;
-  line-height: 1.25 !important;
-  white-space: normal !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-  word-break: break-word !important;
-}
-
-aside.sidebar .sidebar-nav .nav-item > .badge-tag,
-aside.sidebar .sidebar-nav .submenu-item > .badge-tag {
-  flex: 0 0 auto !important;
-  margin-left: auto !important;
-  flex-shrink: 0 !important;
-}
-
-aside.sidebar .sidebar-nav .nav-item > i,
-aside.sidebar .sidebar-nav .submenu-item > i {
-  flex: 0 0 auto !important;
-  flex-shrink: 0 !important;
-}
-/* =========================================================
-   RESPIRO E ESPAÇAMENTO — COMERCIAL & VENDAS E SUBMENU
-   ========================================================= */
-
-:root {
-  --sidebar-w: 284px;
-}
-
-aside.sidebar .sidebar-nav .nav-item,
-aside.sidebar .sidebar-nav .submenu-item {
-  display: flex !important;
-  align-items: center !important;
   gap: 10px !important;
   width: 100% !important;
   min-width: 0 !important;
+  max-width: 100% !important;
   padding: 9px 10px !important;
   margin-bottom: 5px !important;
   box-sizing: border-box !important;
 }
 
-/* Garante respiro entre o texto de "Comercial & Vendas" e a seta */
 aside.sidebar .sidebar-nav .nav-item.dropdown-toggle {
   padding-right: 12px !important;
 }
@@ -908,18 +853,24 @@ aside.sidebar .sidebar-nav .nav-item.dropdown-toggle > i:last-child {
   flex-shrink: 0 !important;
 }
 
-/* Submenu mais alinhado e com espaço interno para não espremer os textos */
 aside.sidebar .sidebar-nav .submenu {
   padding-left: 8px !important;
   padding-right: 4px !important;
   margin-top: 2px !important;
   margin-bottom: 6px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.nav-dropdown.open .submenu {
   gap: 2px !important;
 }
 
 aside.sidebar .sidebar-nav .submenu-item {
   padding: 8px 10px !important;
   gap: 8px !important;
+  overflow: hidden !important;
 }
 
 aside.sidebar .sidebar-nav .nav-item > span:not(.badge-tag),
@@ -931,10 +882,19 @@ aside.sidebar .sidebar-nav .submenu-item > span:not(.badge-tag) {
   white-space: normal !important;
   overflow: visible !important;
   text-overflow: clip !important;
+  word-break: break-word !important;
 }
 
-aside.sidebar .sidebar-nav .nav-item > .badge-tag {
+aside.sidebar .sidebar-nav .nav-item > .badge-tag,
+aside.sidebar .sidebar-nav .submenu-item > .badge-tag {
   flex: 0 0 auto !important;
   margin-left: auto !important;
   padding-left: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+aside.sidebar .sidebar-nav .nav-item > i,
+aside.sidebar .sidebar-nav .submenu-item > i {
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
 }
