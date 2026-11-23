@@ -21,7 +21,7 @@
   --blue: #3b82f6;
 
   --header-h: 64px;
-  --sidebar-w: 284px;
+  --sidebar-w: 268px;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -71,6 +71,7 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
 /* =========================================================
@@ -92,6 +93,7 @@ header.topbar {
   justify-content: space-between;
   padding: 0 18px;
   gap: 12px;
+  min-width: 0;
   transition: left var(--transition), height var(--transition);
 }
 
@@ -102,6 +104,8 @@ aside.sidebar,
   left: 0;
   bottom: 0;
   width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  max-width: var(--sidebar-w);
   background-color: var(--bg-surface);
   border-right: 1px solid var(--border-color);
   z-index: 60;
@@ -225,12 +229,14 @@ main.main-content,
   overflow-y: auto;
   overflow-x: hidden;
   padding: 20px;
+  min-width: 0;
   -webkit-overflow-scrolling: touch;
   transition: left var(--transition), top var(--transition), padding var(--transition);
 }
 
 .content-section {
   display: none;
+  min-width: 0;
 }
 
 .content-section.active {
@@ -317,6 +323,7 @@ aside button.active,
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
+  min-width: 0;
 }
 
 .metric-card,
@@ -328,6 +335,7 @@ aside button.active,
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 16px;
+  min-width: 0;
 }
 
 .metric-card {
@@ -740,6 +748,8 @@ tr:hover td {
     top: 0;
     bottom: 0;
     width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    max-width: var(--sidebar-w);
     transform: translateX(-100%);
     box-shadow: 8px 0 28px rgba(0, 0, 0, 0.65);
     z-index: 1000;
