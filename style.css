@@ -877,3 +877,64 @@ aside.sidebar .sidebar-nav .submenu-item > i {
   flex: 0 0 auto !important;
   flex-shrink: 0 !important;
 }
+/* =========================================================
+   RESPIRO E ESPAÇAMENTO — COMERCIAL & VENDAS E SUBMENU
+   ========================================================= */
+
+:root {
+  --sidebar-w: 284px;
+}
+
+aside.sidebar .sidebar-nav .nav-item,
+aside.sidebar .sidebar-nav .submenu-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 9px 10px !important;
+  margin-bottom: 5px !important;
+  box-sizing: border-box !important;
+}
+
+/* Garante respiro entre o texto de "Comercial & Vendas" e a seta */
+aside.sidebar .sidebar-nav .nav-item.dropdown-toggle {
+  padding-right: 12px !important;
+}
+
+aside.sidebar .sidebar-nav .nav-item.dropdown-toggle > i:last-child {
+  margin-left: auto !important;
+  padding-left: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Submenu mais alinhado e com espaço interno para não espremer os textos */
+aside.sidebar .sidebar-nav .submenu {
+  padding-left: 8px !important;
+  padding-right: 4px !important;
+  margin-top: 2px !important;
+  margin-bottom: 6px !important;
+  gap: 2px !important;
+}
+
+aside.sidebar .sidebar-nav .submenu-item {
+  padding: 8px 10px !important;
+  gap: 8px !important;
+}
+
+aside.sidebar .sidebar-nav .nav-item > span:not(.badge-tag),
+aside.sidebar .sidebar-nav .submenu-item > span:not(.badge-tag) {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  font-size: 12.5px !important;
+  line-height: 1.35 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+aside.sidebar .sidebar-nav .nav-item > .badge-tag {
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  padding-left: 8px !important;
+}
