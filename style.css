@@ -245,10 +245,13 @@ aside.sidebar .submenu-item,
 .menu-item {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   padding: 8px 8px;
+  padding-right: 8px;
   margin-bottom: 4px;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
@@ -262,16 +265,21 @@ aside.sidebar .submenu-item,
   transition: background-color var(--transition), color var(--transition);
 }
 
-aside.sidebar .nav-item span,
-aside.sidebar .submenu-item span,
-.sidebar .nav-item span,
-.sidebar .submenu-item span {
-  flex: 1;
+aside.sidebar .nav-item span:not(.badge-tag),
+aside.sidebar .submenu-item span:not(.badge-tag),
+.sidebar .nav-item span:not(.badge-tag),
+.sidebar .submenu-item span:not(.badge-tag) {
+  flex: 1 1 auto;
   min-width: 0;
-  white-space: normal;
-  line-height: 1.25;
-  overflow: visible;
-  text-overflow: clip;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+aside.sidebar .nav-item .badge-tag,
+.sidebar .nav-item .badge-tag {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 aside.sidebar .nav-item i,
