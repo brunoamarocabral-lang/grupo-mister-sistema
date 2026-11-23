@@ -145,55 +145,52 @@ function showToast(msg) {
 // ============================================================================
 // BOTÃO DE MENU MOBILE / SIDEBAR RESPONSIVA
 // ============================================================================
+function setMobileSidebarOpen(open) {
+  const sidebar = document.getElementById('appSidebar') || document.querySelector('aside, .sidebar, .sidenav, .app-sidebar');
+  const overlay = document.getElementById('mobileSidebarOverlay');
+  if (!sidebar) return;
+
+  if (open && window.innerWidth <= 900) {
+    sidebar.classList.add('open');
+    if (overlay) {
+      overlay.classList.add('active');
+      overlay.style.display = 'block';
+    }
+  } else {
+    sidebar.classList.remove('open');
+    if (overlay) {
+      overlay.classList.remove('active');
+      overlay.style.display = 'none';
+    }
+  }
+}
+
 function initMobileSidebarToggle() {
-  if (document.getElementById('gmMobileMenuBtn')) return;
+  const btnOpen = document.getElementById('btnMobileMenuToggle');
+  const btnClose = document.getElementById('btnCloseMobileSidebar');
+  const overlay = document.getElementById('mobileSidebarOverlay');
 
-  const btn = document.createElement('button');
-  btn.id = 'gmMobileMenuBtn';
-  btn.type = 'button';
-  btn.innerHTML = '<i class="ph ph-list"></i> <span>Menu</span>';
-  btn.style.cssText = `
-    display: none;
-    position: fixed;
-    top: 11px;
-    left: 12px;
-    z-index: 65;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 11px;
-    border-radius: 8px;
-    border: 1px solid #252a34;
-    background: #181c24;
-    color: #f3f4f6;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-  `;
-
-  const syncVisibility = () => {
-    btn.style.display = window.innerWidth <= 900 ? 'inline-flex' : 'none';
-    if (window.innerWidth > 900) {
-      document.querySelectorAll('aside, .sidebar, .sidenav, .app-sidebar').forEach(sb => sb.classList.remove('open'));
-    }
-  };
-
-  btn.addEventListener('click', (e) => {
+  btnOpen?.addEventListener('click', (e) => {
     e.stopPropagation();
-    const sidebar = document.querySelector('aside, .sidebar, .sidenav, .app-sidebar');
-    if (sidebar) sidebar.classList.toggle('open');
+    const sidebar = document.getElementById('appSidebar') || document.querySelector('aside, .sidebar, .sidenav, .app-sidebar');
+    const isOpen = sidebar?.classList.contains('open');
+    setMobileSidebarOpen(!isOpen);
   });
 
-  document.addEventListener('click', (e) => {
-    if (window.innerWidth > 900) return;
-    const sidebar = document.querySelector('aside, .sidebar, .sidenav, .app-sidebar');
-    if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !btn.contains(e.target)) {
-      sidebar.classList.remove('open');
+  btnClose?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setMobileSidebarOpen(false);
+  });
+
+  overlay?.addEventListener('click', () => {
+    setMobileSidebarOpen(false);
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 900) {
+      setMobileSidebarOpen(false);
     }
   });
-
-  window.addEventListener('resize', syncVisibility);
-  syncVisibility();
-  document.body.appendChild(btn);
 }
 
 // ============================================================================
@@ -332,7 +329,7 @@ window.dismissShippingBanner = function () {
 };
 
 // ============================================================================
-// 3. AUTENTICAÇÃO (COM 2FA POR E-MAIL + OLHINHO DE SENHA) & PERMISSÕES
+// 3. AUTENTICAÇÃO (2FA POR E-MAIL + RECUPERAÇÃO DE SENHA + OLHINHO DE SENHA)
 // ============================================================================
 function getAllowedPermissionsForAccount(account) {
   if (!account) return ['dashboard'];
@@ -358,9 +355,23 @@ function setLoginOverlayVisible(visible) {
   }
 }
 
+function showLoginStep(step) {
+  const formLogin = document.getElementById('formLoginSystem');
+  const form2fa = document.getElementById('formVerifyTwoFactor');
+  const forgotBox = document.getElementById('forgotPasswordBox');
+  const confirmResetForm = document.getElementById('formConfirmPasswordReset');
+
+  if (formLogin) formLogin.style.display = step === 'login' ? 'block' : 'none';
+  if (form2fa) form2fa.style.display = step === '2fa' ? 'block' : 'none';
+  if (forgotBox) forgotBox.style.display = step === 'forgot' ? 'block' : 'none';
+
+  if (step === 'forgot' && confirmResetForm) {
+    confirmResetForm.style.display = 'none';
+  }
+}
+
 function injectPasswordEyeAnd2faBox() {
   const passInput = document.getElementById('loginPasswordInput');
-  const form = document.getElementById('formLoginSystem');
   if (passInput && !document.getElementById('gmTogglePasswordEye')) {
     const wrap = document.createElement('div');
     wrap.style.cssText = 'position:relative; display:flex; align-items:center; width:100%;';
@@ -386,46 +397,140 @@ function injectPasswordEyeAnd2faBox() {
     wrap.appendChild(eyeBtn);
   }
 
-  if (form && !document.getElementById('gmTwoFactorBox')) {
-    const box = document.createElement('div');
-    box.id = 'gmTwoFactorBox';
-    box.style.cssText = `
-      display:none; margin-top:14px; padding:14px; border-radius:10px;
-      background:#181c24; border:1px solid #f59e0b;
-    `;
-    box.innerHTML = `
-      <div style="font-size:13px; font-weight:600; color:#fbbf24; margin-bottom:6px;">Verificação em Duas Etapas (2FA)</div>
-      <div id="gmTwoFactorInfo" style="font-size:12px; color:#d1d5db; margin-bottom:10px;">Digite o código de 6 dígitos enviado para seu e-mail.</div>
-      <div style="display:flex; gap:8px;">
-        <input type="text" id="gmTwoFactorCodeInput" maxlength="6" placeholder="000000" style="flex:1; letter-spacing:4px; text-align:center; font-weight:700;" />
-        <button type="button" id="gmBtnVerify2fa" class="btn-primary">Confirmar</button>
-      </div>
-    `;
-    form.parentNode.appendChild(box);
+  const form2fa = document.getElementById('formVerifyTwoFactor');
+  const code2faInput = document.getElementById('twoFactorCodeInput');
+  form2fa?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = (code2faInput?.value || '').trim();
+    const btnConfirm = document.getElementById('btnConfirmTwoFactor');
+    if (!pendingTwoFactorToken || code.length < 4) {
+      return showToast('Digite o código enviado para o seu e-mail.');
+    }
+    if (btnConfirm) {
+      btnConfirm.disabled = true;
+      btnConfirm.innerHTML = '<i class="ph ph-spinner"></i> Verificando código...';
+    }
+    try {
+      const res = await fetch(`${BACKEND_API_URL}/api/auth/verify-2fa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken: pendingTwoFactorToken, code })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.token || !data.user) {
+        return showToast(data.error || 'Código 2FA inválido ou expirado.');
+      }
+      pendingTwoFactorToken = null;
+      showLoginStep('login');
+      await completeLoginSession(data.token, data.user);
+    } catch (_) {
+      showToast('Erro ao validar código 2FA.');
+    } finally {
+      if (btnConfirm) {
+        btnConfirm.disabled = false;
+        btnConfirm.innerHTML = '<i class="ph ph-check-circle"></i> Confirmar Código e Entrar';
+      }
+    }
+  });
 
-    document.getElementById('gmBtnVerify2fa')?.addEventListener('click', async () => {
-      const code = (document.getElementById('gmTwoFactorCodeInput')?.value || '').trim();
-      if (!pendingTwoFactorToken || code.length < 4) {
-        return showToast('Digite o código enviado para o seu e-mail.');
+  document.getElementById('btnBackToLoginFrom2fa')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    pendingTwoFactorToken = null;
+    if (code2faInput) code2faInput.value = '';
+    showLoginStep('login');
+  });
+
+  document.getElementById('btnOpenForgotPassword')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const currentUserVal = document.getElementById('loginUsernameInput')?.value.trim() || '';
+    const forgotInp = document.getElementById('forgotUserOrEmailInput');
+    if (forgotInp && currentUserVal) forgotInp.value = currentUserVal;
+    showLoginStep('forgot');
+  });
+
+  document.getElementById('btnBackToLoginFromForgot')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    showLoginStep('login');
+  });
+
+  document.getElementById('formRequestPasswordReset')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const identifier = (document.getElementById('forgotUserOrEmailInput')?.value || '').trim();
+    const btnSend = document.getElementById('btnSendResetCode');
+    if (!identifier) return showToast('Informe seu usuário ou e-mail.');
+
+    if (btnSend) {
+      btnSend.disabled = true;
+      btnSend.innerHTML = '<i class="ph ph-spinner"></i> Enviando código...';
+    }
+    try {
+      const res = await fetch(`${BACKEND_API_URL}/api/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, username: identifier, email: identifier })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return showToast(data.error || 'Não foi possível enviar o código de recuperação.');
       }
-      try {
-        const res = await fetch(`${BACKEND_API_URL}/api/auth/verify-2fa`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tempToken: pendingTwoFactorToken, code })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.token || !data.user) {
-          return showToast(data.error || 'Código 2FA inválido ou expirado.');
-        }
-        pendingTwoFactorToken = null;
-        box.style.display = 'none';
-        await completeLoginSession(data.token, data.user);
-      } catch (_) {
-        showToast('Erro ao validar código 2FA.');
+      const confirmForm = document.getElementById('formConfirmPasswordReset');
+      const hintEl = document.getElementById('resetCodeSentHint');
+      if (confirmForm) confirmForm.style.display = 'block';
+      if (hintEl) hintEl.textContent = data.message || 'Código enviado para o e-mail cadastrado. Preencha abaixo para redefinir.';
+      document.getElementById('resetCodeInput')?.focus();
+      showToast('Código de recuperação enviado!');
+    } catch (_) {
+      showToast('Erro de conexão com o servidor.');
+    } finally {
+      if (btnSend) {
+        btnSend.disabled = false;
+        btnSend.innerHTML = '<i class="ph ph-paper-plane-tilt"></i> Enviar Código por E-mail';
       }
-    });
-  }
+    }
+  });
+
+  document.getElementById('formConfirmPasswordReset')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const identifier = (document.getElementById('forgotUserOrEmailInput')?.value || '').trim();
+    const code = (document.getElementById('resetCodeInput')?.value || '').trim();
+    const newPassword = document.getElementById('resetNewPasswordInput')?.value || '';
+    const btnReset = document.getElementById('btnConfirmPasswordReset');
+
+    if (newPassword.length < 4) {
+      return showToast('A nova senha deve ter pelo menos 4 caracteres.');
+    }
+    if (btnReset) {
+      btnReset.disabled = true;
+      btnReset.innerHTML = '<i class="ph ph-spinner"></i> Redefinindo...';
+    }
+    try {
+      const res = await fetch(`${BACKEND_API_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, username: identifier, email: identifier, code, newPassword })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return showToast(data.error || 'Código inválido ou expirado.');
+      }
+      e.target.reset();
+      document.getElementById('formRequestPasswordReset')?.reset();
+      showLoginStep('login');
+      const loginUserInp = document.getElementById('loginUsernameInput');
+      if (loginUserInp && identifier && !identifier.includes('@')) {
+        loginUserInp.value = identifier;
+      }
+      document.getElementById('loginPasswordInput')?.focus();
+      showToast('Senha redefinida com sucesso! Faça login com a nova senha.');
+    } catch (_) {
+      showToast('Erro de conexão com o servidor.');
+    } finally {
+      if (btnReset) {
+        btnReset.disabled = false;
+        btnReset.innerHTML = '<i class="ph ph-lock-key-open"></i> Redefinir Senha';
+      }
+    }
+  });
 }
 
 async function completeLoginSession(token, user) {
@@ -436,11 +541,12 @@ async function completeLoginSession(token, user) {
 
   const uInp = document.getElementById('loginUsernameInput');
   const pInp = document.getElementById('loginPasswordInput');
-  const cInp = document.getElementById('gmTwoFactorCodeInput');
+  const cInp = document.getElementById('twoFactorCodeInput');
   if (uInp) uInp.value = '';
   if (pInp) pInp.value = '';
   if (cInp) cInp.value = '';
 
+  showLoginStep('login');
   setLoginOverlayVisible(false);
   applyAccountVisibility(activeAccount);
   await CloudSyncEngine.pullState(false);
@@ -456,14 +562,16 @@ function logoutCurrentSession(showMsg = true) {
   serverUsersList = [];
   localStorage.removeItem(STORAGE_KEYS.SESSION_USER);
   localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
-
-  const box = document.getElementById('gmTwoFactorBox');
-  if (box) box.style.display = 'none';
+  setMobileSidebarOpen(false);
 
   const userInput = document.getElementById('loginUsernameInput');
   const passInput = document.getElementById('loginPasswordInput');
+  const codeInput = document.getElementById('twoFactorCodeInput');
   if (userInput) userInput.value = '';
   if (passInput) passInput.value = '';
+  if (codeInput) codeInput.value = '';
+
+  showLoginStep('login');
   setLoginOverlayVisible(true);
   userInput?.focus();
   if (showMsg) showToast('Logout realizado com sucesso.');
@@ -487,6 +595,7 @@ async function fetchServerUsers() {
 
 function initLoginByCredentials() {
   injectPasswordEyeAnd2faBox();
+  showLoginStep('login');
 
   const form = document.getElementById('formLoginSystem');
   const btnSwitch = document.getElementById('btnSwitchUser');
@@ -526,11 +635,14 @@ function initLoginByCredentials() {
         showToast(data.error || 'Usuário ou senha inválidos.');
       } else if (data.requires2FA && data.tempToken) {
         pendingTwoFactorToken = data.tempToken;
-        const box = document.getElementById('gmTwoFactorBox');
-        const info = document.getElementById('gmTwoFactorInfo');
-        if (box) box.style.display = 'block';
-        if (info) info.textContent = data.message || `Código enviado para ${data.maskedEmail || 'seu e-mail'}.`;
-        document.getElementById('gmTwoFactorCodeInput')?.focus();
+        const hint = document.getElementById('twoFactorDestinationHint');
+        const codeInp = document.getElementById('twoFactorCodeInput');
+        if (hint) {
+          hint.textContent = data.message || `Enviamos um código de 6 dígitos para ${data.maskedEmail || 'o seu e-mail cadastrado'}.`;
+        }
+        if (codeInp) codeInp.value = '';
+        showLoginStep('2fa');
+        codeInp?.focus();
         showToast('Código 2FA enviado para seu e-mail!');
       } else if (data.token && data.user) {
         await completeLoginSession(data.token, data.user);
@@ -629,7 +741,7 @@ function initAdminAccountCreation() {
     const nameInput = document.getElementById('accDisplayNameInput');
     const emailGroup = document.createElement('div');
     emailGroup.className = 'form-group';
-    emailGroup.innerHTML = `<label>E-mail do Usuário (para 2FA e recuperação):</label><input type="email" id="accEmailInput" placeholder="usuario@gmail.com" />`;
+    emailGroup.innerHTML = `<label for="accEmailInput">E-mail do Usuário (para 2FA e recuperação):</label><input type="email" id="accEmailInput" placeholder="usuario@gmail.com" />`;
     if (nameInput?.parentElement) {
       nameInput.parentElement.insertAdjacentElement('afterend', emailGroup);
     }
@@ -810,9 +922,7 @@ window.navigateToSection = function (targetId, labelText) {
   const pageTitle = document.getElementById('pageTitle');
   if (pageTitle && labelText) pageTitle.textContent = labelText;
 
-  if (window.innerWidth <= 900) {
-    document.querySelectorAll('aside, .sidebar, .sidenav, .app-sidebar').forEach(sb => sb.classList.remove('open'));
-  }
+  setMobileSidebarOpen(false);
 
   if (targetId === 'estoque') renderStock();
 };
