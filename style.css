@@ -109,22 +109,24 @@ aside.sidebar,
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 12px 10px;
+  padding: 12px 8px;
   transition: transform var(--transition), width var(--transition);
 }
 
 .sidebar-brand {
-  padding: 4px 6px 12px;
+  padding: 4px 4px 12px;
   border-bottom: 1px solid var(--border-color);
   margin-bottom: 10px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
 }
 
 .sidebar-brand-logo {
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   object-fit: contain;
   border-radius: 6px;
   flex-shrink: 0;
@@ -138,19 +140,19 @@ aside.sidebar,
 
 .sidebar-brand strong {
   display: block;
-  font-size: 0.92rem;
-  letter-spacing: 0.04em;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
   white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .sidebar-brand small {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
+  line-height: 1.25;
   color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -178,7 +180,7 @@ aside.sidebar,
 aside.sidebar .submenu,
 .sidebar .submenu {
   display: none;
-  padding-left: 8px;
+  padding-left: 10px;
   margin-bottom: 4px;
   width: 100%;
   min-width: 0;
@@ -253,6 +255,7 @@ aside.sidebar .submenu-item,
   background: transparent;
   border: none;
   font-size: 12.5px;
+  line-height: 1.25;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
@@ -271,8 +274,8 @@ aside.sidebar .submenu-item span,
   text-overflow: clip;
 }
 
-.nav-item i,
-.submenu-item i,
+aside.sidebar .nav-item i,
+aside.sidebar .submenu-item i,
 .nav-item .badge-tag {
   flex-shrink: 0;
 }
@@ -426,6 +429,7 @@ button,
 .btn-sm {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   border-radius: var(--radius-sm);
   padding: 8px 14px;
@@ -492,6 +496,33 @@ button.danger:hover {
   line-height: 1;
 }
 
+/* =========================================================
+   ALINHAMENTO DO PDV E BARRAS DE FILTRO
+   ========================================================= */
+
+#pdv .card-box > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#pdv .card-box > div:first-child > div:first-child {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  min-width: 240px;
+}
+
+#quickStockSearch,
+#quickStockCondition,
+#btnTogglePdvTools {
+  min-height: 38px;
+}
+
 /* Dropdown de ferramentas do PDV */
 .dropdown-menu {
   display: none;
@@ -527,7 +558,7 @@ button.danger:hover {
   background: var(--bg-hover);
 }
 
-/* Tabelas */
+/* Tabelas e alinhamento de células */
 .table-wrapper,
 .table-responsive {
   width: 100%;
@@ -545,14 +576,18 @@ table {
 }
 
 th,
-td {
+td,
+.data-table th,
+.data-table td {
   padding: 11px 14px;
   text-align: left;
+  vertical-align: middle;
   border-bottom: 1px solid var(--border-color);
   white-space: nowrap;
 }
 
-th {
+th,
+.data-table th {
   background-color: var(--bg-surface-2);
   color: var(--text-secondary);
   font-size: 12px;
@@ -561,6 +596,13 @@ th {
   position: sticky;
   top: 0;
   z-index: 5;
+}
+
+.data-table td button,
+.data-table td .btn,
+.data-table td .btn-sm {
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 tr:hover td {
@@ -746,13 +788,27 @@ tr:hover td {
     grid-template-columns: 1fr !important;
   }
 
+  #pdv .card-box > div:first-child,
+  #pdv .card-box > div:first-child > div:first-child {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #quickStockCondition,
+  #btnTogglePdvTools {
+    max-width: none !important;
+    width: 100%;
+  }
+
   .modal-container {
     max-height: 95vh;
     border-radius: var(--radius-md);
   }
 
   th,
-  td {
+  td,
+  .data-table th,
+  .data-table td {
     padding: 9px 10px;
     font-size: 12.5px;
   }
