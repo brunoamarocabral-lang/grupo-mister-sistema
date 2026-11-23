@@ -522,4 +522,358 @@ button.danger:hover {
   flex-wrap: wrap;
   gap: 8px;
   flex: 1;
-  min-width:
+  min-width: 240px;
+}
+
+#quickStockSearch,
+#quickStockCondition,
+#btnTogglePdvTools {
+  min-height: 38px;
+}
+
+/* Dropdown de ferramentas do PDV */
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 200px;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  z-index: 80;
+  flex-direction: column;
+  padding: 6px;
+}
+
+.dropdown-menu.open {
+  display: flex;
+}
+
+.dropdown-menu a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 12.5px;
+  border-radius: var(--radius-sm);
+}
+
+.dropdown-menu a:hover {
+  background: var(--bg-hover);
+}
+
+/* Tabelas e alinhamento de células */
+.table-wrapper,
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface);
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+th,
+td,
+.data-table th,
+.data-table td {
+  padding: 11px 14px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+th,
+.data-table th {
+  background-color: var(--bg-surface-2);
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.data-table td button,
+.data-table td .btn,
+.data-table td .btn-sm {
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+tr:hover td {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* =========================================================
+   MODAIS E NOTIFICAÇÕES
+   ========================================================= */
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal-container {
+  width: 100%;
+  max-width: 720px;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+}
+
+.modal-container.modal-sm {
+  max-width: 440px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.modal-body {
+  padding: 16px 18px;
+}
+
+.modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border-color);
+}
+
+.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  z-index: 6000;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* =========================================================
+   CONTROLE DO MENU MOBILE NO DESKTOP E EM TELAS MENORES
+   ========================================================= */
+
+@media (min-width: 901px) {
+  #btnMobileMenuToggle,
+  #btnCloseMobileSidebar,
+  #mobileSidebarOverlay {
+    display: none !important;
+  }
+}
+
+@media (max-width: 900px) {
+  :root {
+    --header-h: 58px;
+    --sidebar-w: 256px;
+  }
+
+  .topbar,
+  header.topbar {
+    left: 0;
+  }
+
+  #btnMobileMenuToggle {
+    display: inline-flex;
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  aside.sidebar,
+  .sidebar {
+    top: 0;
+    bottom: 0;
+    width: var(--sidebar-w);
+    transform: translateX(-100%);
+    box-shadow: 8px 0 28px rgba(0, 0, 0, 0.65);
+    z-index: 1000;
+  }
+
+  aside.sidebar.open,
+  aside.sidebar.active,
+  aside.sidebar.show,
+  .sidebar.open,
+  .sidebar.active,
+  .sidebar.show {
+    transform: translateX(0);
+  }
+
+  #btnCloseMobileSidebar {
+    display: inline-flex !important;
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  .mobile-sidebar-overlay.active {
+    display: block !important;
+  }
+
+  main.main-content,
+  .main-content {
+    left: 0;
+    padding: 14px;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --header-h: 56px;
+  }
+
+  .topbar,
+  header.topbar {
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .topbar h1 {
+    font-size: 1rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+  }
+
+  main.main-content,
+  .main-content {
+    padding: 10px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #pdv .card-box > div:first-child,
+  #pdv .card-box > div:first-child > div:first-child {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #quickStockCondition,
+  #btnTogglePdvTools {
+    max-width: none !important;
+    width: 100%;
+  }
+
+  .modal-container {
+    max-height: 95vh;
+    border-radius: var(--radius-md);
+  }
+
+  th,
+  td,
+  .data-table th,
+  .data-table td {
+    padding: 9px 10px;
+    font-size: 12.5px;
+  }
+}
+
+/* =========================================================
+   CORREÇÃO ESPECÍFICA — ITENS E BADGES DA SIDEBAR (ÁREA CIRCULADA)
+   ========================================================= */
+
+aside.sidebar .sidebar-nav .nav-item,
+aside.sidebar .sidebar-nav .submenu-item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding: 8px 10px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+aside.sidebar .sidebar-nav .submenu {
+  padding-left: 6px !important;
+  padding-right: 0 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+aside.sidebar .sidebar-nav .submenu-item {
+  padding: 7px 6px !important;
+  gap: 6px !important;
+}
+
+aside.sidebar .sidebar-nav .nav-item > span:not(.badge-tag),
+aside.sidebar .sidebar-nav .submenu-item > span:not(.badge-tag) {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  font-size: 12.5px !important;
+  line-height: 1.25 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  word-break: break-word !important;
+}
+
+aside.sidebar .sidebar-nav .nav-item > .badge-tag,
+aside.sidebar .sidebar-nav .submenu-item > .badge-tag {
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+}
+
+aside.sidebar .sidebar-nav .nav-item > i,
+aside.sidebar .sidebar-nav .submenu-item > i {
+  flex: 0 0 auto !important;
+  flex-shrink: 0 !important;
+}
