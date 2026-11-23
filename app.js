@@ -1207,6 +1207,70 @@ function extractVolumeAndExpiryFromText(rawText = '') {
   return { battery, expiry };
 }
 
+function parseMoneyValueSmart(rawVal) {
+  if (rawVal === null || rawVal === undefined) return 0;
+  let s = String(rawVal).replace(/R\$/gi, '').trim();
+  if (!s) return 0;
+  if (s.includes(',') && s.includes('.')) {
+    s = s.replace(/,/g, '');
+  } else if (s.includes(',')) {
+    s = s.replace(',', '.');
+  }
+  const num = parseFloat(s);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function detectCategoryFromNuvemData(rawCategory = '', productName = '', volumeText = '') {
+  const c = String(rawCategory || '').toLowerCase();
+  const n = String(productName || '').toLowerCase();
+  const v = String(volumeText || '').toLowerCase();
+
+  if (c.includes('decant') || n.includes('decant') || /\b(2ml|5ml|10ml)\b/.test(v)) {
+    return 'Decant';
+  }
+  if (c.includes('nicho') || n.includes('nicho')) {
+    return 'Nicho';
+  }
+  if (c.includes('arabe') || c.includes('árabe') || n.includes('arabe') || n.includes('árabe')) {
+    return 'Árabe';
+  }
+  return 'Importado';
+}
+
+function splitCsvLineSmart(line, delimiter = ';') {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === delimiter && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+async function readCsvFileWithEncoding(file) {
+  const buffer = await file.arrayBuffer();
+  try {
+    return new TextDecoder('windows-1252').decode(buffer);
+  } catch (_) {
+    return new TextDecoder('utf-8').decode(buffer);
+  }
+}
+
 function initNuvemshopImportModule() {
   const overlay = document.getElementById('nuvemImportModalOverlay');
   const fileInput = document.getElementById('nuvemImportFileInput');
@@ -1233,7 +1297,7 @@ function initNuvemshopImportModule() {
     if (!file) return;
 
     if (file.name.toLowerCase().endsWith('.csv')) {
-      const text = await file.text();
+      const text = await readCsvFileWithEncoding(file);
       parsedNuvemItems = parseNuvemshopCsv(text);
     } else if (file.name.toLowerCase().endsWith('.pdf')) {
       parsedNuvemItems = await parseNuvemshopPdf(file);
@@ -1246,11 +1310,11 @@ function initNuvemshopImportModule() {
     const countLabel = document.getElementById('nuvemImportCountLabel');
 
     if (previewBox) previewBox.style.display = 'block';
-    if (countLabel) countLabel.textContent = `${parsedNuvemItems.length} item(ns) identificado(s)`;
+    if (countLabel) countLabel.textContent = `${parsedNuvemItems.length} item(ns) identificado(s) automaticamente`;
     if (btnConfirm) btnConfirm.disabled = parsedNuvemItems.length === 0;
 
     if (previewTbody) {
-      previewTbody.innerHTML = parsedNuvemItems.slice(0, 50).map(item => {
+      previewTbody.innerHTML = parsedNuvemItems.slice(0, 60).map(item => {
         const meta = extractVolumeAndExpiryFromText(`${item.name} ${item.imei || ''} ${item.expiry || ''}`);
         const volLabel = item.battery || meta.battery || '-';
         return `
@@ -1259,6 +1323,7 @@ function initNuvemshopImportModule() {
               <strong>${item.name}</strong>
               <div style="font-size:0.74rem; color:var(--text-muted);">Vol/Conc: ${volLabel}${meta.expiry ? ` • Val: ${meta.expiry}` : ''}</div>
             </td>
+            <td><span class="badge-tag badge-info">${item.category || 'Importado'}</span></td>
             <td><code>${item.imei || '-'}</code></td>
             <td>${fmtBRL(item.price)}</td>
             <td>${item.qty} un.</td>
@@ -1270,11 +1335,11 @@ function initNuvemshopImportModule() {
 
   btnConfirm?.addEventListener('click', () => {
     if (parsedNuvemItems.length === 0) return;
-    const defaultCat = document.getElementById('nuvemImportDefaultCat')?.value || 'Importado';
 
     parsedNuvemItems.forEach(item => {
       const meta = extractVolumeAndExpiryFromText(`${item.name} ${item.imei || ''} ${item.expiry || ''}`);
-      const isDecant = item.name.toLowerCase().includes('decant') || /\b(5ml|10ml)\b/i.test(item.name);
+      const category = item.category || detectCategoryFromNuvemData('', item.name, item.battery || meta.battery);
+      const isDecant = category === 'Decant';
       const detectedBattery = item.battery || meta.battery || (isDecant ? 'Decant Vidro' : 'Frasco');
       const detectedExpiry = item.expiry || meta.expiry || '';
 
@@ -1282,7 +1347,10 @@ function initNuvemshopImportModule() {
       if (existing) {
         existing.qty = item.qty;
         existing.price = item.price || existing.price;
-        if (item.cost !== undefined && item.cost !== null) existing.cost = item.cost;
+        if (category) existing.condition = category;
+        if (item.cost !== undefined && item.cost !== null && Number(item.cost) > 0) {
+          existing.cost = item.cost;
+        }
         if (detectedBattery && (!existing.battery || existing.battery === 'Frasco' || existing.battery === 'Decant')) {
           existing.battery = detectedBattery;
         }
@@ -1291,11 +1359,11 @@ function initNuvemshopImportModule() {
         }
       } else {
         products.unshift({
-          id: 'PRD-' + String(products.length + 1).padStart(2, '0'),
+          id: 'PRD-' + String(products.length + 1).padStart(3, '0'),
           name: item.name,
           imei: item.imei || ('NUV-' + Math.floor(1000 + Math.random() * 9000)),
           expiry: detectedExpiry,
-          condition: isDecant ? 'Decant' : defaultCat,
+          condition: category,
           battery: detectedBattery,
           cost: item.cost || 0,
           price: item.price || 0,
@@ -1309,38 +1377,80 @@ function initNuvemshopImportModule() {
     saveAll();
     renderAll();
     overlay?.classList.remove('active');
-    showToast(`${parsedNuvemItems.length} produto(s) importados da Nuvemshop!`);
+    showToast(`${parsedNuvemItems.length} produto(s) importados com categorias automáticas!`);
   });
 }
 
 function parseNuvemshopCsv(csvText) {
-  const lines = csvText.split(/\r?\n/).filter(l => l.trim().length > 0);
+  const lines = String(csvText || '').split(/\r?\n/).filter(l => l.trim().length > 0);
   if (lines.length < 2) return [];
+
   const sep = lines[0].includes(';') ? ';' : ',';
-  const headers = lines[0].split(sep).map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+  const rawHeaders = splitCsvLineSmart(lines[0], sep);
+  const headers = rawHeaders.map(h => h.toLowerCase());
 
-  const idxName = headers.findIndex(h => h.includes('nome') || h.includes('name') || h.includes('produto'));
-  const idxPrice = headers.findIndex(h => h === 'preço' || h === 'preco' || h.includes('preço') || h.includes('price'));
-  const idxCost = headers.findIndex(h => h.includes('custo') || h.includes('cost'));
-  const idxStock = headers.findIndex(h => h.includes('estoque') || h.includes('stock') || h.includes('quantidade'));
-  const idxSku = headers.findIndex(h => h.includes('sku') || h.includes('código') || h.includes('codigo'));
+  const findCol = (candidates) => {
+    for (const cand of candidates) {
+      const idx = headers.indexOf(cand.toLowerCase());
+      if (idx >= 0) return idx;
+    }
+    return headers.findIndex(h => candidates.some(cand => h.includes(cand.toLowerCase())));
+  };
 
+  const idxUrl = findCol(['identificador url', 'handle', 'url']);
+  const idxName = findCol(['nome', 'name', 'produto']);
+  const idxCat = findCol(['categorias', 'categoria', 'category']);
+  const idxVarVal = findCol(['valor da variação 1', 'variacao 1', 'variação 1', 'valor da variacao 1']);
+  const idxPrice = findCol(['preço', 'preco', 'price']);
+  const idxCost = findCol(['custo', 'cost']);
+  const idxStock = findCol(['estoque', 'stock', 'quantidade']);
+  const idxSku = findCol(['sku', 'código', 'codigo']);
+
+  let lastUrl = '';
+  let lastName = '';
+  let lastCategory = '';
   const items = [];
+
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(sep).map(c => c.replace(/^"|"$/g, '').trim());
-    const name = idxName >= 0 ? cols[idxName] : cols[0];
-    if (!name) continue;
-    const rawPrice = idxPrice >= 0 ? cols[idxPrice] : '0';
-    const rawCost = idxCost >= 0 ? cols[idxCost] : '0';
-    const rawQty = idxStock >= 0 ? cols[idxStock] : '0';
-    const sku = idxSku >= 0 ? cols[idxSku] : '';
+    const cols = splitCsvLineSmart(lines[i], sep);
+    if (!cols.length || cols.every(c => !c)) continue;
 
-    const price = parseFloat(String(rawPrice).replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
-    const cost = parseFloat(String(rawCost).replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
-    const qty = parseInt(String(rawQty).replace(/\D/g, ''), 10) || 0;
+    const urlId = idxUrl >= 0 ? (cols[idxUrl] || '') : '';
+    const cellName = idxName >= 0 ? (cols[idxName] || '') : (cols[0] || '');
+    const cellCat = idxCat >= 0 ? (cols[idxCat] || '') : '';
+    const varVal = idxVarVal >= 0 ? (cols[idxVarVal] || '') : '';
 
-    items.push({ name, price, cost, qty, imei: sku });
+    if (urlId && urlId !== lastUrl) {
+      lastUrl = urlId;
+      lastName = cellName || lastName;
+      lastCategory = cellCat || '';
+    } else {
+      if (cellName) lastName = cellName;
+      if (cellCat) lastCategory = cellCat;
+    }
+
+    const baseName = (cellName || lastName || '').trim();
+    if (!baseName || baseName.toLowerCase().includes('frete')) continue;
+
+    const fullName = varVal ? `${baseName} (${varVal})` : baseName;
+    const category = detectCategoryFromNuvemData(lastCategory, fullName, varVal);
+    const price = parseMoneyValueSmart(idxPrice >= 0 ? cols[idxPrice] : 0);
+    const cost = parseMoneyValueSmart(idxCost >= 0 ? cols[idxCost] : 0);
+    const qtyRaw = idxStock >= 0 ? (cols[idxStock] || '') : '';
+    const qty = qtyRaw === '' ? 0 : Math.max(0, parseInt(parseMoneyValueSmart(qtyRaw), 10) || 0);
+    const sku = idxSku >= 0 ? (cols[idxSku] || '') : '';
+
+    items.push({
+      name: fullName,
+      category,
+      battery: varVal || '',
+      price,
+      cost,
+      qty,
+      imei: sku
+    });
   }
+
   return items;
 }
 
@@ -1361,10 +1471,17 @@ async function parseNuvemshopPdf(file) {
     let match;
     while ((match = regex.exec(fullText)) !== null) {
       const name = match[1].trim();
-      const price = parseFloat(match[2].replace(/\./g, '').replace(',', '.')) || 0;
+      const price = parseMoneyValueSmart(match[2]);
       const qty = parseInt(match[3], 10) || 1;
       if (name.length > 3 && price > 0) {
-        items.push({ name, price, cost: 0, qty, imei: '' });
+        items.push({
+          name,
+          category: detectCategoryFromNuvemData('', name, name),
+          price,
+          cost: 0,
+          qty,
+          imei: ''
+        });
       }
     }
     return items;
