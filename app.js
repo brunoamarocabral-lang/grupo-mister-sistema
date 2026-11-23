@@ -56,6 +56,190 @@ function formatDateSafe(dateStr, fallback = '-') {
 }
 
 // ============================================================================
+// ESTILOS DE AJUSTE DE ZOOM/LARGURA DO PDV, MENU LÁPIS GITHUB E MODAIS
+// ============================================================================
+function injectLayoutAndActionStyles() {
+  if (document.getElementById('gmPdvCompactAndGithubMenuStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'gmPdvCompactAndGithubMenuStyles';
+  style.textContent = `
+    #pdv,
+    #pdv .card,
+    #pdv .table-responsive,
+    #historico_vendas,
+    #historico_vendas .card,
+    #historico_vendas .table-responsive,
+    #estoque,
+    #estoque .card,
+    #estoque .table-responsive {
+      max-width: 100% !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      overflow-x: hidden !important;
+    }
+
+    #pdv .form-row,
+    #pdv .grid-2,
+    #pdv .grid-3,
+    #pdv .pdv-layout,
+    #pdvModalOverlay .modal-content,
+    #fastPdvModalOverlay .modal-content {
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      flex-wrap: wrap !important;
+      gap: 0.55rem !important;
+    }
+
+    #pdv input,
+    #pdv select,
+    #pdv textarea,
+    #pdvModalOverlay input,
+    #pdvModalOverlay select,
+    #pdvModalOverlay textarea,
+    #fastPdvModalOverlay input,
+    #fastPdvModalOverlay select,
+    #fastPdvModalOverlay textarea {
+      max-width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
+      font-size: 0.85rem !important;
+    }
+
+    #historico_vendas table,
+    #estoque table,
+    #tableQuickStock {
+      width: 100% !important;
+      max-width: 100% !important;
+      table-layout: auto !important;
+      border-collapse: collapse !important;
+    }
+
+    #historico_vendas th,
+    #historico_vendas td,
+    #estoque th,
+    #estoque td {
+      padding: 0.45rem 0.4rem !important;
+      font-size: 0.78rem !important;
+      white-space: normal !important;
+      word-break: break-word !important;
+      vertical-align: middle !important;
+    }
+
+    .gm-gh-action-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .gm-gh-pencil-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid #30363d;
+      background: #21262d;
+      color: #e6edf3;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .gm-gh-pencil-btn:hover {
+      background: #30363d;
+      border-color: #8b949e;
+    }
+
+    .gm-gh-dropdown {
+      display: none;
+      position: fixed;
+      min-width: 145px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+      padding: 4px;
+      z-index: 99999;
+    }
+
+    .gm-gh-dropdown.open {
+      display: block;
+    }
+
+    .gm-gh-dropdown-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border: none;
+      background: transparent;
+      color: #e6edf3;
+      font-size: 0.8rem;
+      text-align: left;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .gm-gh-dropdown-item:hover {
+      background: #21262d;
+    }
+
+    .gm-sale-item-row {
+      display: grid;
+      grid-template-columns: minmax(140px, 1.8fr) 74px 105px 95px 32px;
+      gap: 0.4rem;
+      align-items: center;
+      margin-bottom: 0.45rem;
+      background: rgba(255, 255, 255, 0.02);
+      padding: 0.4rem;
+      border-radius: 6px;
+      border: 1px solid var(--border, #252a34);
+    }
+
+    .gm-sale-item-row input {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.45rem;
+    }
+
+    .gm-view-modal-card {
+      max-width: 780px !important;
+      width: 95% !important;
+    }
+
+    .gm-view-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 0.65rem;
+      margin-bottom: 1rem;
+    }
+
+    .gm-view-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border, #252a34);
+      border-radius: 8px;
+      padding: 0.6rem 0.75rem;
+    }
+
+    .gm-view-box small {
+      display: block;
+      color: var(--text-muted, #9ca3af);
+      font-size: 0.72rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .gm-view-box strong {
+      font-size: 0.88rem;
+      word-break: break-word;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ============================================================================
 // 2. DADOS INICIAIS
 // ============================================================================
 const DEFAULT_PRODUCTS = [];
@@ -92,6 +276,31 @@ let cardRates = loadJsonKey(STORAGE_KEYS.RATES, DEFAULT_RATES);
 let rmaList = loadJsonKey(STORAGE_KEYS.RMA, DEFAULT_RMA);
 let finEntries = loadJsonKey(STORAGE_KEYS.FINANCE, DEFAULT_FINANCE);
 
+function parseSaleItemsStringToArray(itemsStr = '') {
+  const clean = String(itemsStr || '').trim();
+  if (!clean) return [];
+  return clean.split(',').map(part => {
+    const seg = part.trim();
+    const match = seg.match(/^(.*?)\s*\((\d+)x\)$/i);
+    if (match) {
+      return {
+        name: match[1].trim(),
+        qty: Math.max(1, parseInt(match[2], 10) || 1),
+        price: 0
+      };
+    }
+    return { name: seg, qty: 1, price: 0 };
+  }).filter(it => it.name);
+}
+
+function formatSaleItemsArrayToString(rawItems = []) {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) return '';
+  return rawItems
+    .filter(it => it && String(it.name || '').trim())
+    .map(it => `${String(it.name).trim()} (${Math.max(1, parseInt(it.qty, 10) || 1)}x)`)
+    .join(', ');
+}
+
 function normalizeSalesArray() {
   if (!Array.isArray(sales)) sales = [];
   sales.forEach(s => {
@@ -99,6 +308,12 @@ function normalizeSalesArray() {
     if (typeof s.observation !== 'string') s.observation = '';
     if (typeof s.trackingCode !== 'string') s.trackingCode = '';
     if (!s.type) s.type = 'Venda Presencial';
+    if (!Array.isArray(s.rawItems) || s.rawItems.length === 0) {
+      s.rawItems = parseSaleItemsStringToArray(s.items);
+    }
+    if (!s.items && Array.isArray(s.rawItems) && s.rawItems.length > 0) {
+      s.items = formatSaleItemsArrayToString(s.rawItems);
+    }
   });
 }
 normalizeSalesArray();
@@ -114,6 +329,7 @@ let quoteCart = [];
 let thermalLabelQueue = [];
 let parsedNuvemItems = [];
 let salesViewMode = 'table';
+let editingSaleItemsDraft = [];
 
 function persistLocalOnly() {
   localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
@@ -861,11 +1077,13 @@ window.removeLoginAccount = async function (id) {
 // 4. INICIALIZAÇÃO GERAL
 // ============================================================================
 function startApp() {
+  injectLayoutAndActionStyles();
   initMobileSidebarToggle();
   initLoginByCredentials();
   initNavigation();
   initSalesAndPdv();
   initEditSaleModule();
+  initViewSaleModule();
   initOrderObsModule();
   initOrderTrackingModule();
   initShipmentsModule();
@@ -1060,7 +1278,7 @@ window.openOrderTrackingModal = function (saleId) {
 };
 
 // ============================================================================
-// MÓDULO DE ENVIOS & SEPARAÇÃO (SEPARAÇÃO CLARA ENTRE PENDENTES E SEPARADOS)
+// MÓDULO DE ENVIOS & SEPARAÇÃO
 // ============================================================================
 function initShipmentsModule() {
   ['shippingSearchInput', 'shippingMethodFilter', 'shippingStatusFilter'].forEach(id => {
@@ -1413,6 +1631,9 @@ function initNuvemshopImportModule() {
         if (item.cost !== undefined && item.cost !== null && Number(item.cost) > 0) {
           existing.cost = item.cost;
         }
+        if (item.supplier && !existing.supplier) {
+          existing.supplier = item.supplier;
+        }
         if (detectedBattery && (!existing.battery || existing.battery === 'Frasco' || existing.battery === 'Decant')) {
           existing.battery = detectedBattery;
         }
@@ -1423,6 +1644,7 @@ function initNuvemshopImportModule() {
         products.unshift({
           id: 'PRD-' + String(products.length + 1).padStart(3, '0'),
           name: item.name,
+          supplier: item.supplier || 'Nuvemshop',
           imei: item.imei || ('NUV-' + Math.floor(1000 + Math.random() * 9000)),
           expiry: detectedExpiry,
           condition: category,
@@ -1470,6 +1692,7 @@ function parseNuvemshopCsv(csvText) {
   const idxCost = findCol(['custo', 'cost'], ['custo']);
   const idxStock = findCol(['estoque', 'stock', 'quantidade'], ['estoque']);
   const idxSku = findCol(['sku', 'codigo'], ['sku']);
+  const idxSupplier = findCol(['marca', 'fornecedor', 'supplier', 'brand'], ['fornecedor', 'marca']);
 
   let lastUrl = '';
   let lastName = '';
@@ -1517,9 +1740,12 @@ function parseNuvemshopCsv(csvText) {
     const qty = qtyRaw === '' ? 0 : Math.max(0, Math.min(5000, parseInt(qtyNum, 10) || 0));
     const sku = idxSku >= 0 ? String(cols[idxSku] || '').trim() : '';
     const cleanSku = sku.length > 40 ? '' : sku;
+    const supRaw = idxSupplier >= 0 ? String(cols[idxSupplier] || '').trim() : '';
+    const supplier = (supRaw && !isDescriptionNoiseText(supRaw) && supRaw.length <= 50) ? supRaw : 'Nuvemshop';
 
     items.push({
       name: fullName,
+      supplier,
       category,
       battery: varVal || '',
       price,
@@ -1554,6 +1780,7 @@ async function parseNuvemshopPdf(file) {
       if (name.length > 3 && price > 0) {
         items.push({
           name,
+          supplier: 'Catálogo PDF',
           category: detectCategoryFromNuvemData('', name, name),
           price,
           cost: 0,
@@ -1730,7 +1957,7 @@ function renderRecompraAndBatches() {
 }
 
 // ============================================================================
-// 8. DASHBOARD, PDV (COM DATA/HORA + APAGAR COMPRA) & EDIÇÃO DE VENDA
+// 8. DASHBOARD, PDV, MENU LÁPIS GITHUB, EDIÇÃO ITEM POR ITEM & VISUALIZAÇÃO
 // ============================================================================
 function renderDashboard() {
   const adminFlag = isCurrentUserAdmin();
@@ -1831,8 +2058,8 @@ function syncPdvLiveClockBadge() {
   if (pdvSection && !document.getElementById('gmPdvDateTimeBanner')) {
     const banner = document.createElement('div');
     banner.id = 'gmPdvDateTimeBanner';
-    banner.style.cssText = 'margin-bottom:12px; padding:8px 12px; border-radius:8px; background:#181c24; border:1px solid #252a34; font-size:12.5px; color:#fbbf24; display:flex; justify-content:space-between; align-items:center;';
-    banner.innerHTML = `<span><strong>Data e Hora da Compra:</strong> <span id="gmPdvLiveDateTime">${getNowBrDateTime()}</span></span><span style="color:#9ca3af;">PDV GRUPO MISTER</span>`;
+    banner.style.cssText = 'margin-bottom:10px; padding:7px 10px; border-radius:8px; background:#181c24; border:1px solid #252a34; font-size:12px; color:#fbbf24; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;';
+    banner.innerHTML = `<span><strong>Data/Hora:</strong> <span id="gmPdvLiveDateTime">${getNowBrDateTime()}</span></span><span style="color:#9ca3af;">PDV GRUPO MISTER</span>`;
     pdvSection.prepend(banner);
   }
   const liveEl = document.getElementById('gmPdvLiveDateTime');
@@ -1987,7 +2214,7 @@ function initSalesAndPdv() {
       payment: document.getElementById('fastPdvPayMethod').value,
       discount,
       items: itemDesc,
-      rawItems: prod ? [{ productId: prod.id, name: prod.name, qty, price }] : [],
+      rawItems: prod ? [{ productId: prod.id, name: prod.name, qty, price }] : [{ name: document.getElementById('fastPdvCustomDesc').value || 'Item Avulso', qty, price }],
       total: Math.max(0, qty * price - discount),
       status: 'Concluído'
     };
@@ -2014,9 +2241,283 @@ function initSalesAndPdv() {
 }
 
 // ============================================================================
-// EDIÇÃO DE VENDA LANÇADA
+// MENU SUSPENSO LÁPIS ESTILO GITHUB (EDITAR / VISUALIZAR)
 // ============================================================================
+function closeAllGithubActionMenus() {
+  document.querySelectorAll('.gm-gh-dropdown.open').forEach(el => el.classList.remove('open'));
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.gm-gh-action-wrap') && !e.target.closest('.gm-gh-dropdown')) {
+    closeAllGithubActionMenus();
+  }
+});
+
+window.toggleSaleGithubMenu = function (event, saleId) {
+  event.stopPropagation();
+  const menuId = `gmSaleMenu_${String(saleId).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  let menu = document.getElementById(menuId);
+  const wasOpen = menu?.classList.contains('open');
+  closeAllGithubActionMenus();
+
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'gm-gh-dropdown';
+    menu.innerHTML = `
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditSaleModal('${saleId}')">
+        <i class="ph ph-pencil-simple" style="color:#60a5fa;"></i>
+        <span>Editar</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewSaleModal('${saleId}')">
+        <i class="ph ph-eye" style="color:#34d399;"></i>
+        <span>Visualizar</span>
+      </button>
+    `;
+    document.body.appendChild(menu);
+  }
+
+  if (!wasOpen) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    menu.classList.add('open');
+    const menuWidth = menu.offsetWidth || 150;
+    const leftPos = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
+    const topPos = Math.min(window.innerHeight - 90, rect.bottom + 4);
+    menu.style.left = `${leftPos}px`;
+    menu.style.top = `${topPos}px`;
+  }
+};
+
+function renderGithubPencilActionButton(saleId) {
+  return `
+    <div class="gm-gh-action-wrap">
+      <button type="button"
+        class="gm-gh-pencil-btn"
+        title="Opções da venda (Editar / Visualizar)"
+        aria-label="Opções da venda"
+        onclick="toggleSaleGithubMenu(event, '${saleId}')">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.253.253 0 0 0-.064.108l-.558 1.953 1.953-.558a.253.253 0 0 0 .108-.064Zm1.238-3.763a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Z"></path>
+        </svg>
+      </button>
+    </div>
+  `;
+}
+
+// ============================================================================
+// MODAL DE VISUALIZAÇÃO AMPLA DA VENDA
+// ============================================================================
+function ensureViewSaleModal() {
+  if (document.getElementById('viewSaleModalOverlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'viewSaleModalOverlay';
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content gm-view-modal-card">
+      <div class="modal-header">
+        <h3><i class="ph ph-eye"></i> Detalhes Completos da Venda <span id="viewSaleHeaderId"></span></h3>
+        <button type="button" id="btnCloseViewSaleModal" class="btn-close">&times;</button>
+      </div>
+      <div id="viewSaleModalBody" class="modal-body"></div>
+      <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+        <button type="button" id="btnViewSaleSwitchToEdit" class="btn-primary"><i class="ph ph-pencil-simple"></i> Editar Venda</button>
+        <button type="button" id="btnCloseViewSaleModalFooter" class="btn-sm">Fechar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const closeFn = () => overlay.classList.remove('active');
+  document.getElementById('btnCloseViewSaleModal')?.addEventListener('click', closeFn);
+  document.getElementById('btnCloseViewSaleModalFooter')?.addEventListener('click', closeFn);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeFn();
+  });
+}
+
+window.openViewSaleModal = function (saleId) {
+  ensureViewSaleModal();
+  const s = sales.find(item => String(item.id) === String(saleId));
+  if (!s) return;
+
+  const itemsList = Array.isArray(s.rawItems) && s.rawItems.length > 0
+    ? s.rawItems
+    : parseSaleItemsStringToArray(s.items);
+
+  const itemsHtml = itemsList.length > 0
+    ? `
+      <table style="width:100%; border-collapse:collapse; margin-top:0.4rem;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:0.4rem; border-bottom:1px solid var(--border,#252a34);">Item / Fragrância</th>
+            <th style="text-align:center; padding:0.4rem; border-bottom:1px solid var(--border,#252a34);">Qtd</th>
+            <th style="text-align:right; padding:0.4rem; border-bottom:1px solid var(--border,#252a34);">Unitário</th>
+            <th style="text-align:right; padding:0.4rem; border-bottom:1px solid var(--border,#252a34);">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemsList.map(it => {
+            const q = Math.max(1, parseInt(it.qty, 10) || 1);
+            const pr = Number(it.price || 0);
+            return `
+              <tr>
+                <td style="padding:0.4rem; border-bottom:1px solid rgba(255,255,255,0.05);"><strong>${it.name}</strong></td>
+                <td style="text-align:center; padding:0.4rem; border-bottom:1px solid rgba(255,255,255,0.05);">${q}x</td>
+                <td style="text-align:right; padding:0.4rem; border-bottom:1px solid rgba(255,255,255,0.05);">${pr > 0 ? fmtBRL(pr) : '-'}</td>
+                <td style="text-align:right; padding:0.4rem; border-bottom:1px solid rgba(255,255,255,0.05);"><strong>${pr > 0 ? fmtBRL(q * pr) : '-'}</strong></td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `
+    : `<p style="margin:0.35rem 0 0;">${s.items || '-'}</p>`;
+
+  document.getElementById('viewSaleHeaderId').textContent = `#${s.id}`;
+  document.getElementById('viewSaleModalBody').innerHTML = `
+    <div class="gm-view-grid">
+      <div class="gm-view-box"><small>Cliente</small><strong>${s.client || 'CONSUMIDOR BALCÃO'}</strong></div>
+      <div class="gm-view-box"><small>Data / Hora</small><strong>${s.date || '-'}</strong></div>
+      <div class="gm-view-box"><small>Canal / Vendedor</small><strong>${s.type || 'Venda Presencial'} • ${s.seller || '-'}</strong></div>
+      <div class="gm-view-box"><small>Pagamento</small><strong>${s.payment || '-'}</strong></div>
+      <div class="gm-view-box"><small>Entrega / Status</small><strong>${s.shippingMethod || 'Retirada na Loja'} • ${s.orderStatus || 'Em Separação'}</strong></div>
+      <div class="gm-view-box"><small>Código de Rastreio</small><strong>${s.trackingCode || 'Não informado'}</strong></div>
+      <div class="gm-view-box"><small>Desconto</small><strong>${fmtBRL(s.discount || 0)}</strong></div>
+      <div class="gm-view-box"><small>Total da Venda</small><strong style="color:#34d399; font-size:1.05rem;">${fmtBRL(s.total || 0)}</strong></div>
+    </div>
+    <div class="gm-view-box" style="margin-bottom:0.75rem;">
+      <small>Itens da Venda</small>
+      ${itemsHtml}
+    </div>
+    <div class="gm-view-grid">
+      <div class="gm-view-box"><small>Detalhes de Envio</small><strong>${s.shippingNotes || 'Nenhum'}</strong></div>
+      <div class="gm-view-box"><small>Observação</small><strong>${s.observation || 'Nenhuma'}</strong></div>
+    </div>
+  `;
+
+  const btnEdit = document.getElementById('btnViewSaleSwitchToEdit');
+  if (btnEdit) {
+    btnEdit.onclick = () => {
+      document.getElementById('viewSaleModalOverlay')?.classList.remove('active');
+      openEditSaleModal(s.id);
+    };
+  }
+
+  document.getElementById('viewSaleModalOverlay')?.classList.add('active');
+};
+
+function initViewSaleModule() {
+  ensureViewSaleModal();
+}
+
+// ============================================================================
+// EDIÇÃO DE VENDA LANÇADA + EDIÇÃO ITEM POR ITEM (UNITÁRIA)
+// ============================================================================
+function ensureSaleItemsEditorInsideModal() {
+  const form = document.getElementById('formEditSale');
+  if (!form || document.getElementById('gmSaleItemsEditorBlock')) return;
+
+  const itemsInput = document.getElementById('editSaleItems');
+  const block = document.createElement('div');
+  block.id = 'gmSaleItemsEditorBlock';
+  block.style.cssText = 'margin:0.75rem 0; padding:0.65rem; border-radius:8px; border:1px solid var(--border,#252a34); background:rgba(255,255,255,0.02);';
+  block.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.45rem; gap:0.5rem; flex-wrap:wrap;">
+      <label style="margin:0; font-weight:700;"><i class="ph ph-list-checks"></i> Editar Itens Unitários (Item por Item)</label>
+      <button type="button" id="gmBtnAddEditSaleItem" class="btn-sm btn-blue"><i class="ph ph-plus"></i> Adicionar Item</button>
+    </div>
+    <div style="display:grid; grid-template-columns:minmax(140px,1.8fr) 74px 105px 95px 32px; gap:0.4rem; font-size:0.72rem; color:var(--text-muted); padding:0 0.4rem 0.25rem;">
+      <span>Item / Fragrância</span>
+      <span>Qtd</span>
+      <span>Unit. (R$)</span>
+      <span>Subtotal</span>
+      <span></span>
+    </div>
+    <div id="gmSaleItemsRowsContainer"></div>
+  `;
+
+  if (itemsInput?.parentElement) {
+    itemsInput.parentElement.insertAdjacentElement('afterend', block);
+    itemsInput.parentElement.style.display = 'none';
+  } else {
+    form.prepend(block);
+  }
+
+  document.getElementById('gmBtnAddEditSaleItem')?.addEventListener('click', () => {
+    editingSaleItemsDraft.push({ name: '', qty: 1, price: 0 });
+    renderEditingSaleItemsRows(true);
+  });
+}
+
+function recalculateSaleTotalFromDraft(forceRecalcTotal = false) {
+  const sumItems = editingSaleItemsDraft.reduce((acc, it) => {
+    const q = Math.max(1, parseInt(it.qty, 10) || 1);
+    const pr = Math.max(0, parseFloat(it.price) || 0);
+    return acc + (q * pr);
+  }, 0);
+
+  const itemsInput = document.getElementById('editSaleItems');
+  if (itemsInput) {
+    itemsInput.value = formatSaleItemsArrayToString(editingSaleItemsDraft);
+  }
+
+  const totalInput = document.getElementById('editSaleTotal');
+  const discInput = document.getElementById('editSaleDiscount');
+  if (forceRecalcTotal && totalInput && sumItems > 0) {
+    const disc = Math.max(0, parseFloat(discInput?.value) || 0);
+    totalInput.value = Math.max(0, sumItems - disc).toFixed(2);
+  }
+}
+
+function renderEditingSaleItemsRows(recalcTotal = false) {
+  const container = document.getElementById('gmSaleItemsRowsContainer');
+  if (!container) return;
+
+  if (!Array.isArray(editingSaleItemsDraft) || editingSaleItemsDraft.length === 0) {
+    container.innerHTML = `<div style="font-size:0.78rem; color:var(--text-muted); padding:0.35rem;">Nenhum item listado. Clique em "+ Adicionar Item".</div>`;
+    recalculateSaleTotalFromDraft(recalcTotal);
+    return;
+  }
+
+  container.innerHTML = editingSaleItemsDraft.map((it, idx) => {
+    const q = Math.max(1, parseInt(it.qty, 10) || 1);
+    const pr = Math.max(0, parseFloat(it.price) || 0);
+    const sub = q * pr;
+    return `
+      <div class="gm-sale-item-row">
+        <input type="text" value="${String(it.name || '').replace(/"/g, '&quot;')}" placeholder="Nome do item" oninput="updateDraftSaleItem(${idx}, 'name', this.value)" />
+        <input type="number" min="1" step="1" value="${q}" oninput="updateDraftSaleItem(${idx}, 'qty', this.value)" />
+        <input type="number" min="0" step="0.01" value="${pr}" oninput="updateDraftSaleItem(${idx}, 'price', this.value)" />
+        <span style="font-size:0.78rem; font-weight:700; text-align:right; color:#34d399;">${sub > 0 ? fmtBRL(sub) : '-'}</span>
+        <button type="button" class="btn-sm btn-danger" title="Remover item" onclick="removeDraftSaleItem(${idx})">&times;</button>
+      </div>
+    `;
+  }).join('');
+
+  recalculateSaleTotalFromDraft(recalcTotal);
+}
+
+window.updateDraftSaleItem = function (idx, field, val) {
+  if (!editingSaleItemsDraft[idx]) return;
+  if (field === 'qty') {
+    editingSaleItemsDraft[idx].qty = Math.max(1, parseInt(val, 10) || 1);
+  } else if (field === 'price') {
+    editingSaleItemsDraft[idx].price = Math.max(0, parseFloat(val) || 0);
+  } else {
+    editingSaleItemsDraft[idx].name = val;
+  }
+  const hasAnyPrice = editingSaleItemsDraft.some(x => (parseFloat(x.price) || 0) > 0);
+  recalculateSaleTotalFromDraft(hasAnyPrice);
+  renderEditingSaleItemsRows(hasAnyPrice);
+};
+
+window.removeDraftSaleItem = function (idx) {
+  editingSaleItemsDraft.splice(idx, 1);
+  renderEditingSaleItemsRows(true);
+};
+
 function initEditSaleModule() {
+  ensureSaleItemsEditorInsideModal();
   const overlay = document.getElementById('editSaleModalOverlay');
   document.getElementById('btnCloseEditSaleModal')?.addEventListener('click', () => overlay.classList.remove('active'));
   document.getElementById('btnCancelEditSaleModal')?.addEventListener('click', () => overlay.classList.remove('active'));
@@ -2027,11 +2528,22 @@ function initEditSaleModule() {
     const sale = sales.find(s => String(s.id) === String(saleId));
     if (!sale) return;
 
+    const cleanDraft = editingSaleItemsDraft
+      .map(it => ({
+        name: String(it.name || '').trim(),
+        qty: Math.max(1, parseInt(it.qty, 10) || 1),
+        price: Math.max(0, parseFloat(it.price) || 0)
+      }))
+      .filter(it => it.name);
+
+    sale.rawItems = cleanDraft;
+    const formattedDraftStr = formatSaleItemsArrayToString(cleanDraft);
+
     sale.client = document.getElementById('editSaleClient').value.trim().toUpperCase() || sale.client;
     sale.seller = document.getElementById('editSaleSeller').value.trim().toUpperCase() || sale.seller;
     sale.date = document.getElementById('editSaleDate').value.trim() || sale.date;
     sale.payment = document.getElementById('editSalePayment').value;
-    sale.items = document.getElementById('editSaleItems').value.trim() || sale.items;
+    sale.items = formattedDraftStr || document.getElementById('editSaleItems').value.trim() || sale.items;
     sale.shippingMethod = document.getElementById('editSaleShippingMethod').value;
     sale.trackingCode = document.getElementById('editSaleTrackingCode').value.trim().toUpperCase();
     sale.shippingNotes = document.getElementById('editSaleShippingNotes').value.trim();
@@ -2044,11 +2556,12 @@ function initEditSaleModule() {
     saveAll();
     renderAll();
     overlay.classList.remove('active');
-    showToast(`Venda #${sale.id} atualizada com sucesso!`);
+    showToast(`Venda #${sale.id} e itens atualizados com sucesso!`);
   });
 }
 
 window.openEditSaleModal = function (saleId) {
+  ensureSaleItemsEditorInsideModal();
   const s = sales.find(item => String(item.id) === String(saleId));
   if (!s) return;
 
@@ -2066,6 +2579,16 @@ window.openEditSaleModal = function (saleId) {
   document.getElementById('editSaleDiscount').value = Number(s.discount || 0);
   document.getElementById('editSaleTotal').value = Number(s.total || 0);
   document.getElementById('editSaleOrderStatus').value = s.orderStatus || 'Em Separação';
+
+  const existingItems = Array.isArray(s.rawItems) && s.rawItems.length > 0
+    ? s.rawItems
+    : parseSaleItemsStringToArray(s.items);
+  editingSaleItemsDraft = existingItems.map(it => ({
+    name: it.name || '',
+    qty: Math.max(1, parseInt(it.qty, 10) || 1),
+    price: Number(it.price || 0)
+  }));
+  renderEditingSaleItemsRows(false);
 
   document.getElementById('editSaleModalOverlay').classList.add('active');
 };
@@ -2143,10 +2666,12 @@ function renderSales() {
         </td>
         <td>${s.payment}</td>
         <td><strong>${fmtBRL(s.total)}</strong></td>
-        <td style="display:flex; gap:0.35rem; flex-wrap:wrap;">
-          <button type="button" class="btn-sm btn-blue" onclick="openEditSaleModal('${s.id}')" title="Editar venda"><i class="ph ph-pencil-simple"></i> Editar</button>
-          <button type="button" class="btn-sm" onclick="openReceiptModal('${s.id}')"><i class="ph ph-printer"></i> Recibo</button>
-          <button type="button" class="btn-sm btn-danger" onclick="deleteSaleRecord('${s.id}')" title="Apagar compra errada"><i class="ph ph-trash"></i> Apagar</button>
+        <td style="white-space:nowrap;">
+          <div style="display:inline-flex; align-items:center; gap:0.3rem;">
+            ${renderGithubPencilActionButton(s.id)}
+            <button type="button" class="btn-sm" onclick="openReceiptModal('${s.id}')"><i class="ph ph-printer"></i> Recibo</button>
+            <button type="button" class="btn-sm btn-danger" onclick="deleteSaleRecord('${s.id}')" title="Apagar compra errada"><i class="ph ph-trash"></i> Apagar</button>
+          </div>
         </td>
       </tr>
     `;
@@ -2171,10 +2696,10 @@ function renderSales() {
         ${s.observation ? `<small style="color:#fbbf24;"><i class="ph ph-note"></i> ${s.observation}</small>` : ''}
         <div style="display:flex; justify-content:space-between; align-items:center; gap:0.35rem; margin-top:0.25rem;">
           <strong style="color:var(--success);">${fmtBRL(s.total)}</strong>
-          <div style="display:flex; gap:0.3rem; flex-wrap:wrap;">
+          <div style="display:inline-flex; align-items:center; gap:0.3rem; flex-wrap:wrap;">
+            ${renderGithubPencilActionButton(s.id)}
             <button type="button" class="btn-sm" onclick="openOrderTrackingModal('${s.id}')">Rastreio</button>
             <button type="button" class="btn-sm" onclick="openOrderObsModal('${s.id}')">Obs.</button>
-            <button type="button" class="btn-sm btn-blue" onclick="openEditSaleModal('${s.id}')">Editar</button>
             <button type="button" class="btn-sm" onclick="openReceiptModal('${s.id}')">Recibo</button>
             <button type="button" class="btn-sm btn-danger" onclick="deleteSaleRecord('${s.id}')">Apagar</button>
           </div>
@@ -2251,7 +2776,7 @@ window.convertQuoteToSale = function (cod) {
   const q = quotes.find(item => item.cod === cod);
   if (!q) return;
   q.status = 'Aprovado';
-  sales.unshift({ id: String(9054500 + sales.length + 1), client: q.clientName, phone: q.clientPhone, seller: q.seller, date: getNowBrDateTime(), isoDate: new Date().toISOString().split('T')[0], type: 'Venda Presencial', shippingMethod: 'Retirada na Loja', trackingCode: '', orderStatus: 'Em Separação', observation: `Convertido do orçamento ${q.cod}`, shippingPacked: false, payment: 'Pix', discount: q.tradeInVal || 0, items: q.items.map(i => `${i.name} (${i.qty}x)`).join(', '), total: q.netTotal, status: 'Concluído' });
+  sales.unshift({ id: String(9054500 + sales.length + 1), client: q.clientName, phone: q.clientPhone, seller: q.seller, date: getNowBrDateTime(), isoDate: new Date().toISOString().split('T')[0], type: 'Venda Presencial', shippingMethod: 'Retirada na Loja', trackingCode: '', orderStatus: 'Em Separação', observation: `Convertido do orçamento ${q.cod}`, shippingPacked: false, payment: 'Pix', discount: q.tradeInVal || 0, items: q.items.map(i => `${i.name} (${i.qty}x)`).join(', '), rawItems: [...q.items], total: q.netTotal, status: 'Concluído' });
   saveAll(); renderAll(); showToast(`Orçamento ${cod} convertido em venda!`);
 };
 
@@ -2421,9 +2946,27 @@ window.selectClientForSale = function (cod) {
 };
 
 // ============================================================================
-// MÓDULO DE ESTOQUE (PERMISSÃO POR 'estoque' OU ADMIN + IMPORTAR / LIMPAR)
+// MÓDULO DE ESTOQUE (EDIÇÃO COMPLETA COM FORNECEDOR, CUSTO, VENDA E QTD)
 // ============================================================================
+function ensureSupplierFieldInProductModal() {
+  const modalForm = document.getElementById('formNewProduct');
+  if (!modalForm || document.getElementById('prodSupplier')) return;
+
+  const nameInput = document.getElementById('prodName');
+  const supGroup = document.createElement('div');
+  supGroup.className = 'form-group';
+  supGroup.id = 'prodSupplierFieldGroup';
+  supGroup.innerHTML = `<label for="prodSupplier">Fornecedor:</label><input type="text" id="prodSupplier" placeholder="Ex: Importadora Dubai, Fornecedor Local..." />`;
+
+  if (nameInput?.parentElement) {
+    nameInput.parentElement.insertAdjacentElement('afterend', supGroup);
+  } else {
+    modalForm.prepend(supGroup);
+  }
+}
+
 function ensureStockToolbarActions() {
+  ensureSupplierFieldInProductModal();
   const stockSection = document.getElementById('estoque');
   if (!stockSection || document.getElementById('gmStockManagerBar')) return;
 
@@ -2438,7 +2981,7 @@ function ensureStockToolbarActions() {
 
   document.getElementById('gmBtnImportNuvemApi')?.addEventListener('click', async () => {
     if (!hasStockAccess()) return showToast('Sem permissão de estoque.');
-    if (!confirm('Importar/atualizar produtos da Nuvemshop mantendo os custos já editados?')) return;
+    if (!confirm('Importar/atualizar produtos da Nuvemshop mantendo os custos e fornecedores já editados?')) return;
     try {
       const res = await fetch(`${BACKEND_API_URL}/api/nuvemshop/import-products`, {
         method: 'POST',
@@ -2475,6 +3018,7 @@ function ensureStockToolbarActions() {
 
 window.openNewProductModal = function () {
   if (!hasStockAccess()) return showToast('Você não tem permissão para cadastrar no estoque.');
+  ensureSupplierFieldInProductModal();
   const canEditCost = hasStockAccess();
   document.getElementById('editProdId').value = '';
   document.getElementById('productModalTitle').innerHTML = '<i class="ph ph-package"></i> Cadastrar Fragrância';
@@ -2482,6 +3026,8 @@ window.openNewProductModal = function () {
   document.getElementById('btnDeleteProductInModal').style.display = 'none';
   document.getElementById('prodCodeDisplay').value = 'PRD-' + String(products.length + 1).padStart(2, '0');
   document.getElementById('prodName').value = '';
+  const supInp = document.getElementById('prodSupplier');
+  if (supInp) supInp.value = '';
   document.getElementById('prodImei').value = '';
   document.getElementById('prodExpiry').value = '';
   document.getElementById('prodCondition').value = 'Árabe';
@@ -2500,6 +3046,7 @@ window.openNewProductModal = function () {
 
 window.openEditProductModal = function (prodId) {
   if (!hasStockAccess()) return showToast('Você não tem permissão para editar o estoque.');
+  ensureSupplierFieldInProductModal();
   const prod = products.find(p => p.id === prodId);
   if (!prod) return;
   const canEditCost = hasStockAccess();
@@ -2511,6 +3058,8 @@ window.openEditProductModal = function (prodId) {
 
   document.getElementById('prodCodeDisplay').value = prod.id || '';
   document.getElementById('prodName').value = prod.name || '';
+  const supInp = document.getElementById('prodSupplier');
+  if (supInp) supInp.value = prod.supplier || '';
   document.getElementById('prodImei').value = prod.imei || '';
   document.getElementById('prodExpiry').value = prod.expiry || '';
   document.getElementById('prodCondition').value = prod.condition || 'Árabe';
@@ -2535,6 +3084,7 @@ window.quickEditProductField = function (prodId, fieldKey) {
   const labels = {
     id: 'Código do Produto',
     name: 'Nome da Fragrância / Decant',
+    supplier: 'Fornecedor',
     imei: 'Batch / Lote',
     battery: 'Volume / Concentração',
     expiry: 'Validade (AAAA-MM-DD)',
@@ -2595,14 +3145,17 @@ function initStockModule() {
   document.getElementById('formNewProduct')?.addEventListener('submit', (e) => {
     e.preventDefault();
     if (!hasStockAccess()) return showToast('Sem permissão para alterar o estoque.');
+    ensureSupplierFieldInProductModal();
     const editingId = document.getElementById('editProdId').value;
     const customCode = document.getElementById('prodCodeDisplay').value.trim();
+    const supplierVal = (document.getElementById('prodSupplier')?.value || '').trim();
 
     if (editingId) {
       const prod = products.find(p => p.id === editingId);
       if (prod) {
         prod.id = customCode || prod.id;
         prod.name = document.getElementById('prodName').value.trim();
+        prod.supplier = supplierVal;
         prod.imei = document.getElementById('prodImei').value.trim();
         prod.expiry = document.getElementById('prodExpiry').value;
         prod.condition = document.getElementById('prodCondition').value;
@@ -2622,6 +3175,7 @@ function initStockModule() {
       const newProd = {
         id: customCode || ('PRD-' + String(products.length + 1).padStart(2, '0')),
         name: document.getElementById('prodName').value.trim(),
+        supplier: supplierVal,
         imei: document.getElementById('prodImei').value.trim(),
         expiry: document.getElementById('prodExpiry').value,
         condition: document.getElementById('prodCondition').value,
@@ -2682,23 +3236,41 @@ function renderStock() {
   }
 
   const filtered = products.filter(p =>
-    (String(p.name || '').toLowerCase().includes(term) || String(p.imei || '').toLowerCase().includes(term) || String(p.id || '').toLowerCase().includes(term) || String(p.battery || '').toLowerCase().includes(term))
+    (String(p.name || '').toLowerCase().includes(term)
+      || String(p.supplier || '').toLowerCase().includes(term)
+      || String(p.imei || '').toLowerCase().includes(term)
+      || String(p.id || '').toLowerCase().includes(term)
+      || String(p.battery || '').toLowerCase().includes(term))
     && (cond === 'todos' || p.condition === cond)
     && (avail === 'todos' || (avail === 'disponivel' && p.qty > 0) || (avail === 'esgotado' && p.qty === 0))
   );
 
+  const editIconBtn = (prodId, titleText = 'Editar item completo (Nome, Fornecedor, Custo, Venda, Qtd)') => `
+    <button type="button"
+      title="${titleText}"
+      aria-label="${titleText}"
+      onclick="openEditProductModal('${prodId}')"
+      style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; border:1px solid #30363d; background:#21262d; color:#60a5fa; cursor:pointer; flex-shrink:0;">
+      <i class="ph ph-pencil-simple" style="font-size:15px;"></i>
+    </button>
+  `;
+
   const tbody = document.getElementById('tableStockDetailed');
   if (tbody) tbody.innerHTML = filtered.map(p => {
     const margin = p.price > 0 ? (((p.price - p.cost) / p.price) * 100).toFixed(1) : '0.0';
+    const supLabel = p.supplier || 'Sem fornecedor';
     return `
       <tr>
         <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'id')">${p.id}</td>
         <td class="editable-cell">
-          <div onclick="quickEditProductField('${p.id}', 'name')"><strong>${p.name}</strong></div>
-          <div style="margin-top:4px; display:flex; gap:6px; flex-wrap:wrap;">
-            <button type="button" class="btn-sm btn-blue" onclick="openEditProductModal('${p.id}')"><i class="ph ph-pencil-simple"></i> Editar Produto</button>
-            <button type="button" class="btn-sm" onclick="quickEditProductField('${p.id}', 'price')">Preço: ${fmtBRL(p.price)}</button>
-            <button type="button" class="btn-sm" onclick="quickEditProductField('${p.id}', 'qty')">Qtd: ${p.qty}</button>
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
+            <div>
+              <strong style="cursor:pointer;" onclick="openEditProductModal('${p.id}')">${p.name}</strong>
+              <div style="font-size:0.74rem; color:#9ca3af; margin-top:2px; cursor:pointer;" onclick="openEditProductModal('${p.id}')">
+                Fornecedor: <span style="color:#e5e7eb;">${supLabel}</span>
+              </div>
+            </div>
+            ${canManageStock ? editIconBtn(p.id, 'Editar nome, fornecedor, custo, venda e estoque') : ''}
           </div>
         </td>
         <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'imei')"><code>${p.imei || '-'}</code></td>
@@ -2710,10 +3282,12 @@ function renderStock() {
         <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'price')"><strong>${fmtBRL(p.price)}</strong></td>
         ${canManageStock ? `<td><span class="badge-tag badge-receita">${margin}%</span></td>` : ''}
         <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'qty')"><strong>${p.qty}</strong></td>
-        <td style="display:flex; gap:0.3rem; flex-wrap:wrap;">
-          <button type="button" class="btn-sm btn-blue" onclick="openEditProductModal('${p.id}')"><i class="ph ph-pencil-simple"></i> Editar</button>
-          <button type="button" class="btn-sm" onclick="adjustStockQty('${p.id}', 1)">+1</button>
-          <button type="button" class="btn-sm" onclick="adjustStockQty('${p.id}', -1)">-1</button>
+        <td style="white-space:nowrap;">
+          <div style="display:inline-flex; align-items:center; gap:0.3rem;">
+            ${canManageStock ? editIconBtn(p.id, 'Editar todos os campos do item') : ''}
+            <button type="button" class="btn-sm" onclick="adjustStockQty('${p.id}', 1)">+1</button>
+            <button type="button" class="btn-sm" onclick="adjustStockQty('${p.id}', -1)">-1</button>
+          </div>
         </td>
       </tr>
     `;
