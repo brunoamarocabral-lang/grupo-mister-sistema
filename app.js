@@ -1237,29 +1237,62 @@ function detectCategoryFromNuvemData(rawCategory = '', productName = '', volumeT
   return 'Importado';
 }
 
-function splitCsvLineSmart(line, delimiter = ';') {
-  const result = [];
-  let current = '';
+function parseCsvMatrixRfc4180(text) {
+  const clean = String(text || '').replace(/^\uFEFF/, '');
   let inQuotes = false;
+  let semiCount = 0;
+  let commaCount = 0;
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    if (ch === '"') inQuotes = !inQuotes;
+    else if (!inQuotes && (ch === '\n' || ch === '\r')) break;
+    else if (!inQuotes && ch === ';') semiCount++;
+    else if (!inQuotes && ch === ',') commaCount++;
+  }
+  const delimiter = semiCount >= commaCount ? ';' : ',';
 
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
+  const rows = [];
+  let row = [];
+  let cell = '';
+  inQuotes = false;
+
+  for (let i = 0; i < clean.length; i++) {
+    const ch = clean[i];
+    const next = clean[i + 1];
+
     if (ch === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
+      if (inQuotes && next === '"') {
+        cell += '"';
         i++;
       } else {
         inQuotes = !inQuotes;
       }
     } else if (ch === delimiter && !inQuotes) {
-      result.push(current.trim());
-      current = '';
+      row.push(cell.trim());
+      cell = '';
+    } else if ((ch === '\n' || (ch === '\r' && next === '\n')) && !inQuotes) {
+      if (ch === '\r') i++;
+      row.push(cell.trim());
+      if (row.some(c => c !== '')) rows.push(row);
+      row = [];
+      cell = '';
     } else {
-      current += ch;
+      cell += ch;
     }
   }
-  result.push(current.trim());
-  return result;
+  if (cell !== '' || row.length > 0) {
+    row.push(cell.trim());
+    if (row.some(c => c !== '')) rows.push(row);
+  }
+  return rows;
+}
+
+function normalizeHeaderKey(str) {
+  return String(str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
 }
 
 async function readCsvFileWithEncoding(file) {
@@ -1314,18 +1347,18 @@ function initNuvemshopImportModule() {
     if (btnConfirm) btnConfirm.disabled = parsedNuvemItems.length === 0;
 
     if (previewTbody) {
-      previewTbody.innerHTML = parsedNuvemItems.slice(0, 60).map(item => {
+      previewTbody.innerHTML = parsedNuvemItems.slice(0, 80).map(item => {
         const meta = extractVolumeAndExpiryFromText(`${item.name} ${item.imei || ''} ${item.expiry || ''}`);
         const volLabel = item.battery || meta.battery || '-';
         return `
           <tr>
             <td>
               <strong>${item.name}</strong>
-              <div style="font-size:0.74rem; color:var(--text-muted);">Vol/Conc: ${volLabel}${meta.expiry ? ` • Val: ${meta.expiry}` : ''}</div>
+              <div style="font-size:0.74rem; color:var(--text-muted);">Vol/Conc: ${volLabel}</div>
             </td>
             <td><span class="badge-tag badge-info">${item.category || 'Importado'}</span></td>
             <td><code>${item.imei || '-'}</code></td>
-            <td>${fmtBRL(item.price)}</td>
+            <td><strong>${fmtBRL(item.price)}</strong></td>
             <td>${item.qty} un.</td>
           </tr>
         `;
@@ -1382,41 +1415,44 @@ function initNuvemshopImportModule() {
 }
 
 function parseNuvemshopCsv(csvText) {
-  const lines = String(csvText || '').split(/\r?\n/).filter(l => l.trim().length > 0);
-  if (lines.length < 2) return [];
+  const rows = parseCsvMatrixRfc4180(csvText);
+  if (rows.length < 2) return [];
 
-  const sep = lines[0].includes(';') ? ';' : ',';
-  const rawHeaders = splitCsvLineSmart(lines[0], sep);
-  const headers = rawHeaders.map(h => h.toLowerCase());
+  const headers = rows[0].map(normalizeHeaderKey);
 
-  const findCol = (candidates) => {
-    for (const cand of candidates) {
-      const idx = headers.indexOf(cand.toLowerCase());
+  const findCol = (exactList, partialList = []) => {
+    for (const name of exactList) {
+      const idx = headers.indexOf(normalizeHeaderKey(name));
       if (idx >= 0) return idx;
     }
-    return headers.findIndex(h => candidates.some(cand => h.includes(cand.toLowerCase())));
+    for (const part of partialList) {
+      const idx = headers.findIndex(h => h.includes(normalizeHeaderKey(part)));
+      if (idx >= 0) return idx;
+    }
+    return -1;
   };
 
-  const idxUrl = findCol(['identificador url', 'handle', 'url']);
-  const idxName = findCol(['nome', 'name', 'produto']);
-  const idxCat = findCol(['categorias', 'categoria', 'category']);
-  const idxVarVal = findCol(['valor da variação 1', 'variacao 1', 'variação 1', 'valor da variacao 1']);
-  const idxPrice = findCol(['preço', 'preco', 'price']);
-  const idxCost = findCol(['custo', 'cost']);
-  const idxStock = findCol(['estoque', 'stock', 'quantidade']);
-  const idxSku = findCol(['sku', 'código', 'codigo']);
+  const idxUrl = findCol(['identificador url', 'handle', 'url'], ['identificador']);
+  const idxName = findCol(['nome', 'name', 'produto'], ['nome']);
+  const idxCat = findCol(['categorias', 'categoria', 'category'], ['categor']);
+  const idxVarVal = findCol(['valor da variacao 1', 'variacao 1', 'option1 value'], ['valor da variacao']);
+  const idxPrice = findCol(['preco', 'price'], ['preco']);
+  const idxPromoPrice = findCol(['preco promocional', 'promotional price'], ['promocional']);
+  const idxCost = findCol(['custo', 'cost'], ['custo']);
+  const idxStock = findCol(['estoque', 'stock', 'quantidade'], ['estoque']);
+  const idxSku = findCol(['sku', 'codigo'], ['sku']);
 
   let lastUrl = '';
   let lastName = '';
   let lastCategory = '';
   const items = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const cols = splitCsvLineSmart(lines[i], sep);
-    if (!cols.length || cols.every(c => !c)) continue;
+  for (let i = 1; i < rows.length; i++) {
+    const cols = rows[i];
+    if (!cols || cols.every(c => !c)) continue;
 
     const urlId = idxUrl >= 0 ? (cols[idxUrl] || '') : '';
-    const cellName = idxName >= 0 ? (cols[idxName] || '') : (cols[0] || '');
+    const cellName = idxName >= 0 ? (cols[idxName] || '') : '';
     const cellCat = idxCat >= 0 ? (cols[idxCat] || '') : '';
     const varVal = idxVarVal >= 0 ? (cols[idxVarVal] || '') : '';
 
@@ -1434,7 +1470,11 @@ function parseNuvemshopCsv(csvText) {
 
     const fullName = varVal ? `${baseName} (${varVal})` : baseName;
     const category = detectCategoryFromNuvemData(lastCategory, fullName, varVal);
-    const price = parseMoneyValueSmart(idxPrice >= 0 ? cols[idxPrice] : 0);
+
+    let price = parseMoneyValueSmart(idxPrice >= 0 ? cols[idxPrice] : 0);
+    if (price <= 0 && idxPromoPrice >= 0) {
+      price = parseMoneyValueSmart(cols[idxPromoPrice]);
+    }
     const cost = parseMoneyValueSmart(idxCost >= 0 ? cols[idxCost] : 0);
     const qtyRaw = idxStock >= 0 ? (cols[idxStock] || '') : '';
     const qty = qtyRaw === '' ? 0 : Math.max(0, parseInt(parseMoneyValueSmart(qtyRaw), 10) || 0);
