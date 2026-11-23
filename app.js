@@ -56,7 +56,7 @@ function formatDateSafe(dateStr, fallback = '-') {
 }
 
 // ============================================================================
-// ESTILOS DE AJUSTE DE ZOOM/LARGURA DO PDV, MENU LÁPIS GITHUB E MODAIS
+// ESTILOS DE STATUS SEM CORTE, CORES ORIGINAIS, HISTÓRICO LEGÍVEL & MODAIS
 // ============================================================================
 function injectLayoutAndActionStyles() {
   if (document.getElementById('gmPdvCompactAndGithubMenuStyles')) return;
@@ -64,18 +64,22 @@ function injectLayoutAndActionStyles() {
   style.id = 'gmPdvCompactAndGithubMenuStyles';
   style.textContent = `
     #pdv,
-    #pdv .card,
-    #pdv .table-responsive,
     #historico_vendas,
-    #historico_vendas .card,
-    #historico_vendas .table-responsive,
-    #estoque,
-    #estoque .card,
-    #estoque .table-responsive {
+    #envios,
+    #estoque {
       max-width: 100% !important;
-      width: 100% !important;
       box-sizing: border-box !important;
-      overflow-x: hidden !important;
+    }
+
+    #pdv .table-responsive,
+    #historico_vendas .table-responsive,
+    #envios .table-responsive,
+    #estoque .table-responsive {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch;
+      box-sizing: border-box !important;
     }
 
     #pdv .form-row,
@@ -106,23 +110,79 @@ function injectLayoutAndActionStyles() {
     }
 
     #historico_vendas table,
+    #envios table,
     #estoque table,
     #tableQuickStock {
       width: 100% !important;
-      max-width: 100% !important;
-      table-layout: auto !important;
       border-collapse: collapse !important;
     }
 
     #historico_vendas th,
     #historico_vendas td,
+    #envios th,
+    #envios td,
     #estoque th,
     #estoque td {
-      padding: 0.45rem 0.4rem !important;
-      font-size: 0.78rem !important;
-      white-space: normal !important;
-      word-break: break-word !important;
+      padding: 0.55rem 0.5rem !important;
+      font-size: 0.8rem !important;
       vertical-align: middle !important;
+    }
+
+    #historico_vendas td,
+    #envios td {
+      line-height: 1.35;
+    }
+
+    .gm-status-cell-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
+
+    select.status-inline-select {
+      min-width: 134px !important;
+      width: auto !important;
+      padding: 0.34rem 1.5rem 0.34rem 0.55rem !important;
+      border-radius: 6px !important;
+      font-size: 0.78rem !important;
+      font-weight: 700 !important;
+      line-height: 1.25 !important;
+      white-space: nowrap !important;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+
+    select.status-inline-select.st-separacao {
+      background-color: rgba(245, 158, 11, 0.18) !important;
+      color: #fbbf24 !important;
+      border-color: rgba(245, 158, 11, 0.45) !important;
+    }
+
+    select.status-inline-select.st-separado {
+      background-color: rgba(59, 130, 246, 0.2) !important;
+      color: #60a5fa !important;
+      border-color: rgba(59, 130, 246, 0.45) !important;
+    }
+
+    select.status-inline-select.st-enviado {
+      background-color: rgba(168, 85, 247, 0.2) !important;
+      color: #c084fc !important;
+      border-color: rgba(168, 85, 247, 0.45) !important;
+    }
+
+    select.status-inline-select.st-entregue {
+      background-color: rgba(16, 185, 129, 0.2) !important;
+      color: #34d399 !important;
+      border-color: rgba(16, 185, 129, 0.45) !important;
+    }
+
+    .gm-sep-tag {
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .gm-gh-action-wrap {
@@ -205,9 +265,24 @@ function injectLayoutAndActionStyles() {
       padding: 0.35rem 0.45rem;
     }
 
+    .gm-edit-sale-card {
+      max-width: 720px !important;
+      width: 95% !important;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .gm-edit-sale-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.65rem;
+    }
+
     .gm-view-modal-card {
       max-width: 780px !important;
       width: 95% !important;
+      max-height: 90vh;
+      overflow-y: auto;
     }
 
     .gm-view-grid {
@@ -1193,6 +1268,18 @@ function getOrderStatusClass(status) {
   }
 }
 
+function renderStatusSelectControl(saleId, status) {
+  const st = status || 'Em Separação';
+  return `
+    <select class="status-inline-select ${getOrderStatusClass(st)}" onchange="updateSaleOrderStatus('${saleId}', this.value)">
+      <option value="Em Separação" ${st === 'Em Separação' ? 'selected' : ''}>Em Separação</option>
+      <option value="Separado" ${st === 'Separado' ? 'selected' : ''}>Separado</option>
+      <option value="Enviado" ${st === 'Enviado' ? 'selected' : ''}>Enviado</option>
+      <option value="Entregue" ${st === 'Entregue' ? 'selected' : ''}>Entregue</option>
+    </select>
+  `;
+}
+
 window.updateSaleOrderStatus = function (saleId, newStatus) {
   const sale = sales.find(s => String(s.id) === String(saleId));
   if (!sale) return;
@@ -1350,30 +1437,27 @@ function renderShipments() {
       : `<span class="badge-tag badge-info">Loja Física</span>`;
     const hasTrack = Boolean(s.trackingCode && s.trackingCode.trim().length > 0);
     const sepTag = st === 'Em Separação'
-      ? `<span class="badge-tag badge-warning" style="margin-left:4px;">A Separar</span>`
-      : `<span class="badge-tag badge-receita" style="margin-left:4px;">Separado</span>`;
+      ? `<span class="badge-tag badge-warning gm-sep-tag">A Separar</span>`
+      : `<span class="badge-tag badge-receita gm-sep-tag">Separado</span>`;
 
     return `
       <tr>
         <td>
-          <select class="status-inline-select ${getOrderStatusClass(st)}" onchange="updateSaleOrderStatus('${s.id}', this.value)">
-            <option value="Em Separação" ${st === 'Em Separação' ? 'selected' : ''}>Em Separação</option>
-            <option value="Separado" ${st === 'Separado' ? 'selected' : ''}>Separado</option>
-            <option value="Enviado" ${st === 'Enviado' ? 'selected' : ''}>Enviado</option>
-            <option value="Entregue" ${st === 'Entregue' ? 'selected' : ''}>Entregue</option>
-          </select>
-          ${sepTag}
+          <div class="gm-status-cell-wrap">
+            ${renderStatusSelectControl(s.id, st)}
+            ${sepTag}
+          </div>
         </td>
-        <td><strong>#${s.id}</strong></td>
-        <td>${channelBadge}</td>
-        <td>${s.date}</td>
-        <td>${methodBadge}</td>
+        <td style="white-space:nowrap;"><strong>#${s.id}</strong></td>
+        <td style="white-space:nowrap;">${channelBadge}</td>
+        <td style="white-space:nowrap;">${s.date}</td>
+        <td style="white-space:nowrap;">${methodBadge}</td>
         <td>
           <strong>${s.client}</strong>
           ${s.shippingNotes ? `<div style="font-size:0.74rem; color:var(--text-muted);">${s.shippingNotes}</div>` : ''}
           ${s.observation ? `<div style="font-size:0.72rem; color:#fbbf24; margin-top:2px;"><i class="ph ph-note"></i> ${s.observation}</div>` : ''}
         </td>
-        <td>
+        <td style="white-space:nowrap;">
           <button type="button" class="btn-sm ${hasTrack ? 'btn-green' : ''}" onclick="openOrderTrackingModal('${s.id}')">
             <i class="ph ph-barcode"></i> ${hasTrack ? `<code>${s.trackingCode}</code>` : '+ Rastreio'}
           </button>
@@ -2411,8 +2495,105 @@ function initViewSaleModule() {
 }
 
 // ============================================================================
-// EDIÇÃO DE VENDA LANÇADA + EDIÇÃO ITEM POR ITEM (UNITÁRIA)
+// MODAL DE EDIÇÃO DE VENDA LANÇADA (PADRÃO DOS DEMAIS MODAIS + ITEM POR ITEM)
 // ============================================================================
+function ensureEditSaleModalStructure() {
+  let overlay = document.getElementById('editSaleModalOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'editSaleModalOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-content gm-edit-sale-card">
+        <div class="modal-header">
+          <h3><i class="ph ph-pencil-simple"></i> Editar Venda <span id="editSaleHeaderId"></span></h3>
+          <button type="button" id="btnCloseEditSaleModal" class="btn-close">&times;</button>
+        </div>
+        <form id="formEditSale" class="modal-body">
+          <input type="hidden" id="editSaleId" />
+          <div class="gm-edit-sale-grid">
+            <div class="form-group">
+              <label for="editSaleClient">Cliente:</label>
+              <input type="text" id="editSaleClient" required />
+            </div>
+            <div class="form-group">
+              <label for="editSaleSeller">Vendedor:</label>
+              <input type="text" id="editSaleSeller" />
+            </div>
+            <div class="form-group">
+              <label for="editSaleDate">Data / Hora:</label>
+              <input type="text" id="editSaleDate" />
+            </div>
+            <div class="form-group">
+              <label for="editSalePayment">Pagamento:</label>
+              <select id="editSalePayment">
+                <option value="Pix">Pix</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Crédito">Crédito</option>
+                <option value="Débito">Débito</option>
+                <option value="Link / Online">Link / Online</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="editSaleShippingMethod">Modalidade de Envio:</label>
+              <select id="editSaleShippingMethod">
+                <option value="Retirada na Loja">Retirada na Loja</option>
+                <option value="Motoboy">Motoboy</option>
+                <option value="Correios">Correios</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="editSaleOrderStatus">Status do Pedido:</label>
+              <select id="editSaleOrderStatus">
+                <option value="Em Separação">Em Separação</option>
+                <option value="Separado">Separado</option>
+                <option value="Enviado">Enviado</option>
+                <option value="Entregue">Entregue</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="editSaleTrackingCode">Código de Rastreio:</label>
+              <input type="text" id="editSaleTrackingCode" placeholder="Ex: BR123456789BR" />
+            </div>
+            <div class="form-group">
+              <label for="editSaleShippingNotes">Endereço / Detalhes de Envio:</label>
+              <input type="text" id="editSaleShippingNotes" />
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top:0.5rem;">
+            <label for="editSaleItems">Resumo dos Itens:</label>
+            <input type="text" id="editSaleItems" />
+          </div>
+
+          <div class="gm-edit-sale-grid" style="margin-top:0.5rem;">
+            <div class="form-group">
+              <label for="editSaleDiscount">Desconto (R$):</label>
+              <input type="number" id="editSaleDiscount" step="0.01" min="0" />
+            </div>
+            <div class="form-group">
+              <label for="editSaleTotal">Total da Venda (R$):</label>
+              <input type="number" id="editSaleTotal" step="0.01" min="0" required />
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top:0.5rem;">
+            <label for="editSaleObservation">Observação Interna:</label>
+            <input type="text" id="editSaleObservation" placeholder="Observações da venda ou entrega..." />
+          </div>
+
+          <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+            <button type="button" id="btnCancelEditSaleModal" class="btn-sm">Cancelar</button>
+            <button type="submit" class="btn-primary"><i class="ph ph-check"></i> Salvar Alterações</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  ensureSaleItemsEditorInsideModal();
+}
+
 function ensureSaleItemsEditorInsideModal() {
   const form = document.getElementById('formEditSale');
   if (!form || document.getElementById('gmSaleItemsEditorBlock')) return;
@@ -2517,10 +2698,13 @@ window.removeDraftSaleItem = function (idx) {
 };
 
 function initEditSaleModule() {
-  ensureSaleItemsEditorInsideModal();
+  ensureEditSaleModalStructure();
   const overlay = document.getElementById('editSaleModalOverlay');
   document.getElementById('btnCloseEditSaleModal')?.addEventListener('click', () => overlay.classList.remove('active'));
   document.getElementById('btnCancelEditSaleModal')?.addEventListener('click', () => overlay.classList.remove('active'));
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
 
   document.getElementById('formEditSale')?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -2561,11 +2745,11 @@ function initEditSaleModule() {
 }
 
 window.openEditSaleModal = function (saleId) {
-  ensureSaleItemsEditorInsideModal();
+  ensureEditSaleModalStructure();
   const s = sales.find(item => String(item.id) === String(saleId));
   if (!s) return;
 
-  document.getElementById('editSaleHeaderId').textContent = s.id;
+  document.getElementById('editSaleHeaderId').textContent = `#${s.id}`;
   document.getElementById('editSaleId').value = s.id;
   document.getElementById('editSaleClient').value = s.client || '';
   document.getElementById('editSaleSeller').value = s.seller || '';
@@ -2640,32 +2824,29 @@ function renderSales() {
 
     return `
       <tr>
-        <td><strong>#${s.id}</strong></td>
-        <td>${channelBadge}</td>
-        <td>${s.date}</td>
-        <td>${s.client}</td>
+        <td style="white-space:nowrap;"><strong>#${s.id}</strong></td>
+        <td style="white-space:nowrap;">${channelBadge}</td>
+        <td style="white-space:nowrap;">${s.date}</td>
+        <td><strong>${s.client}</strong></td>
         <td>${s.items}</td>
-        <td>${shipBadge}</td>
-        <td>
+        <td style="white-space:nowrap;">${shipBadge}</td>
+        <td style="white-space:nowrap;">
           <button type="button" class="btn-sm ${hasTrack ? 'btn-green' : ''}" onclick="openOrderTrackingModal('${s.id}')" title="Informar ou alterar código de rastreio">
             <i class="ph ph-barcode"></i> ${hasTrack ? `<code>${s.trackingCode}</code>` : '+ Rastreio'}
           </button>
         </td>
         <td>
-          <select class="status-inline-select ${getOrderStatusClass(st)}" onchange="updateSaleOrderStatus('${s.id}', this.value)">
-            <option value="Em Separação" ${st === 'Em Separação' ? 'selected' : ''}>Em Separação</option>
-            <option value="Separado" ${st === 'Separado' ? 'selected' : ''}>Separado</option>
-            <option value="Enviado" ${st === 'Enviado' ? 'selected' : ''}>Enviado</option>
-            <option value="Entregue" ${st === 'Entregue' ? 'selected' : ''}>Entregue</option>
-          </select>
+          <div class="gm-status-cell-wrap">
+            ${renderStatusSelectControl(s.id, st)}
+          </div>
         </td>
-        <td>
+        <td style="white-space:nowrap;">
           <button type="button" class="btn-sm ${hasObs ? 'btn-blue' : ''}" onclick="openOrderObsModal('${s.id}')" title="${hasObs ? s.observation : 'Adicionar observação'}">
             <i class="ph ph-note-pencil"></i> ${hasObs ? (s.observation.length > 18 ? s.observation.slice(0, 18) + '...' : s.observation) : '+ Obs.'}
           </button>
         </td>
-        <td>${s.payment}</td>
-        <td><strong>${fmtBRL(s.total)}</strong></td>
+        <td style="white-space:nowrap;">${s.payment}</td>
+        <td style="white-space:nowrap;"><strong>${fmtBRL(s.total)}</strong></td>
         <td style="white-space:nowrap;">
           <div style="display:inline-flex; align-items:center; gap:0.3rem;">
             ${renderGithubPencilActionButton(s.id)}
@@ -2681,14 +2862,9 @@ function renderSales() {
     const st = s.orderStatus || 'Em Separação';
     return `
       <div class="sale-card-item">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem;">
           <strong>#${s.id} ${s.type === 'Online / Nuvemshop' ? '(Nuvemshop)' : ''}</strong>
-          <select class="status-inline-select ${getOrderStatusClass(st)}" onchange="updateSaleOrderStatus('${s.id}', this.value)">
-            <option value="Em Separação" ${st === 'Em Separação' ? 'selected' : ''}>Em Separação</option>
-            <option value="Separado" ${st === 'Separado' ? 'selected' : ''}>Separado</option>
-            <option value="Enviado" ${st === 'Enviado' ? 'selected' : ''}>Enviado</option>
-            <option value="Entregue" ${st === 'Entregue' ? 'selected' : ''}>Entregue</option>
-          </select>
+          ${renderStatusSelectControl(s.id, st)}
         </div>
         <strong>${s.client}</strong>
         <small style="color:var(--text-muted);">${s.date} • ${s.items}</small>
