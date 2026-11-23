@@ -1,5 +1,5 @@
 // ============================================================================
-// 1. PERSISTÊNCIA NUVEM / BACKEND POSTGRESQL + AUTENTICAÇÃO POR TOKEN
+// 1. PERSISTÊNCIA NUVEM / BACKEND POSTGRESQL + AUTENTICAÇÃO POR TOKEN + 2FA
 // ============================================================================
 const BACKEND_API_URL = 'https://grupo-mister-backend.onrender.com';
 
@@ -19,6 +19,7 @@ const STORAGE_KEYS = {
 
 let authToken = localStorage.getItem(STORAGE_KEYS.SESSION_TOKEN) || null;
 let activeAccount = JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSION_USER) || 'null');
+let pendingTwoFactorToken = null;
 let serverUsersList = [];
 
 function isCurrentUserAdmin() {
@@ -29,6 +30,13 @@ function isCurrentUserAdmin() {
     String(activeAccount.role || '').toLowerCase() === 'admin' ||
     String(activeAccount.username || '').toLowerCase() === 'admin'
   );
+}
+
+function hasStockAccess() {
+  if (!activeAccount) return false;
+  if (isCurrentUserAdmin()) return true;
+  const perms = Array.isArray(activeAccount.permissions) ? activeAccount.permissions : [];
+  return perms.includes('estoque');
 }
 
 function getAuthHeaders() {
@@ -50,16 +58,7 @@ function formatDateSafe(dateStr, fallback = '-') {
 // ============================================================================
 // 2. DADOS INICIAIS
 // ============================================================================
-const DEFAULT_PRODUCTS = [
-  { id: 'PRD-01', name: 'Lattafa Khamrah Eau de Parfum 100ml', imei: 'BATCH-KHM-26A', expiry: '2028-06-15', condition: 'Árabe', battery: 'EDP 100ml (Gourmand)', cost: 140.00, price: 249.90, qty: 12, nuvemId: '314890101', nuvemVarId: '994120101' },
-  { id: 'PRD-02', name: 'Lattafa Asad Eau de Parfum 100ml', imei: 'BATCH-ASD-882C', expiry: '2028-04-10', condition: 'Árabe', battery: 'EDP 100ml (Ambarado)', cost: 120.00, price: 219.90, qty: 7, nuvemId: '314890102', nuvemVarId: '994120102' },
-  { id: 'PRD-03', name: 'Baccarat Rouge 540 — MFK 70ml', imei: 'BATCH-BR540-LUX', expiry: '2027-12-20', condition: 'Nicho', battery: 'Extrait 70ml', cost: 1850.00, price: 2490.00, qty: 3, nuvemId: '314890103', nuvemVarId: '994120103' },
-  { id: 'PRD-04', name: 'Creed Aventus Eau de Parfum 100ml', imei: 'BATCH-CRD-AV10', expiry: '2028-09-01', condition: 'Importado', battery: 'EDP 100ml', cost: 1600.00, price: 2190.00, qty: 2, nuvemId: '', nuvemVarId: '' },
-  { id: 'PRD-05', name: 'Decant 10ml — Parfums de Marly Layton', imei: 'DEC-LAYTON-10', expiry: '2027-01-05', condition: 'Decant', battery: 'Decant Vidro 10ml', cost: 45.00, price: 99.90, qty: 25, nuvemId: '314890105', nuvemVarId: '994120105' },
-  { id: 'PRD-06', name: 'Decant 5ml — Tom Ford Oud Wood', imei: 'DEC-TFOW-05', expiry: '2026-12-28', condition: 'Decant', battery: 'Decant Vidro 5ml', cost: 32.00, price: 69.90, qty: 20, nuvemId: '', nuvemVarId: '' },
-  { id: 'PRD-07', name: 'Dior Sauvage Eau de Parfum 100ml', imei: 'BATCH-DSV-9011', expiry: '2028-03-15', condition: 'Importado', battery: 'EDP 100ml', cost: 580.00, price: 799.00, qty: 6, nuvemId: '314890107', nuvemVarId: '994120107' },
-  { id: 'PRD-08', name: 'Decant 10ml — Baccarat Rouge 540 Extrait', imei: 'DEC-BR540EX-10', expiry: '2027-02-15', condition: 'Decant', battery: 'Decant Vidro 10ml', cost: 75.00, price: 149.90, qty: 30, nuvemId: '', nuvemVarId: '' }
-];
+const DEFAULT_PRODUCTS = [];
 
 const DEFAULT_CLIENTS = [
   { cod: 'CLI-001', name: 'MARCELO SOUZA', cpf: '384.910.228-40', phone: '(11) 98765-4321', category: 'VIP / Recorrente', notes: 'Colecionador de árabes e nichos' },
@@ -67,29 +66,11 @@ const DEFAULT_CLIENTS = [
   { cod: 'CLI-003', name: 'RODRIGO CASTRO', cpf: '412.889.104-55', phone: '(11) 99123-7744', category: 'VIP / Recorrente', notes: 'Comprador de Creed e Tom Ford' }
 ];
 
-const DEFAULT_SALES = [
-  { id: '9054427', client: 'JULIANA ALMEIDA', phone: '(11) 99412-3308', seller: 'VENDEDOR', date: '15/10/2026 10:15', isoDate: '2026-10-15', type: 'Venda Presencial', shippingMethod: 'Motoboy', shippingNotes: 'Rua Barão de Jundiaí, 450 - Centro', trackingCode: 'MOTOBOY-JDI-01', orderStatus: 'Em Separação', observation: 'Enviar amostra extra de Khamrah', shippingPacked: false, payment: 'Pix', discount: 0, items: 'Decant 10ml — Parfums de Marly Layton (1x)', total: 99.90, status: 'Concluído' },
-  { id: '9054490', client: 'MARCELO SOUZA', phone: '(11) 98765-4321', seller: 'ADMIN', date: '01/11/2026 16:40', isoDate: '2026-11-01', type: 'Venda Presencial', shippingMethod: 'Retirada na Loja', shippingNotes: '', trackingCode: '', orderStatus: 'Entregue', observation: '', shippingPacked: true, payment: 'Pix', discount: 0, items: 'Decant 5ml — Tom Ford Oud Wood (1x)', total: 69.90, status: 'Concluído' },
-  { id: '9053818', client: 'RODRIGO CASTRO', phone: '(11) 99123-7744', seller: 'NUVEMSHOP', date: '18/11/2026 11:30', isoDate: '2026-11-18', type: 'Online / Nuvemshop', shippingMethod: 'Correios', shippingNotes: 'SEDEX — CEP 01310-100 São Paulo/SP', trackingCode: 'SX894120335BR', orderStatus: 'Em Separação', observation: 'Pedido loja online Nuvemshop', shippingPacked: false, payment: 'Cartão de Crédito', discount: 0, items: 'Creed Aventus Eau de Parfum 100ml (1x)', total: 2190.00, status: 'Concluído' }
-];
-
-const DEFAULT_WARRANTIES = [
-  { cod: 'GAR-1001', saleId: '9054427', clientName: 'JULIANA ALMEIDA', clientPhone: '(11) 99412-3308', deviceModel: 'Decant 10ml — Parfums de Marly Layton', imei: 'DEC-LAYTON-10', term: 'GARANTIA DECANTS (30 DIAS)', startDate: '2026-10-15', days: 30, value: 99.90, invoiceNumber: 'NF-e 000.182' }
-];
-
-const DEFAULT_QUOTES = [
-  { cod: 'ORC-501', date: '18/11/2026', validUntil: '21/11/2026', clientName: 'MARCELO SOUZA', clientPhone: '(11) 98765-4321', seller: 'ADMIN', items: [{ prodId: 'PRD-03', name: 'Baccarat Rouge 540 — MFK 70ml', qty: 1, price: 2490.00 }], tradeInVal: 100.00, netTotal: 2390.00, status: 'Aberto' }
-];
-
-const DEFAULT_RMA = [
-  { cod: 'RMA-201', date: '17/11/2026', saleId: '9054427', clientName: 'JULIANA ALMEIDA', deviceName: 'Decant 5ml Oud Wood', type: 'Troca de Fragrância', stockAction: 'retornar_estoque', amount: 69.90, reason: 'Troca de nota olfativa', status: 'Concluído' }
-];
-
-const DEFAULT_FINANCE = [
-  { cod: 'FIN-001', date: '2026-11-10', desc: 'Importação Lote Lattafa (Árabes)', category: 'Compra de Fragrâncias', type: 'Despesa', amount: 3200.00, status: 'Pago' },
-  { cod: 'FIN-002', date: '2026-11-12', desc: 'Frascos Vidro 5ml/10ml & Etiquetas Térmicas', category: 'Embalagens & Insumos', type: 'Despesa', amount: 450.00, status: 'Pago' }
-];
-
+const DEFAULT_SALES = [];
+const DEFAULT_WARRANTIES = [];
+const DEFAULT_QUOTES = [];
+const DEFAULT_RMA = [];
+const DEFAULT_FINANCE = [];
 const DEFAULT_RATES = [0, 3.49, 4.99, 5.89, 6.79, 7.69, 8.59, 9.49, 10.39, 11.29, 12.19, 12.99, 13.89];
 
 function loadJsonKey(key, fallback) {
@@ -112,7 +93,7 @@ let rmaList = loadJsonKey(STORAGE_KEYS.RMA, DEFAULT_RMA);
 let finEntries = loadJsonKey(STORAGE_KEYS.FINANCE, DEFAULT_FINANCE);
 
 function normalizeSalesArray() {
-  if (!Array.isArray(sales)) sales = [...DEFAULT_SALES];
+  if (!Array.isArray(sales)) sales = [];
   sales.forEach(s => {
     if (!s.orderStatus) s.orderStatus = s.shippingPacked ? 'Entregue' : 'Em Separação';
     if (typeof s.observation !== 'string') s.observation = '';
@@ -159,6 +140,60 @@ function showToast(msg) {
   toast.textContent = msg;
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 3400);
+}
+
+// ============================================================================
+// BOTÃO DE MENU MOBILE / SIDEBAR RESPONSIVA
+// ============================================================================
+function initMobileSidebarToggle() {
+  if (document.getElementById('gmMobileMenuBtn')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'gmMobileMenuBtn';
+  btn.type = 'button';
+  btn.innerHTML = '<i class="ph ph-list"></i> <span>Menu</span>';
+  btn.style.cssText = `
+    display: none;
+    position: fixed;
+    top: 11px;
+    left: 12px;
+    z-index: 65;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 11px;
+    border-radius: 8px;
+    border: 1px solid #252a34;
+    background: #181c24;
+    color: #f3f4f6;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  `;
+
+  const syncVisibility = () => {
+    btn.style.display = window.innerWidth <= 900 ? 'inline-flex' : 'none';
+    if (window.innerWidth > 900) {
+      document.querySelectorAll('aside, .sidebar, .sidenav, .app-sidebar').forEach(sb => sb.classList.remove('open'));
+    }
+  };
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const sidebar = document.querySelector('aside, .sidebar, .sidenav, .app-sidebar');
+    if (sidebar) sidebar.classList.toggle('open');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (window.innerWidth > 900) return;
+    const sidebar = document.querySelector('aside, .sidebar, .sidenav, .app-sidebar');
+    if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !btn.contains(e.target)) {
+      sidebar.classList.remove('open');
+    }
+  });
+
+  window.addEventListener('resize', syncVisibility);
+  syncVisibility();
+  document.body.appendChild(btn);
 }
 
 // ============================================================================
@@ -247,7 +282,6 @@ const CloudSyncEngine = {
   }
 };
 
-// Polling automático a cada 15 segundos para capturar pedidos novos da Nuvemshop
 setInterval(() => {
   if (authToken) {
     CloudSyncEngine.pullState(true);
@@ -298,7 +332,7 @@ window.dismissShippingBanner = function () {
 };
 
 // ============================================================================
-// 3. AUTENTICAÇÃO & CONTROLE DE VISIBILIDADE POR PERFIL
+// 3. AUTENTICAÇÃO (COM 2FA POR E-MAIL + OLHINHO DE SENHA) & PERMISSÕES
 // ============================================================================
 function getAllowedPermissionsForAccount(account) {
   if (!account) return ['dashboard'];
@@ -324,12 +358,108 @@ function setLoginOverlayVisible(visible) {
   }
 }
 
+function injectPasswordEyeAnd2faBox() {
+  const passInput = document.getElementById('loginPasswordInput');
+  const form = document.getElementById('formLoginSystem');
+  if (passInput && !document.getElementById('gmTogglePasswordEye')) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative; display:flex; align-items:center; width:100%;';
+    passInput.parentNode.insertBefore(wrap, passInput);
+    wrap.appendChild(passInput);
+    passInput.style.paddingRight = '40px';
+    passInput.style.width = '100%';
+
+    const eyeBtn = document.createElement('button');
+    eyeBtn.id = 'gmTogglePasswordEye';
+    eyeBtn.type = 'button';
+    eyeBtn.title = 'Mostrar ou ocultar senha';
+    eyeBtn.innerHTML = '👁️';
+    eyeBtn.style.cssText = `
+      position:absolute; right:8px; background:transparent; border:none;
+      color:#9ca3af; cursor:pointer; font-size:15px; padding:4px;
+    `;
+    eyeBtn.addEventListener('click', () => {
+      const isPwd = passInput.type === 'password';
+      passInput.type = isPwd ? 'text' : 'password';
+      eyeBtn.textContent = isPwd ? '🙈' : '👁️';
+    });
+    wrap.appendChild(eyeBtn);
+  }
+
+  if (form && !document.getElementById('gmTwoFactorBox')) {
+    const box = document.createElement('div');
+    box.id = 'gmTwoFactorBox';
+    box.style.cssText = `
+      display:none; margin-top:14px; padding:14px; border-radius:10px;
+      background:#181c24; border:1px solid #f59e0b;
+    `;
+    box.innerHTML = `
+      <div style="font-size:13px; font-weight:600; color:#fbbf24; margin-bottom:6px;">Verificação em Duas Etapas (2FA)</div>
+      <div id="gmTwoFactorInfo" style="font-size:12px; color:#d1d5db; margin-bottom:10px;">Digite o código de 6 dígitos enviado para seu e-mail.</div>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="gmTwoFactorCodeInput" maxlength="6" placeholder="000000" style="flex:1; letter-spacing:4px; text-align:center; font-weight:700;" />
+        <button type="button" id="gmBtnVerify2fa" class="btn-primary">Confirmar</button>
+      </div>
+    `;
+    form.parentNode.appendChild(box);
+
+    document.getElementById('gmBtnVerify2fa')?.addEventListener('click', async () => {
+      const code = (document.getElementById('gmTwoFactorCodeInput')?.value || '').trim();
+      if (!pendingTwoFactorToken || code.length < 4) {
+        return showToast('Digite o código enviado para o seu e-mail.');
+      }
+      try {
+        const res = await fetch(`${BACKEND_API_URL}/api/auth/verify-2fa`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tempToken: pendingTwoFactorToken, code })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.token || !data.user) {
+          return showToast(data.error || 'Código 2FA inválido ou expirado.');
+        }
+        pendingTwoFactorToken = null;
+        box.style.display = 'none';
+        await completeLoginSession(data.token, data.user);
+      } catch (_) {
+        showToast('Erro ao validar código 2FA.');
+      }
+    });
+  }
+}
+
+async function completeLoginSession(token, user) {
+  authToken = token;
+  activeAccount = user;
+  localStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, authToken);
+  localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(activeAccount));
+
+  const uInp = document.getElementById('loginUsernameInput');
+  const pInp = document.getElementById('loginPasswordInput');
+  const cInp = document.getElementById('gmTwoFactorCodeInput');
+  if (uInp) uInp.value = '';
+  if (pInp) pInp.value = '';
+  if (cInp) cInp.value = '';
+
+  setLoginOverlayVisible(false);
+  applyAccountVisibility(activeAccount);
+  await CloudSyncEngine.pullState(false);
+  if (isCurrentUserAdmin()) await fetchServerUsers();
+  renderAll();
+  showToast(`Bem-vindo(a), ${activeAccount.displayName || activeAccount.username}!`);
+}
+
 function logoutCurrentSession(showMsg = true) {
   activeAccount = null;
   authToken = null;
+  pendingTwoFactorToken = null;
   serverUsersList = [];
   localStorage.removeItem(STORAGE_KEYS.SESSION_USER);
   localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
+
+  const box = document.getElementById('gmTwoFactorBox');
+  if (box) box.style.display = 'none';
+
   const userInput = document.getElementById('loginUsernameInput');
   const passInput = document.getElementById('loginPasswordInput');
   if (userInput) userInput.value = '';
@@ -356,6 +486,8 @@ async function fetchServerUsers() {
 }
 
 function initLoginByCredentials() {
+  injectPasswordEyeAnd2faBox();
+
   const form = document.getElementById('formLoginSystem');
   const btnSwitch = document.getElementById('btnSwitchUser');
   const btnLogout = document.getElementById('btnLogoutSystem');
@@ -390,22 +522,20 @@ function initLoginByCredentials() {
       });
       const data = await res.json().catch(() => ({}));
 
-      if (!res.ok || !data.token || !data.user) {
+      if (!res.ok) {
         showToast(data.error || 'Usuário ou senha inválidos.');
+      } else if (data.requires2FA && data.tempToken) {
+        pendingTwoFactorToken = data.tempToken;
+        const box = document.getElementById('gmTwoFactorBox');
+        const info = document.getElementById('gmTwoFactorInfo');
+        if (box) box.style.display = 'block';
+        if (info) info.textContent = data.message || `Código enviado para ${data.maskedEmail || 'seu e-mail'}.`;
+        document.getElementById('gmTwoFactorCodeInput')?.focus();
+        showToast('Código 2FA enviado para seu e-mail!');
+      } else if (data.token && data.user) {
+        await completeLoginSession(data.token, data.user);
       } else {
-        authToken = data.token;
-        activeAccount = data.user;
-        localStorage.setItem(STORAGE_KEYS.SESSION_TOKEN, authToken);
-        localStorage.setItem(STORAGE_KEYS.SESSION_USER, JSON.stringify(activeAccount));
-
-        document.getElementById('loginUsernameInput').value = '';
-        document.getElementById('loginPasswordInput').value = '';
-        setLoginOverlayVisible(false);
-        applyAccountVisibility(activeAccount);
-        await CloudSyncEngine.pullState(false);
-        if (isCurrentUserAdmin()) await fetchServerUsers();
-        renderAll();
-        showToast(`Bem-vindo(a), ${activeAccount.displayName || activeAccount.username}!`);
+        showToast('Resposta inesperada do servidor.');
       }
     } catch (_) {
       showToast('Servidor offline ou acordando. Aguarde 15s e tente novamente.');
@@ -455,10 +585,11 @@ function initLoginByCredentials() {
 function applyAccountVisibility(account) {
   if (!account) return;
   const adminFlag = isCurrentUserAdmin();
+  const stockFlag = hasStockAccess();
   const nameEl = document.getElementById('loggedUserName');
   const roleEl = document.getElementById('loggedUserRole');
   if (nameEl) nameEl.textContent = account.displayName || account.username;
-  if (roleEl) roleEl.textContent = adminFlag ? 'Administrador' : 'Vendedor / Estoque';
+  if (roleEl) roleEl.textContent = adminFlag ? 'Administrador' : (stockFlag ? 'Gerente / Estoque' : 'Vendedor');
 
   const allowed = getAllowedPermissionsForAccount(account);
 
@@ -494,6 +625,16 @@ function initAdminAccountCreation() {
   const form = document.getElementById('formCreateLoginAccount');
   const btnClear = document.getElementById('btnCancelEditAccount');
 
+  if (form && !document.getElementById('accEmailInput')) {
+    const nameInput = document.getElementById('accDisplayNameInput');
+    const emailGroup = document.createElement('div');
+    emailGroup.className = 'form-group';
+    emailGroup.innerHTML = `<label>E-mail do Usuário (para 2FA e recuperação):</label><input type="email" id="accEmailInput" placeholder="usuario@gmail.com" />`;
+    if (nameInput?.parentElement) {
+      nameInput.parentElement.insertAdjacentElement('afterend', emailGroup);
+    }
+  }
+
   btnClear?.addEventListener('click', () => {
     form?.reset();
     const editIdEl = document.getElementById('editAccountId');
@@ -508,6 +649,7 @@ function initAdminAccountCreation() {
     const username = document.getElementById('accUsernameInput').value.trim();
     const password = document.getElementById('accPasswordInput').value;
     const displayName = document.getElementById('accDisplayNameInput').value.trim() || username;
+    const email = (document.getElementById('accEmailInput')?.value || '').trim();
     const isAdmin = document.getElementById('accRoleTypeInput').value === 'admin';
 
     if (!editId && !password) return showToast('Defina uma senha para o novo usuário.');
@@ -523,8 +665,8 @@ function initAdminAccountCreation() {
         : `${BACKEND_API_URL}/api/users`;
       const method = editId ? 'PUT' : 'POST';
       const bodyPayload = editId
-        ? { displayName, permissions }
-        : { username, password, displayName, isAdmin, permissions };
+        ? { displayName, email, permissions }
+        : { username, password, displayName, email, isAdmin, permissions };
 
       const res = await fetch(url, {
         method,
@@ -554,7 +696,7 @@ function renderAccountsTable() {
   }
   tbody.innerHTML = serverUsersList.map(acc => `
     <tr>
-      <td><strong>${acc.username}</strong></td>
+      <td><strong>${acc.username}</strong><br><small style="color:var(--text-muted);">${acc.email || 'Sem e-mail 2FA'}</small></td>
       <td>${acc.displayName}</td>
       <td>${acc.isAdmin ? '<span class="badge-tag badge-warning">Administrador</span>' : '<span class="badge-tag badge-info">Usuário</span>'}</td>
       <td>${(acc.permissions || []).filter(p => p !== 'admin_only').map(p => `<span class="badge-tag badge-info">${p.toUpperCase()}</span>`).join(' ')}</td>
@@ -575,6 +717,8 @@ window.editLoginAccount = function (id) {
   document.getElementById('accUsernameInput').value = acc.username;
   document.getElementById('accPasswordInput').value = '';
   document.getElementById('accDisplayNameInput').value = acc.displayName;
+  const emailInp = document.getElementById('accEmailInput');
+  if (emailInp) emailInp.value = acc.email || '';
   document.getElementById('accRoleTypeInput').value = acc.isAdmin ? 'admin' : 'user';
   document.querySelectorAll('.acc-perm-chk').forEach(chk => {
     chk.checked = (acc.permissions || []).includes(chk.value);
@@ -605,6 +749,7 @@ window.removeLoginAccount = async function (id) {
 // 4. INICIALIZAÇÃO GERAL
 // ============================================================================
 function startApp() {
+  initMobileSidebarToggle();
   initLoginByCredentials();
   initNavigation();
   initSalesAndPdv();
@@ -665,6 +810,10 @@ window.navigateToSection = function (targetId, labelText) {
   const pageTitle = document.getElementById('pageTitle');
   if (pageTitle && labelText) pageTitle.textContent = labelText;
 
+  if (window.innerWidth <= 900) {
+    document.querySelectorAll('aside, .sidebar, .sidenav, .app-sidebar').forEach(sb => sb.classList.remove('open'));
+  }
+
   if (targetId === 'estoque') renderStock();
 };
 
@@ -705,7 +854,7 @@ function initNavigation() {
 }
 
 // ============================================================================
-// STATUS, OBSERVAÇÃO & RASTREIO (HISTÓRICO DE VENDAS + ENVIOS)
+// STATUS, OBSERVAÇÃO, RASTREIO & EXCLUSÃO DE VENDA
 // ============================================================================
 function getOrderStatusClass(status) {
   switch (status) {
@@ -724,6 +873,26 @@ window.updateSaleOrderStatus = function (saleId, newStatus) {
   saveAll();
   renderAll();
   showToast(`Pedido #${sale.id} atualizado para "${newStatus}".`);
+};
+
+window.deleteSaleRecord = async function (saleId) {
+  if (!confirm(`Deseja realmente apagar a compra/venda #${saleId}?`)) return;
+  const restore = confirm('Deseja devolver os itens dessa compra para o estoque?');
+  sales = sales.filter(s => String(s.id) !== String(saleId));
+  persistLocalOnly();
+
+  if (authToken) {
+    try {
+      await fetch(`${BACKEND_API_URL}/api/sales/${encodeURIComponent(saleId)}?restoreStock=${restore ? 'true' : 'false'}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      await CloudSyncEngine.pullState(false);
+    } catch (_) {}
+  }
+
+  renderAll();
+  showToast(`Venda #${saleId} removida.`);
 };
 
 function initOrderObsModule() {
@@ -781,7 +950,7 @@ window.openOrderTrackingModal = function (saleId) {
 };
 
 // ============================================================================
-// MÓDULO DE ENVIOS & SEPARAÇÃO (INCLUI PEDIDOS NUVEMSHOP)
+// MÓDULO DE ENVIOS & SEPARAÇÃO (SEPARAÇÃO CLARA ENTRE PENDENTES E SEPARADOS)
 // ============================================================================
 function initShipmentsModule() {
   ['shippingSearchInput', 'shippingMethodFilter', 'shippingStatusFilter'].forEach(id => {
@@ -820,7 +989,7 @@ function renderShipments() {
 
   const term = (document.getElementById('shippingSearchInput')?.value || '').toLowerCase();
   const methodFilter = document.getElementById('shippingMethodFilter')?.value || 'todos';
-  const statusFilter = document.getElementById('shippingStatusFilter')?.value || 'pendentes';
+  const statusFilter = document.getElementById('shippingStatusFilter')?.value || 'todos';
 
   const filtered = shippingOrders.filter(s => {
     const st = s.orderStatus || 'Em Separação';
@@ -840,7 +1009,10 @@ function renderShipments() {
     return;
   }
 
-  tbody.innerHTML = filtered.map(s => {
+  const toSeparateRows = filtered.filter(s => (s.orderStatus || 'Em Separação') === 'Em Separação');
+  const alreadySeparatedRows = filtered.filter(s => (s.orderStatus || 'Em Separação') !== 'Em Separação');
+
+  const renderShipmentRow = (s) => {
     const st = s.orderStatus || 'Em Separação';
     const methodBadge = s.shippingMethod === 'Motoboy'
       ? `<span class="badge-tag badge-motoboy"><i class="ph ph-moped"></i> Motoboy</span>`
@@ -849,6 +1021,9 @@ function renderShipments() {
       ? `<span class="badge-tag badge-nuvem">Nuvemshop</span>`
       : `<span class="badge-tag badge-info">Loja Física</span>`;
     const hasTrack = Boolean(s.trackingCode && s.trackingCode.trim().length > 0);
+    const sepTag = st === 'Em Separação'
+      ? `<span class="badge-tag badge-warning" style="margin-left:4px;">A Separar</span>`
+      : `<span class="badge-tag badge-receita" style="margin-left:4px;">Separado</span>`;
 
     return `
       <tr>
@@ -859,6 +1034,7 @@ function renderShipments() {
             <option value="Enviado" ${st === 'Enviado' ? 'selected' : ''}>Enviado</option>
             <option value="Entregue" ${st === 'Entregue' ? 'selected' : ''}>Entregue</option>
           </select>
+          ${sepTag}
         </td>
         <td><strong>#${s.id}</strong></td>
         <td>${channelBadge}</td>
@@ -877,11 +1053,23 @@ function renderShipments() {
         <td><strong>${s.items}</strong></td>
       </tr>
     `;
-  }).join('');
+  };
+
+  let html = '';
+  if (toSeparateRows.length > 0) {
+    html += `<tr><td colspan="8" style="background:rgba(245,158,11,0.12); color:#fbbf24; font-weight:700;">⏳ PARA SEPARAR (${toSeparateRows.length})</td></tr>`;
+    html += toSeparateRows.map(renderShipmentRow).join('');
+  }
+  if (alreadySeparatedRows.length > 0) {
+    html += `<tr><td colspan="8" style="background:rgba(16,185,129,0.12); color:#34d399; font-weight:700;">✅ JÁ SEPARADO / EM ANDAMENTO (${alreadySeparatedRows.length})</td></tr>`;
+    html += alreadySeparatedRows.map(renderShipmentRow).join('');
+  }
+
+  tbody.innerHTML = html;
 }
 
 // ============================================================================
-// IMPORTADOR NUVEMSHOP (CSV / PDF)
+// IMPORTADOR NUVEMSHOP (API + CSV / PDF)
 // ============================================================================
 function extractVolumeAndExpiryFromText(rawText = '') {
   const clean = String(rawText || '');
@@ -918,6 +1106,7 @@ function initNuvemshopImportModule() {
 
   openBtn?.addEventListener('click', (e) => {
     e.preventDefault();
+    if (!hasStockAccess()) return showToast('Você não tem permissão para importar estoque.');
     parsedNuvemItems = [];
     if (fileInput) fileInput.value = '';
     const previewBox = document.getElementById('nuvemImportPreviewBox');
@@ -983,7 +1172,7 @@ function initNuvemshopImportModule() {
       if (existing) {
         existing.qty = item.qty;
         existing.price = item.price || existing.price;
-        if (item.cost) existing.cost = item.cost;
+        if (item.cost !== undefined && item.cost !== null) existing.cost = item.cost;
         if (detectedBattery && (!existing.battery || existing.battery === 'Frasco' || existing.battery === 'Decant')) {
           existing.battery = detectedBattery;
         }
@@ -998,9 +1187,9 @@ function initNuvemshopImportModule() {
           expiry: detectedExpiry,
           condition: isDecant ? 'Decant' : defaultCat,
           battery: detectedBattery,
-          cost: item.cost || Number((item.price * 0.55).toFixed(2)),
+          cost: item.cost || 0,
           price: item.price || 0,
-          qty: item.qty || 1,
+          qty: item.qty || 0,
           nuvemId: '',
           nuvemVarId: ''
         });
@@ -1033,7 +1222,7 @@ function parseNuvemshopCsv(csvText) {
     if (!name) continue;
     const rawPrice = idxPrice >= 0 ? cols[idxPrice] : '0';
     const rawCost = idxCost >= 0 ? cols[idxCost] : '0';
-    const rawQty = idxStock >= 0 ? cols[idxStock] : '1';
+    const rawQty = idxStock >= 0 ? cols[idxStock] : '0';
     const sku = idxSku >= 0 ? cols[idxSku] : '';
 
     const price = parseFloat(String(rawPrice).replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
@@ -1236,7 +1425,7 @@ function renderRecompraAndBatches() {
 }
 
 // ============================================================================
-// 8. DASHBOARD, PDV & EDIÇÃO DE VENDA
+// 8. DASHBOARD, PDV (COM DATA/HORA + APAGAR COMPRA) & EDIÇÃO DE VENDA
 // ============================================================================
 function renderDashboard() {
   const adminFlag = isCurrentUserAdmin();
@@ -1327,6 +1516,26 @@ function populateSelectDropdowns() {
   ['warSaleSelect', 'rmaSaleSelect'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = salesOptions; });
 }
 
+function getNowBrDateTime() {
+  const now = new Date();
+  return now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function syncPdvLiveClockBadge() {
+  const pdvSection = document.getElementById('pdv');
+  if (pdvSection && !document.getElementById('gmPdvDateTimeBanner')) {
+    const banner = document.createElement('div');
+    banner.id = 'gmPdvDateTimeBanner';
+    banner.style.cssText = 'margin-bottom:12px; padding:8px 12px; border-radius:8px; background:#181c24; border:1px solid #252a34; font-size:12.5px; color:#fbbf24; display:flex; justify-content:space-between; align-items:center;';
+    banner.innerHTML = `<span><strong>Data e Hora da Compra:</strong> <span id="gmPdvLiveDateTime">${getNowBrDateTime()}</span></span><span style="color:#9ca3af;">PDV GRUPO MISTER</span>`;
+    pdvSection.prepend(banner);
+  }
+  const liveEl = document.getElementById('gmPdvLiveDateTime');
+  if (liveEl) liveEl.textContent = getNowBrDateTime();
+}
+
+setInterval(syncPdvLiveClockBadge, 30000);
+
 function updateFastPdvTotal() {
   const qty = parseInt(document.getElementById('fastPdvQty')?.value, 10) || 1;
   const price = parseFloat(document.getElementById('fastPdvPrice')?.value) || 0;
@@ -1337,6 +1546,7 @@ function updateFastPdvTotal() {
 }
 
 function initSalesAndPdv() {
+  syncPdvLiveClockBadge();
   const pdvOverlay = document.getElementById('pdvModalOverlay');
   document.getElementById('btnOpenPdvModal')?.addEventListener('click', () => {
     modalCart = [];
@@ -1345,7 +1555,7 @@ function initSalesAndPdv() {
     document.getElementById('modalShippingMethod').value = 'Retirada na Loja';
     document.getElementById('modalShippingNotes').value = '';
     document.getElementById('modalOrderObservation').value = '';
-    document.getElementById('modalSaleDate').value = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('modalSaleDate').value = getNowBrDateTime();
     pdvOverlay.classList.add('active');
   });
   document.getElementById('btnClosePdvModal')?.addEventListener('click', () => pdvOverlay.classList.remove('active'));
@@ -1378,6 +1588,7 @@ function initSalesAndPdv() {
     const shippingMethod = document.getElementById('modalShippingMethod').value;
     const shippingNotes = document.getElementById('modalShippingNotes').value.trim();
     const observation = document.getElementById('modalOrderObservation').value.trim();
+    const saleDateStr = document.getElementById('modalSaleDate').value || getNowBrDateTime();
 
     modalCart.forEach(item => {
       const prod = products.find(p => p.id === item.prodId);
@@ -1390,7 +1601,7 @@ function initSalesAndPdv() {
       client: clientObj ? clientObj.name : 'CONSUMIDOR BALCÃO',
       phone: clientObj ? clientObj.phone : '',
       seller: document.getElementById('modalSellerSelect').value || (activeAccount?.displayName || activeAccount?.username || 'ADMIN'),
-      date: document.getElementById('modalSaleDate').value,
+      date: saleDateStr,
       isoDate: new Date().toISOString().split('T')[0],
       type: 'Venda Presencial',
       shippingMethod,
@@ -1402,6 +1613,7 @@ function initSalesAndPdv() {
       payment: document.getElementById('modalPayMethod').value,
       discount: generalDiscount,
       items: modalCart.map(i => `${i.name} (${i.qty}x)`).join(', '),
+      rawItems: modalCart.map(i => ({ productId: i.prodId, name: i.name, qty: i.qty, price: i.unitPrice })),
       total: totalSale,
       status: 'Concluído'
     };
@@ -1449,6 +1661,7 @@ function initSalesAndPdv() {
     const shippingMethod = document.getElementById('fastPdvShippingMethod').value;
     const shippingNotes = document.getElementById('fastPdvShippingNotes').value.trim();
     const observation = document.getElementById('fastPdvObservation').value.trim();
+    const itemDesc = prod ? `${prod.name} (${qty}x)` : `${document.getElementById('fastPdvCustomDesc').value} (${qty}x)`;
 
     if (prod) { prod.qty = Math.max(0, prod.qty - qty); pushStockToNuvemshop(prod); }
 
@@ -1457,7 +1670,7 @@ function initSalesAndPdv() {
       id: newId,
       client: 'CONSUMIDOR BALCÃO',
       seller: document.getElementById('fastPdvSeller').value,
-      date: new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      date: getNowBrDateTime(),
       isoDate: new Date().toISOString().split('T')[0],
       type: 'Venda Presencial',
       shippingMethod,
@@ -1468,7 +1681,8 @@ function initSalesAndPdv() {
       shippingPacked: isStorePickup,
       payment: document.getElementById('fastPdvPayMethod').value,
       discount,
-      items: prod ? `${prod.name} (${qty}x)` : `${document.getElementById('fastPdvCustomDesc').value} (${qty}x)`,
+      items: itemDesc,
+      rawItems: prod ? [{ productId: prod.id, name: prod.name, qty, price }] : [],
       total: Math.max(0, qty * price - discount),
       status: 'Concluído'
     };
@@ -1568,6 +1782,7 @@ function renderModalCart() {
 }
 
 function renderSales() {
+  syncPdvLiveClockBadge();
   const statusFilter = document.getElementById('salesStatusFilter')?.value || 'todos';
   const channelFilter = document.getElementById('salesChannelFilter')?.value || 'todos';
 
@@ -1626,6 +1841,7 @@ function renderSales() {
         <td style="display:flex; gap:0.35rem; flex-wrap:wrap;">
           <button type="button" class="btn-sm btn-blue" onclick="openEditSaleModal('${s.id}')" title="Editar venda"><i class="ph ph-pencil-simple"></i> Editar</button>
           <button type="button" class="btn-sm" onclick="openReceiptModal('${s.id}')"><i class="ph ph-printer"></i> Recibo</button>
+          <button type="button" class="btn-sm btn-danger" onclick="deleteSaleRecord('${s.id}')" title="Apagar compra errada"><i class="ph ph-trash"></i> Apagar</button>
         </td>
       </tr>
     `;
@@ -1645,7 +1861,7 @@ function renderSales() {
           </select>
         </div>
         <strong>${s.client}</strong>
-        <small style="color:var(--text-muted);">${s.items}</small>
+        <small style="color:var(--text-muted);">${s.date} • ${s.items}</small>
         ${s.trackingCode ? `<small style="color:#34d399;"><i class="ph ph-barcode"></i> Rastreio: <strong>${s.trackingCode}</strong></small>` : ''}
         ${s.observation ? `<small style="color:#fbbf24;"><i class="ph ph-note"></i> ${s.observation}</small>` : ''}
         <div style="display:flex; justify-content:space-between; align-items:center; gap:0.35rem; margin-top:0.25rem;">
@@ -1655,6 +1871,7 @@ function renderSales() {
             <button type="button" class="btn-sm" onclick="openOrderObsModal('${s.id}')">Obs.</button>
             <button type="button" class="btn-sm btn-blue" onclick="openEditSaleModal('${s.id}')">Editar</button>
             <button type="button" class="btn-sm" onclick="openReceiptModal('${s.id}')">Recibo</button>
+            <button type="button" class="btn-sm btn-danger" onclick="deleteSaleRecord('${s.id}')">Apagar</button>
           </div>
         </div>
       </div>
@@ -1680,7 +1897,7 @@ window.quickAddToPdv = function (prodId) {
   document.getElementById('modalShippingMethod').value = 'Retirada na Loja';
   document.getElementById('modalShippingNotes').value = '';
   document.getElementById('modalOrderObservation').value = '';
-  document.getElementById('modalSaleDate').value = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('modalSaleDate').value = getNowBrDateTime();
   document.getElementById('pdvModalOverlay').classList.add('active');
 };
 
@@ -1729,7 +1946,7 @@ window.convertQuoteToSale = function (cod) {
   const q = quotes.find(item => item.cod === cod);
   if (!q) return;
   q.status = 'Aprovado';
-  sales.unshift({ id: String(9054500 + sales.length + 1), client: q.clientName, phone: q.clientPhone, seller: q.seller, date: new Date().toLocaleDateString('pt-BR'), isoDate: new Date().toISOString().split('T')[0], type: 'Venda Presencial', shippingMethod: 'Retirada na Loja', trackingCode: '', orderStatus: 'Em Separação', observation: `Convertido do orçamento ${q.cod}`, shippingPacked: false, payment: 'Pix', discount: q.tradeInVal || 0, items: q.items.map(i => `${i.name} (${i.qty}x)`).join(', '), total: q.netTotal, status: 'Concluído' });
+  sales.unshift({ id: String(9054500 + sales.length + 1), client: q.clientName, phone: q.clientPhone, seller: q.seller, date: getNowBrDateTime(), isoDate: new Date().toISOString().split('T')[0], type: 'Venda Presencial', shippingMethod: 'Retirada na Loja', trackingCode: '', orderStatus: 'Em Separação', observation: `Convertido do orçamento ${q.cod}`, shippingPacked: false, payment: 'Pix', discount: q.tradeInVal || 0, items: q.items.map(i => `${i.name} (${i.qty}x)`).join(', '), total: q.netTotal, status: 'Concluído' });
   saveAll(); renderAll(); showToast(`Orçamento ${cod} convertido em venda!`);
 };
 
@@ -1894,15 +2111,66 @@ window.selectClientForSale = function (cod) {
   document.getElementById('modalGeneralDiscount').value = '0';
   renderModalCart();
   const sel = document.getElementById('modalClientSelect'); if (sel) sel.value = cod;
-  document.getElementById('modalSaleDate').value = new Date().toLocaleDateString('pt-BR');
+  document.getElementById('modalSaleDate').value = getNowBrDateTime();
   document.getElementById('pdvModalOverlay').classList.add('active');
 };
 
 // ============================================================================
-// MÓDULO DE ESTOQUE
+// MÓDULO DE ESTOQUE (PERMISSÃO POR 'estoque' OU ADMIN + IMPORTAR / LIMPAR)
 // ============================================================================
+function ensureStockToolbarActions() {
+  const stockSection = document.getElementById('estoque');
+  if (!stockSection || document.getElementById('gmStockManagerBar')) return;
+
+  const bar = document.createElement('div');
+  bar.id = 'gmStockManagerBar';
+  bar.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;';
+  bar.innerHTML = `
+    <button type="button" id="gmBtnImportNuvemApi" class="btn-primary"><i class="ph ph-cloud-arrow-down"></i> Importar Catálogo Nuvemshop</button>
+    <button type="button" id="gmBtnClearAllStock" class="btn-danger"><i class="ph ph-trash"></i> Zerar Estoque</button>
+  `;
+  stockSection.prepend(bar);
+
+  document.getElementById('gmBtnImportNuvemApi')?.addEventListener('click', async () => {
+    if (!hasStockAccess()) return showToast('Sem permissão de estoque.');
+    if (!confirm('Importar/atualizar produtos da Nuvemshop mantendo os custos já editados?')) return;
+    try {
+      const res = await fetch(`${BACKEND_API_URL}/api/nuvemshop/import-products`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return showToast(data.error || 'Erro ao importar da Nuvemshop.');
+      await CloudSyncEngine.pullState(false);
+      showToast(`${data.importedCount || 0} item(ns) importados da Nuvemshop!`);
+    } catch (_) {
+      showToast('Erro de conexão com o servidor.');
+    }
+  });
+
+  document.getElementById('gmBtnClearAllStock')?.addEventListener('click', async () => {
+    if (!hasStockAccess()) return showToast('Sem permissão de estoque.');
+    if (!confirm('Tem certeza que deseja APAGAR TODOS os itens do estoque?')) return;
+    try {
+      const res = await fetch(`${BACKEND_API_URL}/api/products/clear`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return showToast(data.error || 'Erro ao zerar estoque.');
+      products = [];
+      persistLocalOnly();
+      renderAll();
+      showToast('Estoque zerado com sucesso!');
+    } catch (_) {
+      showToast('Erro de conexão com o servidor.');
+    }
+  });
+}
+
 window.openNewProductModal = function () {
-  const adminFlag = isCurrentUserAdmin();
+  if (!hasStockAccess()) return showToast('Você não tem permissão para cadastrar no estoque.');
+  const canEditCost = hasStockAccess();
   document.getElementById('editProdId').value = '';
   document.getElementById('productModalTitle').innerHTML = '<i class="ph ph-package"></i> Cadastrar Fragrância';
   document.getElementById('btnSubmitProductModal').textContent = 'Salvar no Estoque';
@@ -1920,20 +2188,21 @@ window.openNewProductModal = function () {
   document.getElementById('prodNuvemVariantId').value = '';
 
   const costGroup = document.getElementById('prodCostFieldGroup');
-  if (costGroup) costGroup.style.display = adminFlag ? '' : 'none';
+  if (costGroup) costGroup.style.display = canEditCost ? '' : 'none';
 
   document.getElementById('productModalOverlay').classList.add('active');
 };
 
 window.openEditProductModal = function (prodId) {
+  if (!hasStockAccess()) return showToast('Você não tem permissão para editar o estoque.');
   const prod = products.find(p => p.id === prodId);
   if (!prod) return;
-  const adminFlag = isCurrentUserAdmin();
+  const canEditCost = hasStockAccess();
 
   document.getElementById('editProdId').value = prod.id;
   document.getElementById('productModalTitle').innerHTML = `<i class="ph ph-pencil-simple"></i> Editar Produto (${prod.id})`;
   document.getElementById('btnSubmitProductModal').textContent = 'Salvar Alterações';
-  document.getElementById('btnDeleteProductInModal').style.display = adminFlag ? 'inline-flex' : 'none';
+  document.getElementById('btnDeleteProductInModal').style.display = canEditCost ? 'inline-flex' : 'none';
 
   document.getElementById('prodCodeDisplay').value = prod.id || '';
   document.getElementById('prodName').value = prod.name || '';
@@ -1948,16 +2217,15 @@ window.openEditProductModal = function (prodId) {
   document.getElementById('prodNuvemVariantId').value = prod.nuvemVarId || '';
 
   const costGroup = document.getElementById('prodCostFieldGroup');
-  if (costGroup) costGroup.style.display = adminFlag ? '' : 'none';
+  if (costGroup) costGroup.style.display = canEditCost ? '' : 'none';
 
   document.getElementById('productModalOverlay').classList.add('active');
 };
 
 window.quickEditProductField = function (prodId, fieldKey) {
+  if (!hasStockAccess()) return showToast('Você não tem permissão para editar o estoque.');
   const prod = products.find(p => p.id === prodId);
   if (!prod) return;
-  const adminFlag = isCurrentUserAdmin();
-  if ((fieldKey === 'cost') && !adminFlag) return;
 
   const labels = {
     id: 'Código do Produto',
@@ -2003,13 +2271,14 @@ window.quickFilterStockChip = function (category) {
 };
 
 function initStockModule() {
+  ensureStockToolbarActions();
   const overlay = document.getElementById('productModalOverlay');
   document.getElementById('btnCloseProductModal')?.addEventListener('click', () => overlay.classList.remove('active'));
   document.getElementById('btnCancelProductModal')?.addEventListener('click', () => overlay.classList.remove('active'));
 
   document.getElementById('btnDeleteProductInModal')?.addEventListener('click', () => {
     const targetId = document.getElementById('editProdId').value;
-    if (!targetId || !isCurrentUserAdmin()) return;
+    if (!targetId || !hasStockAccess()) return;
     if (!confirm('Deseja excluir permanentemente este produto do estoque?')) return;
     products = products.filter(p => p.id !== targetId);
     saveAll();
@@ -2020,6 +2289,7 @@ function initStockModule() {
 
   document.getElementById('formNewProduct')?.addEventListener('submit', (e) => {
     e.preventDefault();
+    if (!hasStockAccess()) return showToast('Sem permissão para alterar o estoque.');
     const editingId = document.getElementById('editProdId').value;
     const customCode = document.getElementById('prodCodeDisplay').value.trim();
 
@@ -2032,9 +2302,7 @@ function initStockModule() {
         prod.expiry = document.getElementById('prodExpiry').value;
         prod.condition = document.getElementById('prodCondition').value;
         prod.battery = document.getElementById('prodBattery').value.trim();
-        if (isCurrentUserAdmin()) {
-          prod.cost = parseFloat(document.getElementById('prodCost').value) || 0;
-        }
+        prod.cost = parseFloat(document.getElementById('prodCost').value) || 0;
         prod.price = parseFloat(document.getElementById('prodPrice').value) || 0;
         prod.qty = parseInt(document.getElementById('prodQty').value, 10) || 0;
         prod.nuvemId = document.getElementById('prodNuvemId').value.trim();
@@ -2082,22 +2350,25 @@ function initStockModule() {
 }
 
 function renderStock() {
-  const adminFlag = isCurrentUserAdmin();
+  ensureStockToolbarActions();
+  const canManageStock = hasStockAccess();
+  const stockBar = document.getElementById('gmStockManagerBar');
+  if (stockBar) stockBar.style.display = canManageStock ? 'flex' : 'none';
 
   const adminGrid = document.getElementById('stockAdminMetricsGrid');
   const sellerBanner = document.getElementById('stockSellerQuickFilterBanner');
-  if (adminGrid) adminGrid.style.display = adminFlag ? 'grid' : 'none';
-  if (sellerBanner) sellerBanner.style.display = adminFlag ? 'none' : 'block';
+  if (adminGrid) adminGrid.style.display = canManageStock ? 'grid' : 'none';
+  if (sellerBanner) sellerBanner.style.display = canManageStock ? 'none' : 'block';
 
   document.querySelectorAll('#estoque .admin-only-col, #estoque .admin-only-metric').forEach(el => {
-    el.style.display = adminFlag ? '' : 'none';
+    el.style.display = canManageStock ? '' : 'none';
   });
 
   const term = (document.getElementById('stockSearchInput')?.value || '').toLowerCase();
   const cond = document.getElementById('stockConditionFilter')?.value || 'todos';
   const avail = document.getElementById('stockAvailabilityFilter')?.value || 'todos';
 
-  if (adminFlag) {
+  if (canManageStock) {
     const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     setTxt('stockMetricUnits', products.reduce((a, p) => a + p.qty, 0));
     setTxt('stockMetricCost', fmtBRL(products.reduce((a, p) => a + p.cost * p.qty, 0)));
@@ -2116,19 +2387,19 @@ function renderStock() {
     const margin = p.price > 0 ? (((p.price - p.cost) / p.price) * 100).toFixed(1) : '0.0';
     return `
       <tr>
-        <td class="editable-cell" title="Clique para editar Código" onclick="quickEditProductField('${p.id}', 'id')">${p.id}</td>
-        <td class="editable-cell" title="Clique para editar Nome" onclick="quickEditProductField('${p.id}', 'name')"><strong>${p.name}</strong></td>
-        <td class="editable-cell" title="Clique para editar Batch/Lote" onclick="quickEditProductField('${p.id}', 'imei')"><code>${p.imei || '-'}</code></td>
-        <td class="editable-cell" title="Clique para editar Volume" onclick="quickEditProductField('${p.id}', 'battery')">
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'id')">${p.id}</td>
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'name')"><strong>${p.name}</strong></td>
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'imei')"><code>${p.imei || '-'}</code></td>
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'battery')">
           <span class="badge-tag badge-info">${p.condition}</span> <small style="color:var(--text-muted);">${p.battery || ''}</small>
         </td>
-        <td class="editable-cell" title="Clique para editar Validade" onclick="quickEditProductField('${p.id}', 'expiry')">${formatDateSafe(p.expiry)}</td>
-        ${adminFlag ? `<td class="editable-cell" title="Clique para editar Custo" onclick="quickEditProductField('${p.id}', 'cost')">${fmtBRL(p.cost)}</td>` : ''}
-        <td class="editable-cell" title="Clique para editar Preço de Venda" onclick="quickEditProductField('${p.id}', 'price')"><strong>${fmtBRL(p.price)}</strong></td>
-        ${adminFlag ? `<td><span class="badge-tag badge-receita">${margin}%</span></td>` : ''}
-        <td class="editable-cell" title="Clique para editar Quantidade" onclick="quickEditProductField('${p.id}', 'qty')"><strong>${p.qty}</strong></td>
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'expiry')">${formatDateSafe(p.expiry)}</td>
+        ${canManageStock ? `<td class="editable-cell" onclick="quickEditProductField('${p.id}', 'cost')">${fmtBRL(p.cost)}</td>` : ''}
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'price')"><strong>${fmtBRL(p.price)}</strong></td>
+        ${canManageStock ? `<td><span class="badge-tag badge-receita">${margin}%</span></td>` : ''}
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'qty')"><strong>${p.qty}</strong></td>
         <td style="display:flex; gap:0.3rem; flex-wrap:wrap;">
-          <button type="button" class="btn-sm btn-blue" onclick="openEditProductModal('${p.id}')" title="Editar todos os campos do produto"><i class="ph ph-pencil-simple"></i> Editar</button>
+          <button type="button" class="btn-sm btn-blue" onclick="openEditProductModal('${p.id}')"><i class="ph ph-pencil-simple"></i> Editar</button>
           <button type="button" class="btn-sm" onclick="adjustStockQty('${p.id}', 1)">+1</button>
           <button type="button" class="btn-sm" onclick="adjustStockQty('${p.id}', -1)">-1</button>
         </td>
@@ -2138,6 +2409,7 @@ function renderStock() {
 }
 
 window.adjustStockQty = function (id, delta) {
+  if (!hasStockAccess()) return showToast('Sem permissão para alterar o estoque.');
   const prod = products.find(p => p.id === id);
   if (!prod) return;
   prod.qty = Math.max(0, prod.qty + delta);
@@ -2248,7 +2520,7 @@ window.openCashMovementModal = function (type) {
   toolOverlay.classList.add('active');
   document.getElementById('fcm').addEventListener('submit', (e) => {
     e.preventDefault();
-    cashMoves.unshift({ type, value: parseFloat(document.getElementById('cmv').value) || 0, date: new Date().toLocaleString('pt-BR') });
+    cashMoves.unshift({ type, value: parseFloat(document.getElementById('cmv').value) || 0, date: getNowBrDateTime() });
     saveAll(); toolOverlay.classList.remove('active'); showToast(`${type} registrado!`);
   });
 };
