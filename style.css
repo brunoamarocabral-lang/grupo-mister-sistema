@@ -21,7 +21,7 @@
   --blue: #3b82f6;
 
   --header-h: 64px;
-  --sidebar-w: 248px;
+  --sidebar-w: 268px;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
@@ -178,7 +178,7 @@ aside.sidebar,
 aside.sidebar .submenu,
 .sidebar .submenu {
   display: none;
-  padding-left: 6px;
+  padding-left: 8px;
   margin-bottom: 4px;
   width: 100%;
   min-width: 0;
@@ -243,7 +243,7 @@ aside.sidebar .submenu-item,
 .menu-item {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   width: 100%;
   min-width: 0;
   padding: 8px 8px;
@@ -265,9 +265,10 @@ aside.sidebar .submenu-item span,
 .sidebar .submenu-item span {
   flex: 1;
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.25;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .nav-item i,
