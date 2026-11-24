@@ -97,6 +97,18 @@ header.topbar {
   transition: left var(--transition), height var(--transition);
 }
 
+.topbar-brand-logo {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  border-radius: 7px;
+  flex-shrink: 0;
+  display: block;
+  background-color: #090b0e;
+  border: 1px solid var(--border-color);
+  padding: 2px;
+}
+
 aside.sidebar,
 .sidebar {
   position: fixed;
@@ -129,12 +141,22 @@ aside.sidebar,
 }
 
 .sidebar-brand-logo {
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 7px;
   flex-shrink: 0;
   display: block;
+  background-color: #090b0e;
+  border: 1px solid var(--border-color);
+  padding: 2px;
+}
+
+#loginScreenOverlay .sidebar-brand-logo {
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+  padding: 4px;
 }
 
 .sidebar-brand-text {
@@ -803,6 +825,11 @@ tr:hover td {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 150px;
+  }
+
+  .topbar-brand-logo {
+    width: 26px;
+    height: 26px;
   }
 
   main.main-content,
