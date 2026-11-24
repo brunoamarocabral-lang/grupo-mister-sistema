@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
   RATES: 'gm_perfume_rates_v5',
   RMA: 'gm_perfume_rma_v5',
   FINANCE: 'gm_perfume_fin_v5',
+  COMMISSIONS: 'gm_perfume_commissions_v5',
   SESSION_USER: 'gm_perfume_session_user_v5',
   SESSION_TOKEN: 'gm_perfume_session_token_v5'
 };
@@ -479,7 +480,9 @@ function injectLayoutAndActionStyles() {
 
     /* Opacidade / fundo sólido no modal Visualizar para máxima leitura */
     #viewSaleModalOverlay.modal-overlay,
-    #viewStockProductModalOverlay.modal-overlay {
+    #viewStockProductModalOverlay.modal-overlay,
+    #finEntryModalOverlay.modal-overlay,
+    #viewFinEntryModalOverlay.modal-overlay {
       background: rgba(7, 10, 16, 0.9) !important;
       backdrop-filter: blur(4px);
       z-index: 100000 !important;
@@ -524,6 +527,13 @@ function injectLayoutAndActionStyles() {
       color: #f3f4f6 !important;
       word-break: break-word;
     }
+
+    .gm-fin-subgrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1rem;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -564,6 +574,15 @@ let cashMoves = loadJsonKey(STORAGE_KEYS.CASH_MOVES, []);
 let cardRates = loadJsonKey(STORAGE_KEYS.RATES, DEFAULT_RATES);
 let rmaList = loadJsonKey(STORAGE_KEYS.RMA, DEFAULT_RMA);
 let finEntries = loadJsonKey(STORAGE_KEYS.FINANCE, DEFAULT_FINANCE);
+let sellerCommissionRates = loadJsonKey(STORAGE_KEYS.COMMISSIONS, {});
+
+// Estado dos filtros do Financeiro
+let finTypeFilter = 'todos';         // 'todos' | 'Receita' | 'Despesa'
+let finStatusFilter = 'todos';       // 'todos' | 'Pago' | 'Pendente'
+let finChannelFilter = 'todos';      // 'todos' | 'Venda Presencial' | 'Online / Nuvemshop'
+let finChannelSort = 'revenue_desc'; // 'revenue_desc' | 'orders_desc'
+let finSupplierFilter = 'todos';     // 'todos' ou nome do fornecedor
+let finSellerFilter = 'todos';       // 'todos' ou nome do vendedor
 
 // Estado dos filtros segmentados do Estoque (estilo referência sem IMEI)
 let stockOnlyInStockFilter = 'no';      // 'no' | 'yes'
@@ -674,6 +693,7 @@ function normalizeSalesArray() {
     if (typeof s.observation !== 'string') s.observation = '';
     if (typeof s.trackingCode !== 'string') s.trackingCode = '';
     if (!s.type) s.type = 'Venda Presencial';
+    if (!s.seller) s.seller = 'ADMIN';
     if (!Array.isArray(s.rawItems) || s.rawItems.length === 0) {
       s.rawItems = parseSaleItemsStringToArray(s.items);
     }
@@ -707,9 +727,11 @@ function persistLocalOnly() {
   localStorage.setItem(STORAGE_KEYS.RATES, JSON.stringify(cardRates));
   localStorage.setItem(STORAGE_KEYS.RMA, JSON.stringify(rmaList));
   localStorage.setItem(STORAGE_KEYS.FINANCE, JSON.stringify(finEntries));
+  localStorage.setItem(STORAGE_KEYS.COMMISSIONS, JSON.stringify(sellerCommissionRates));
 }
 
 function saveAll() {
+  syncSalesToFinanceEntries();
   persistLocalOnly();
   CloudSyncEngine.pushState({ products, clients, sales, warranties, quotes, finEntries });
 }
@@ -801,6 +823,7 @@ const CloudSyncEngine = {
           if (Array.isArray(p.finEntries)) finEntries = p.finEntries;
 
           normalizeSalesArray();
+          syncSalesToFinanceEntries();
           persistLocalOnly();
           renderAll();
 
@@ -1470,6 +1493,7 @@ function startApp() {
   initRmaModule();
   initFinanceModule();
   initCashAndTools();
+  syncSalesToFinanceEntries();
   renderAll();
 }
 
@@ -1725,7 +1749,6 @@ function renderCommercialStockCatalog() {
     return;
   }
 
-  // Sem colunas/valores de custo ou margem e sem edição inline
   tbody.innerHTML = filtered.map(p => {
     const qtyNum = Number(p.qty) || 0;
     const isDecant = isDecantProduct(p);
@@ -1786,6 +1809,10 @@ window.navigateToSection = function (targetId, labelText) {
 
   if (targetId === 'estoque') renderStock();
   if (targetId === 'consulta_estoque') renderCommercialStockCatalog();
+  if (targetId === 'financeiro') {
+    syncSalesToFinanceEntries();
+    renderFinance();
+  }
 };
 
 function initNavigation() {
@@ -1871,6 +1898,7 @@ window.deleteSaleRecord = async function (saleId) {
   if (!confirm(`Deseja realmente apagar a compra/venda #${saleId}?`)) return;
   const restore = confirm('Deseja devolver os itens dessa compra para o estoque?');
   sales = sales.filter(s => String(s.id) !== String(saleId));
+  finEntries = finEntries.filter(f => String(f.autoSaleId || '') !== String(saleId));
   persistLocalOnly();
 
   if (authToken) {
@@ -2930,7 +2958,7 @@ function initSalesAndPdv() {
 }
 
 // ============================================================================
-// MENU SUSPENSO "AÇÕES ▾" (VENDAS E ESTOQUE)
+// MENU SUSPENSO "AÇÕES ▾" (VENDAS, ESTOQUE E FINANCEIRO)
 // ============================================================================
 function closeAllGithubActionMenus() {
   document.querySelectorAll('.gm-gh-dropdown.open').forEach(el => el.classList.remove('open'));
@@ -4309,7 +4337,6 @@ function renderStock() {
   const stockBar = document.getElementById('gmStockManagerBar');
   if (stockBar) stockBar.style.display = canManageStock ? 'flex' : 'none';
 
-  // Oculta cards financeiros antigos da aba estoque; mantém apenas métricas operacionais
   const adminGrid = document.getElementById('stockAdminMetricsGrid');
   const sellerBanner = document.getElementById('stockSellerQuickFilterBanner');
   if (adminGrid) adminGrid.style.display = 'none';
@@ -4491,56 +4518,971 @@ function renderRma() {
   `).join('');
 }
 
-function initFinanceModule() {}
+// ============================================================================
+// MÓDULO FINANCEIRO COMPLETO (CUSTO REAL + CANAIS + FORNECEDORES + COMISSÕES)
+// ============================================================================
+function findProductForSaleItem(item) {
+  if (!item) return null;
+  if (item.productId) {
+    const byId = products.find(p => String(p.id) === String(item.productId));
+    if (byId) return byId;
+  }
+  const cleanName = String(item.name || '').toLowerCase().trim();
+  if (!cleanName) return null;
+  const exact = products.find(p => String(p.name || '').toLowerCase().trim() === cleanName);
+  if (exact) return exact;
+  return products.find(p => {
+    const pName = String(p.name || '').toLowerCase().trim();
+    return pName && (cleanName.includes(pName) || pName.includes(cleanName));
+  }) || null;
+}
+
+function calculateSaleRealCmv(sale) {
+  if (!sale) return 0;
+  const saleTotal = Number(sale.total || 0);
+  if (saleTotal <= 0) return 0;
+
+  const itemsList = Array.isArray(sale.rawItems) && sale.rawItems.length > 0
+    ? sale.rawItems
+    : parseSaleItemsStringToArray(sale.items);
+
+  if (itemsList.length === 0) {
+    return saleTotal * 0.55;
+  }
+
+  let realCostSum = 0;
+  let revenueWithoutCost = 0;
+
+  itemsList.forEach(it => {
+    const qty = Math.max(1, parseInt(it.qty, 10) || 1);
+    const matchedProd = findProductForSaleItem(it);
+    const unitCost = matchedProd ? Number(matchedProd.cost || 0) : 0;
+
+    if (matchedProd && unitCost > 0) {
+      realCostSum += unitCost * qty;
+    } else {
+      const unitPrice = Number(it.price || 0);
+      if (unitPrice > 0) {
+        revenueWithoutCost += unitPrice * qty;
+      } else {
+        revenueWithoutCost += saleTotal / itemsList.length;
+      }
+    }
+  });
+
+  const fallbackCost = revenueWithoutCost * 0.55;
+  return realCostSum + fallbackCost;
+}
+
+function getSaleSupplierSummary(sale) {
+  const itemsList = Array.isArray(sale?.rawItems) && sale.rawItems.length > 0
+    ? sale.rawItems
+    : parseSaleItemsStringToArray(sale?.items);
+
+  const suppliers = new Set();
+  itemsList.forEach(it => {
+    const prod = findProductForSaleItem(it);
+    const sup = String(prod?.supplier || '').trim();
+    if (sup && sup.toLowerCase() !== 'sem fornecedor') {
+      suppliers.add(sup);
+    }
+  });
+  return Array.from(suppliers);
+}
+
+function syncSalesToFinanceEntries() {
+  if (!Array.isArray(finEntries)) finEntries = [];
+  if (!Array.isArray(sales)) return;
+
+  const activeSaleIds = new Set(sales.map(s => String(s.id)));
+  finEntries = finEntries.filter(f => !f.autoSaleId || activeSaleIds.has(String(f.autoSaleId)));
+
+  sales.forEach(s => {
+    const saleKey = String(s.id);
+    const channelName = s.type || 'Venda Presencial';
+    const sellerName = String(s.seller || 'ADMIN').trim().toUpperCase();
+    const suppliers = getSaleSupplierSummary(s);
+    const supplierLabel = suppliers.length > 0 ? suppliers.join(', ') : 'Sem fornecedor';
+    const realCmv = calculateSaleRealCmv(s);
+    const saleAmount = Number(s.total || 0);
+
+    let revEntry = finEntries.find(f => f.autoSaleId === saleKey && f.autoKind === 'receita');
+    if (!revEntry) {
+      revEntry = {
+        cod: `FIN-V${saleKey}`,
+        autoSaleId: saleKey,
+        autoKind: 'receita',
+        date: String(s.date || '').split(' ')[0] || new Date().toLocaleDateString('pt-BR'),
+        desc: `Venda #${saleKey} — ${s.client || 'CONSUMIDOR BALCÃO'} (${s.items || 'Itens'})`,
+        category: `Venda (${channelName})`,
+        type: 'Receita',
+        amount: saleAmount,
+        status: 'Pago',
+        channel: channelName,
+        seller: sellerName,
+        supplier: supplierLabel,
+        notes: `Integração automática da venda #${saleKey}`
+      };
+      finEntries.unshift(revEntry);
+    } else {
+      revEntry.desc = `Venda #${saleKey} — ${s.client || 'CONSUMIDOR BALCÃO'} (${s.items || 'Itens'})`;
+      revEntry.category = `Venda (${channelName})`;
+      revEntry.amount = saleAmount;
+      revEntry.channel = channelName;
+      revEntry.seller = sellerName;
+      revEntry.supplier = supplierLabel;
+    }
+
+    let cmvEntry = finEntries.find(f => f.autoSaleId === saleKey && f.autoKind === 'cmv');
+    if (realCmv > 0) {
+      if (!cmvEntry) {
+        cmvEntry = {
+          cod: `FIN-C${saleKey}`,
+          autoSaleId: saleKey,
+          autoKind: 'cmv',
+          date: String(s.date || '').split(' ')[0] || new Date().toLocaleDateString('pt-BR'),
+          desc: `Custo Mercadoria (CMV) — Venda #${saleKey}`,
+          category: 'CMV / Fornecedores',
+          type: 'Despesa',
+          amount: Number(realCmv.toFixed(2)),
+          status: 'Pendente',
+          channel: channelName,
+          seller: sellerName,
+          supplier: supplierLabel,
+          notes: `Custo real puxado do estoque (${supplierLabel})`
+        };
+        finEntries.unshift(cmvEntry);
+      } else {
+        cmvEntry.desc = `Custo Mercadoria (CMV) — Venda #${saleKey}`;
+        cmvEntry.amount = Number(realCmv.toFixed(2));
+        cmvEntry.channel = channelName;
+        cmvEntry.seller = sellerName;
+        cmvEntry.supplier = supplierLabel;
+      }
+    } else if (cmvEntry) {
+      finEntries = finEntries.filter(f => f !== cmvEntry);
+    }
+  });
+}
+
+function ensureFinanceSectionUi() {
+  const finSection = document.getElementById('financeiro');
+  if (!finSection) return;
+
+  if (!document.getElementById('gmFinanceToolbarCard')) {
+    const toolbar = document.createElement('div');
+    toolbar.id = 'gmFinanceToolbarCard';
+    toolbar.className = 'card-box';
+    toolbar.style.cssText = 'margin-bottom:0.9rem; display:flex; flex-direction:column; gap:0.75rem;';
+    toolbar.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem;">
+        <div>
+          <strong style="font-size:0.98rem;">Controle Financeiro, Canais, Fornecedores e Comissões</strong>
+          <div style="font-size:0.76rem; color:var(--text-muted);">Custo real dos produtos puxado automaticamente do estoque + lançamentos integrados.</div>
+        </div>
+        <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+          <button type="button" id="btnOpenNewFinEntryModal" class="btn-primary"><i class="ph ph-plus"></i> Novo Lançamento</button>
+          <button type="button" id="btnResetFinanceFilters" class="btn-sm">Limpar Filtros</button>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(165px, 1fr)); gap:0.6rem;">
+        <div class="form-group" style="margin:0;">
+          <label for="finSearchInput">Buscar lançamento:</label>
+          <input type="text" id="finSearchInput" placeholder="Descrição, código, cliente..." />
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label for="finTypeFilterSelect">Tipo:</label>
+          <select id="finTypeFilterSelect">
+            <option value="todos">Todos</option>
+            <option value="Receita">Receita</option>
+            <option value="Despesa">Despesa</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label for="finStatusFilterSelect">Status:</label>
+          <select id="finStatusFilterSelect">
+            <option value="todos">Todos</option>
+            <option value="Pago">Pago</option>
+            <option value="Pendente">Pendente</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label for="finChannelFilterSelect">Canal de Venda:</label>
+          <select id="finChannelFilterSelect">
+            <option value="todos">Todos os canais</option>
+            <option value="Venda Presencial">Venda Presencial</option>
+            <option value="Online / Nuvemshop">Online / Nuvemshop</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label for="finChannelRankSort">Ranking Canais:</label>
+          <select id="finChannelRankSort">
+            <option value="revenue_desc">Mais venderam (R$)</option>
+            <option value="orders_desc">Mais pedidos (Qtd)</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label for="finSupplierFilterSelect">Fornecedor (A Pagar):</label>
+          <select id="finSupplierFilterSelect">
+            <option value="todos">Todos os fornecedores</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label for="finSellerFilterSelect">Vendedor:</label>
+          <select id="finSellerFilterSelect">
+            <option value="todos">Todos os vendedores</option>
+          </select>
+        </div>
+      </div>
+    `;
+
+    const tableWrap = finSection.querySelector('.table-responsive, .table-wrapper');
+    if (tableWrap) {
+      tableWrap.insertAdjacentElement('beforebegin', toolbar);
+    } else {
+      finSection.appendChild(toolbar);
+    }
+  }
+
+  if (!document.getElementById('gmFinanceInsightsGrid')) {
+    const insights = document.createElement('div');
+    insights.id = 'gmFinanceInsightsGrid';
+    insights.className = 'gm-fin-subgrid';
+    insights.innerHTML = `
+      <div class="card-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.55rem; gap:0.5rem; flex-wrap:wrap;">
+          <strong><i class="ph ph-storefront" style="color:#60a5fa;"></i> Canais Que Mais Venderam</strong>
+          <small style="color:var(--text-muted);">Clique para filtrar o canal</small>
+        </div>
+        <div id="finChannelsBreakdownList" style="display:flex; flex-direction:column; gap:0.45rem;"></div>
+      </div>
+
+      <div class="card-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.55rem; gap:0.5rem; flex-wrap:wrap;">
+          <strong><i class="ph ph-truck" style="color:#fbbf24;"></i> Quanto Tem a Pagar por Fornecedor</strong>
+          <strong id="finSupplierPayableHighlight" style="color:#fbbf24; font-size:0.9rem;">R$ 0,00</strong>
+        </div>
+        <div id="finSuppliersBreakdownList" style="display:flex; flex-direction:column; gap:0.45rem;"></div>
+      </div>
+
+      <div class="card-box" style="grid-column:1 / -1;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem; gap:0.6rem; flex-wrap:wrap;">
+          <strong><i class="ph ph-user-circle-gear" style="color:#34d399;"></i> Vendas por Vendedor & Comissão</strong>
+          <div style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
+            <select id="finCommissionSellerSelect" style="width:auto; min-width:165px;"></select>
+            <input type="number" id="finCommissionRateInput" min="0" max="100" step="0.5" placeholder="Comissão %" style="width:120px;" />
+            <button type="button" id="btnSaveSellerCommission" class="btn-sm btn-green"><i class="ph ph-check"></i> Salvar Comissão</button>
+            <button type="button" id="btnPostCommissionToFinance" class="btn-sm btn-blue"><i class="ph ph-receipt"></i> Lançar Despesa</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>VENDEDOR</th>
+                <th>QTD VENDAS</th>
+                <th>TOTAL VENDIDO</th>
+                <th>COMISSÃO (%)</th>
+                <th>VALOR COMISSÃO</th>
+              </tr>
+            </thead>
+            <tbody id="tableFinSellerCommissions"></tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    const tableWrap = finSection.querySelector('.table-responsive, .table-wrapper');
+    if (tableWrap) {
+      tableWrap.insertAdjacentElement('beforebegin', insights);
+    } else {
+      finSection.appendChild(insights);
+    }
+  }
+
+  ensureFinanceModals();
+}
+
+function ensureFinanceModals() {
+  if (!document.getElementById('finEntryModalOverlay')) {
+    const overlay = document.createElement('div');
+    overlay.id = 'finEntryModalOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-content gm-view-modal-card">
+        <div class="modal-header">
+          <h3><i class="ph ph-currency-circle-dollar" style="color:#34d399;"></i> <span id="finEntryModalTitle">Novo Lançamento Financeiro</span></h3>
+          <button type="button" id="btnCloseFinEntryModal" class="btn-close">&times;</button>
+        </div>
+        <form id="formFinEntry" class="modal-body">
+          <input type="hidden" id="finEditCod" />
+          <div class="gm-modal-section-card">
+            <div class="gm-modal-section-title">Dados do Lançamento</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.6rem; margin-bottom:0.6rem;">
+              <div class="form-group" style="margin:0;">
+                <label for="finEntryDesc">Descrição:</label>
+                <input type="text" id="finEntryDesc" required placeholder="Ex: Pagamento lote fornecedor X" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="finEntryType">Tipo:</label>
+                <select id="finEntryType">
+                  <option value="Receita">Receita</option>
+                  <option value="Despesa">Despesa</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="finEntryCategory">Categoria:</label>
+                <input type="text" id="finEntryCategory" value="Operacional" placeholder="Ex: Fornecedores, Comissão..." />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="finEntryAmount">Valor (R$):</label>
+                <input type="number" id="finEntryAmount" step="0.01" min="0.01" required />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="finEntryDate">Data:</label>
+                <input type="text" id="finEntryDate" placeholder="DD/MM/AAAA" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="finEntryStatus">Status:</label>
+                <select id="finEntryStatus">
+                  <option value="Pago">Pago</option>
+                  <option value="Pendente">Pendente</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="finEntrySupplier">Fornecedor (opcional):</label>
+                <input type="text" id="finEntrySupplier" placeholder="Nome do fornecedor" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="finEntrySeller">Vendedor (opcional):</label>
+                <input type="text" id="finEntrySeller" placeholder="Nome do vendedor" />
+              </div>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label for="finEntryNotes">Observações:</label>
+              <input type="text" id="finEntryNotes" placeholder="Detalhes adicionais..." />
+            </div>
+          </div>
+          <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.85rem;">
+            <button type="button" id="btnCancelFinEntryModal" class="btn-sm">Cancelar</button>
+            <button type="submit" class="btn-primary"><i class="ph ph-check"></i> Salvar Lançamento</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeFn = () => overlay.classList.remove('active');
+    document.getElementById('btnCloseFinEntryModal')?.addEventListener('click', closeFn);
+    document.getElementById('btnCancelFinEntryModal')?.addEventListener('click', closeFn);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeFn();
+    });
+
+    document.getElementById('formFinEntry')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const editCod = document.getElementById('finEditCod').value;
+      const payload = {
+        desc: document.getElementById('finEntryDesc').value.trim(),
+        type: document.getElementById('finEntryType').value,
+        category: document.getElementById('finEntryCategory').value.trim() || 'Operacional',
+        amount: Math.max(0, parseFloat(document.getElementById('finEntryAmount').value) || 0),
+        date: document.getElementById('finEntryDate').value.trim() || new Date().toLocaleDateString('pt-BR'),
+        status: document.getElementById('finEntryStatus').value,
+        supplier: document.getElementById('finEntrySupplier').value.trim(),
+        seller: document.getElementById('finEntrySeller').value.trim().toUpperCase(),
+        notes: document.getElementById('finEntryNotes').value.trim()
+      };
+
+      if (editCod) {
+        const existing = finEntries.find(f => f.cod === editCod);
+        if (existing) {
+          Object.assign(existing, payload);
+        }
+        showToast('Lançamento financeiro atualizado!');
+      } else {
+        finEntries.unshift({
+          cod: 'FIN-' + String(finEntries.length + 1).padStart(3, '0'),
+          ...payload
+        });
+        showToast('Lançamento financeiro adicionado!');
+      }
+
+      persistLocalOnly();
+      CloudSyncEngine.pushState({ products, clients, sales, warranties, quotes, finEntries });
+      renderFinance();
+      closeFn();
+    });
+  }
+
+  if (!document.getElementById('viewFinEntryModalOverlay')) {
+    const viewOverlay = document.createElement('div');
+    viewOverlay.id = 'viewFinEntryModalOverlay';
+    viewOverlay.className = 'modal-overlay';
+    viewOverlay.innerHTML = `
+      <div class="modal-content gm-view-modal-card">
+        <div class="modal-header">
+          <h3><i class="ph ph-eye"></i> Detalhes do Lançamento <span id="viewFinHeaderCod"></span></h3>
+          <button type="button" id="btnCloseViewFinModal" class="btn-close">&times;</button>
+        </div>
+        <div id="viewFinModalBody" class="modal-body"></div>
+        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.85rem;">
+          <button type="button" id="btnCloseViewFinModalFooter" class="btn-sm">Fechar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(viewOverlay);
+    const closeView = () => viewOverlay.classList.remove('active');
+    document.getElementById('btnCloseViewFinModal')?.addEventListener('click', closeView);
+    document.getElementById('btnCloseViewFinModalFooter')?.addEventListener('click', closeView);
+    viewOverlay.addEventListener('click', (e) => {
+      if (e.target === viewOverlay) closeView();
+    });
+  }
+}
+
+function initFinanceModule() {
+  ensureFinanceSectionUi();
+
+  document.getElementById('btnOpenNewFinEntryModal')?.addEventListener('click', () => {
+    document.getElementById('finEditCod').value = '';
+    document.getElementById('finEntryModalTitle').textContent = 'Novo Lançamento Financeiro';
+    document.getElementById('formFinEntry')?.reset();
+    document.getElementById('finEntryDate').value = new Date().toLocaleDateString('pt-BR');
+    document.getElementById('finEntryStatus').value = 'Pago';
+    document.getElementById('finEntryModalOverlay')?.classList.add('active');
+  });
+
+  document.getElementById('finSearchInput')?.addEventListener('input', renderFinance);
+
+  document.getElementById('finTypeFilterSelect')?.addEventListener('change', (e) => {
+    finTypeFilter = e.target.value || 'todos';
+    renderFinance();
+  });
+
+  document.getElementById('finStatusFilterSelect')?.addEventListener('change', (e) => {
+    finStatusFilter = e.target.value || 'todos';
+    renderFinance();
+  });
+
+  document.getElementById('finChannelFilterSelect')?.addEventListener('change', (e) => {
+    finChannelFilter = e.target.value || 'todos';
+    renderFinance();
+  });
+
+  document.getElementById('finChannelRankSort')?.addEventListener('change', (e) => {
+    finChannelSort = e.target.value || 'revenue_desc';
+    renderFinance();
+  });
+
+  document.getElementById('finSupplierFilterSelect')?.addEventListener('change', (e) => {
+    finSupplierFilter = e.target.value || 'todos';
+    renderFinance();
+  });
+
+  document.getElementById('finSellerFilterSelect')?.addEventListener('change', (e) => {
+    finSellerFilter = e.target.value || 'todos';
+    renderFinance();
+  });
+
+  document.getElementById('btnResetFinanceFilters')?.addEventListener('click', () => {
+    finTypeFilter = 'todos';
+    finStatusFilter = 'todos';
+    finChannelFilter = 'todos';
+    finChannelSort = 'revenue_desc';
+    finSupplierFilter = 'todos';
+    finSellerFilter = 'todos';
+
+    const sInp = document.getElementById('finSearchInput');
+    if (sInp) sInp.value = '';
+    const tSel = document.getElementById('finTypeFilterSelect');
+    if (tSel) tSel.value = 'todos';
+    const stSel = document.getElementById('finStatusFilterSelect');
+    if (stSel) stSel.value = 'todos';
+    const chSel = document.getElementById('finChannelFilterSelect');
+    if (chSel) chSel.value = 'todos';
+    const rkSel = document.getElementById('finChannelRankSort');
+    if (rkSel) rkSel.value = 'revenue_desc';
+    const supSel = document.getElementById('finSupplierFilterSelect');
+    if (supSel) supSel.value = 'todos';
+    const selSel = document.getElementById('finSellerFilterSelect');
+    if (selSel) selSel.value = 'todos';
+
+    renderFinance();
+  });
+
+  document.getElementById('finCommissionSellerSelect')?.addEventListener('change', (e) => {
+    const sellerKey = e.target.value;
+    const rateInput = document.getElementById('finCommissionRateInput');
+    if (rateInput && sellerKey) {
+      rateInput.value = sellerCommissionRates[sellerKey] ?? '';
+    }
+  });
+
+  document.getElementById('btnSaveSellerCommission')?.addEventListener('click', () => {
+    const sellerKey = document.getElementById('finCommissionSellerSelect')?.value || '';
+    const rateVal = parseFloat(document.getElementById('finCommissionRateInput')?.value);
+    if (!sellerKey) return showToast('Selecione um vendedor.');
+    if (Number.isNaN(rateVal) || rateVal < 0 || rateVal > 100) {
+      return showToast('Informe uma comissão válida entre 0% e 100%.');
+    }
+    sellerCommissionRates[sellerKey] = rateVal;
+    persistLocalOnly();
+    renderFinance();
+    showToast(`Comissão de ${rateVal}% salva para ${sellerKey}!`);
+  });
+
+  document.getElementById('btnPostCommissionToFinance')?.addEventListener('click', () => {
+    const sellerKey = document.getElementById('finCommissionSellerSelect')?.value || '';
+    if (!sellerKey) return showToast('Selecione um vendedor.');
+    const rate = Number(sellerCommissionRates[sellerKey] ?? parseFloat(document.getElementById('finCommissionRateInput')?.value) ?? 0);
+    if (rate <= 0) return showToast('Defina uma comissão maior que 0% antes de lançar.');
+
+    const sellerSalesTotal = sales
+      .filter(s => String(s.seller || 'ADMIN').trim().toUpperCase() === sellerKey)
+      .reduce((acc, s) => acc + Number(s.total || 0), 0);
+
+    const commissionAmount = Number(((sellerSalesTotal * rate) / 100).toFixed(2));
+    if (commissionAmount <= 0) return showToast('Vendedor sem vendas para gerar comissão.');
+
+    finEntries.unshift({
+      cod: 'FIN-COM-' + String(finEntries.length + 1).padStart(3, '0'),
+      date: new Date().toLocaleDateString('pt-BR'),
+      desc: `Comissão (${rate}%) — ${sellerKey}`,
+      category: 'Comissões',
+      type: 'Despesa',
+      amount: commissionAmount,
+      status: 'Pendente',
+      seller: sellerKey,
+      notes: `Calculada sobre ${fmtBRL(sellerSalesTotal)} em vendas`
+    });
+
+    persistLocalOnly();
+    CloudSyncEngine.pushState({ products, clients, sales, warranties, quotes, finEntries });
+    renderFinance();
+    showToast(`Despesa de comissão (${fmtBRL(commissionAmount)}) lançada para ${sellerKey}!`);
+  });
+}
+
+window.applyFinanceChannelQuickFilter = function (channelName) {
+  finChannelFilter = finChannelFilter === channelName ? 'todos' : channelName;
+  const sel = document.getElementById('finChannelFilterSelect');
+  if (sel) sel.value = finChannelFilter;
+  renderFinance();
+};
+
+window.applyFinanceSupplierQuickFilter = function (supplierName) {
+  finSupplierFilter = finSupplierFilter === supplierName ? 'todos' : supplierName;
+  const sel = document.getElementById('finSupplierFilterSelect');
+  if (sel) sel.value = finSupplierFilter;
+  renderFinance();
+};
+
+window.toggleFinanceEntryMenu = function (event, cod) {
+  event.stopPropagation();
+  const menuId = `gmFinMenu_${String(cod).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  let menu = document.getElementById(menuId);
+  const wasOpen = menu?.classList.contains('open');
+  closeAllGithubActionMenus();
+
+  const entry = finEntries.find(f => f.cod === cod);
+  const nextStatusLabel = entry?.status === 'Pago' ? 'Marcar Pendente' : 'Marcar Pago';
+
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'gm-gh-dropdown';
+    document.body.appendChild(menu);
+  }
+
+  menu.innerHTML = `
+    <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewFinEntryModal('${cod}')">
+      <i class="ph ph-eye" style="color:#34d399; font-size:15px;"></i>
+      <span>Visualizar</span>
+    </button>
+    <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditFinEntryModal('${cod}')">
+      <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
+      <span>Editar</span>
+    </button>
+    <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); toggleFinEntryStatus('${cod}')">
+      <i class="ph ph-check-circle" style="color:#fbbf24; font-size:15px;"></i>
+      <span>${nextStatusLabel}</span>
+    </button>
+    <div class="gm-gh-dropdown-divider"></div>
+    <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteFinEntry('${cod}')">
+      <i class="ph ph-trash" style="font-size:15px;"></i>
+      <span>Apagar</span>
+    </button>
+  `;
+
+  if (!wasOpen) {
+    positionGithubMenu(menu, event.currentTarget);
+  }
+};
+
+window.openViewFinEntryModal = function (cod) {
+  ensureFinanceModals();
+  const f = finEntries.find(item => item.cod === cod);
+  if (!f) return;
+  document.getElementById('viewFinHeaderCod').textContent = `(${f.cod})`;
+  document.getElementById('viewFinModalBody').innerHTML = `
+    <div class="gm-view-grid">
+      <div class="gm-view-box"><small>Código</small><strong>${f.cod}</strong></div>
+      <div class="gm-view-box"><small>Data</small><strong>${f.date || '-'}</strong></div>
+      <div class="gm-view-box"><small>Tipo</small><strong>${f.type}</strong></div>
+      <div class="gm-view-box"><small>Categoria</small><strong>${f.category || '-'}</strong></div>
+      <div class="gm-view-box"><small>Status</small><strong>${f.status || '-'}</strong></div>
+      <div class="gm-view-box"><small>Valor</small><strong style="color:${f.type === 'Receita' ? '#34d399' : '#f87171'} !important;">${fmtBRL(f.amount || 0)}</strong></div>
+      <div class="gm-view-box"><small>Fornecedor</small><strong>${f.supplier || '-'}</strong></div>
+      <div class="gm-view-box"><small>Vendedor</small><strong>${f.seller || '-'}</strong></div>
+    </div>
+    <div class="gm-view-box">
+      <small>Descrição / Observações</small>
+      <strong>${f.desc || '-'}</strong>
+      <div style="font-size:0.8rem; color:#9ca3af; margin-top:0.35rem;">${f.notes || ''}</div>
+    </div>
+  `;
+  document.getElementById('viewFinEntryModalOverlay')?.classList.add('active');
+};
+
+window.openEditFinEntryModal = function (cod) {
+  ensureFinanceModals();
+  const f = finEntries.find(item => item.cod === cod);
+  if (!f) return;
+  document.getElementById('finEditCod').value = f.cod;
+  document.getElementById('finEntryModalTitle').textContent = `Editar Lançamento (${f.cod})`;
+  document.getElementById('finEntryDesc').value = f.desc || '';
+  document.getElementById('finEntryType').value = f.type || 'Despesa';
+  document.getElementById('finEntryCategory').value = f.category || 'Operacional';
+  document.getElementById('finEntryAmount').value = Number(f.amount || 0);
+  document.getElementById('finEntryDate').value = f.date || '';
+  document.getElementById('finEntryStatus').value = f.status || 'Pendente';
+  document.getElementById('finEntrySupplier').value = f.supplier || '';
+  document.getElementById('finEntrySeller').value = f.seller || '';
+  document.getElementById('finEntryNotes').value = f.notes || '';
+  document.getElementById('finEntryModalOverlay')?.classList.add('active');
+};
+
+window.toggleFinEntryStatus = function (cod) {
+  const f = finEntries.find(item => item.cod === cod);
+  if (!f) return;
+  f.status = f.status === 'Pago' ? 'Pendente' : 'Pago';
+  persistLocalOnly();
+  CloudSyncEngine.pushState({ products, clients, sales, warranties, quotes, finEntries });
+  renderFinance();
+  showToast(`Status de ${f.cod} alterado para ${f.status}.`);
+};
+
+window.deleteFinEntry = function (cod) {
+  const f = finEntries.find(item => item.cod === cod);
+  if (!f) return;
+  if (!confirm(`Deseja remover o lançamento ${f.cod}?`)) return;
+  finEntries = finEntries.filter(item => item.cod !== cod);
+  persistLocalOnly();
+  CloudSyncEngine.pushState({ products, clients, sales, warranties, quotes, finEntries });
+  renderFinance();
+  showToast(`Lançamento ${cod} removido.`);
+};
+
 function renderFinance() {
-  const vendas = sales.reduce((a, s) => a + Number(s.total || 0), 0);
-  const desp = finEntries.filter(f => f.type === 'Despesa').reduce((a, f) => a + Number(f.amount || 0), 0);
+  ensureFinanceSectionUi();
+  syncSalesToFinanceEntries();
+
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setTxt('finMetricGross', fmtBRL(vendas));
-  setTxt('finMetricCmv', fmtBRL(vendas * 0.55));
-  setTxt('finMetricExpenses', fmtBRL(desp));
-  setTxt('finMetricNetProfit', fmtBRL(vendas - vendas * 0.55 - desp));
+
+  // Atualiza selects de Fornecedor e Vendedor dinamicamente
+  const supplierSet = new Set();
+  products.forEach(p => {
+    const s = String(p.supplier || '').trim();
+    if (s && s.toLowerCase() !== 'sem fornecedor') supplierSet.add(s);
+  });
+  finEntries.forEach(f => {
+    if (f.supplier) {
+      String(f.supplier).split(',').map(x => x.trim()).filter(Boolean).forEach(s => {
+        if (s.toLowerCase() !== 'sem fornecedor') supplierSet.add(s);
+      });
+    }
+  });
+  const supplierOptions = Array.from(supplierSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  const supSelect = document.getElementById('finSupplierFilterSelect');
+  if (supSelect) {
+    supSelect.innerHTML = `<option value="todos">Todos os fornecedores</option>` +
+      supplierOptions.map(s => `<option value="${s}" ${finSupplierFilter === s ? 'selected' : ''}>${s}</option>`).join('');
+  }
+
+  const sellerSet = new Set(['ADMIN']);
+  sales.forEach(s => {
+    const vk = String(s.seller || 'ADMIN').trim().toUpperCase();
+    if (vk) sellerSet.add(vk);
+  });
+  finEntries.forEach(f => {
+    if (f.seller) sellerSet.add(String(f.seller).trim().toUpperCase());
+  });
+  const sellerOptions = Array.from(sellerSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  const selFilterSelect = document.getElementById('finSellerFilterSelect');
+  if (selFilterSelect) {
+    selFilterSelect.innerHTML = `<option value="todos">Todos os vendedores</option>` +
+      sellerOptions.map(vk => `<option value="${vk}" ${finSellerFilter === vk ? 'selected' : ''}>${vk}</option>`).join('');
+  }
+
+  const commSellerSelect = document.getElementById('finCommissionSellerSelect');
+  const commRateInput = document.getElementById('finCommissionRateInput');
+  if (commSellerSelect) {
+    const currentSelected = finSellerFilter !== 'todos'
+      ? finSellerFilter
+      : (commSellerSelect.value || sellerOptions[0] || 'ADMIN');
+    commSellerSelect.innerHTML = sellerOptions.map(vk => `<option value="${vk}" ${vk === currentSelected ? 'selected' : ''}>${vk}</option>`).join('');
+    if (commRateInput && document.activeElement !== commRateInput) {
+      commRateInput.value = sellerCommissionRates[currentSelected] ?? '';
+    }
+  }
+
+  // Filtragem das vendas para métricas, canais e vendedores
+  const filteredSales = sales.filter(s => {
+    const ch = s.type || 'Venda Presencial';
+    const vk = String(s.seller || 'ADMIN').trim().toUpperCase();
+    const sups = getSaleSupplierSummary(s);
+
+    const matchChannel = finChannelFilter === 'todos' || ch === finChannelFilter;
+    const matchSeller = finSellerFilter === 'todos' || vk === finSellerFilter;
+    const matchSupplier = finSupplierFilter === 'todos' || sups.includes(finSupplierFilter);
+    return matchChannel && matchSeller && matchSupplier;
+  });
+
+  const grossRevenue = filteredSales.reduce((a, s) => a + Number(s.total || 0), 0);
+  const realCmvTotal = filteredSales.reduce((a, s) => a + calculateSaleRealCmv(s), 0);
+
+  // Filtragem dos lançamentos financeiros
+  const searchTerm = (document.getElementById('finSearchInput')?.value || '').toLowerCase().trim();
+  const filteredEntries = finEntries.filter(f => {
+    const matchType = finTypeFilter === 'todos' || f.type === finTypeFilter;
+    const matchStatus = finStatusFilter === 'todos' || f.status === finStatusFilter;
+    const matchChannel = finChannelFilter === 'todos' || !f.channel || f.channel === finChannelFilter;
+    const matchSeller = finSellerFilter === 'todos' || !f.seller || String(f.seller).toUpperCase() === finSellerFilter;
+    const matchSupplier = finSupplierFilter === 'todos' || (f.supplier && String(f.supplier).includes(finSupplierFilter));
+    const matchSearch = !searchTerm
+      || String(f.desc || '').toLowerCase().includes(searchTerm)
+      || String(f.cod || '').toLowerCase().includes(searchTerm)
+      || String(f.category || '').toLowerCase().includes(searchTerm)
+      || String(f.supplier || '').toLowerCase().includes(searchTerm);
+    return matchType && matchStatus && matchChannel && matchSeller && matchSupplier && matchSearch;
+  });
+
+  const extraExpenses = filteredEntries
+    .filter(f => f.type === 'Despesa' && f.autoKind !== 'cmv')
+    .reduce((a, f) => a + Number(f.amount || 0), 0);
+
+  const extraRevenues = filteredEntries
+    .filter(f => f.type === 'Receita' && f.autoKind !== 'receita')
+    .reduce((a, f) => a + Number(f.amount || 0), 0);
+
+  const totalGross = grossRevenue + extraRevenues;
+  const totalExpenses = realCmvTotal + extraExpenses;
+  const netProfit = totalGross - totalExpenses;
+
+  setTxt('finMetricGross', fmtBRL(totalGross));
+  setTxt('finMetricCmv', fmtBRL(realCmvTotal));
+  setTxt('finMetricExpenses', fmtBRL(extraExpenses));
+  setTxt('finMetricNetProfit', fmtBRL(netProfit));
+
+  // 1. Canais que mais venderam
+  const channelStats = new Map();
+  ['Venda Presencial', 'Online / Nuvemshop'].forEach(chName => {
+    channelStats.set(chName, { channel: chName, orders: 0, revenue: 0 });
+  });
+  sales.forEach(s => {
+    const chName = s.type || 'Venda Presencial';
+    const cur = channelStats.get(chName) || { channel: chName, orders: 0, revenue: 0 };
+    cur.orders += 1;
+    cur.revenue += Number(s.total || 0);
+    channelStats.set(chName, cur);
+  });
+
+  const rankedChannels = Array.from(channelStats.values()).sort((a, b) => {
+    if (finChannelSort === 'orders_desc') return b.orders - a.orders || b.revenue - a.revenue;
+    return b.revenue - a.revenue || b.orders - a.orders;
+  });
+
+  const channelsBox = document.getElementById('finChannelsBreakdownList');
+  if (channelsBox) {
+    channelsBox.innerHTML = rankedChannels.map((ch, idx) => {
+      const active = finChannelFilter === ch.channel;
+      return `
+        <div onclick="applyFinanceChannelQuickFilter('${ch.channel}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding:0.55rem 0.7rem; border-radius:8px; background:${active ? 'rgba(59,130,246,0.16)' : 'rgba(255,255,255,0.025)'}; border:1px solid ${active ? '#60a5fa' : '#252a34'};">
+          <div>
+            <span class="badge-tag ${idx === 0 ? 'badge-receita' : 'badge-info'}" style="margin-right:0.35rem;">#${idx + 1}</span>
+            <strong>${ch.channel}</strong>
+            <small style="color:var(--text-muted); margin-left:0.35rem;">(${ch.orders} pedido(s))</small>
+          </div>
+          <strong style="color:#34d399;">${fmtBRL(ch.revenue)}</strong>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 2. Quanto tem a pagar por Fornecedor
+  const supplierPayableMap = new Map();
+  supplierOptions.forEach(sup => {
+    supplierPayableMap.set(sup, { supplier: sup, stockCost: 0, pendingPayable: 0, paidTotal: 0 });
+  });
+
+  products.forEach(p => {
+    const sup = String(p.supplier || '').trim();
+    if (!sup || sup.toLowerCase() === 'sem fornecedor') return;
+    const cur = supplierPayableMap.get(sup) || { supplier: sup, stockCost: 0, pendingPayable: 0, paidTotal: 0 };
+    cur.stockCost += (Number(p.cost || 0) * Number(p.qty || 0));
+    supplierPayableMap.set(sup, cur);
+  });
+
+  finEntries.forEach(f => {
+    if (f.type !== 'Despesa' || !f.supplier) return;
+    const parts = String(f.supplier).split(',').map(x => x.trim()).filter(Boolean);
+    const share = parts.length > 0 ? Number(f.amount || 0) / parts.length : 0;
+    parts.forEach(sup => {
+      const cur = supplierPayableMap.get(sup) || { supplier: sup, stockCost: 0, pendingPayable: 0, paidTotal: 0 };
+      if (f.status === 'Pago') cur.paidTotal += share;
+      else cur.pendingPayable += share;
+      supplierPayableMap.set(sup, cur);
+    });
+  });
+
+  const supplierListArr = Array.from(supplierPayableMap.values())
+    .sort((a, b) => (b.pendingPayable + b.stockCost) - (a.pendingPayable + a.stockCost));
+
+  const totalPendingSuppliers = supplierListArr.reduce((a, s) => a + s.pendingPayable, 0);
+  setTxt('finSupplierPayableHighlight', `Pendente: ${fmtBRL(totalPendingSuppliers)}`);
+
+  const suppliersBox = document.getElementById('finSuppliersBreakdownList');
+  if (suppliersBox) {
+    if (supplierListArr.length === 0) {
+      suppliersBox.innerHTML = `<div style="font-size:0.8rem; color:var(--text-muted);">Nenhum fornecedor informado nos produtos ou despesas.</div>`;
+    } else {
+      suppliersBox.innerHTML = supplierListArr.map(s => {
+        const active = finSupplierFilter === s.supplier;
+        return `
+          <div onclick="applyFinanceSupplierQuickFilter('${s.supplier.replace(/'/g, "\\'")}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; padding:0.55rem 0.7rem; border-radius:8px; background:${active ? 'rgba(245,158,11,0.16)' : 'rgba(255,255,255,0.025)'}; border:1px solid ${active ? '#fbbf24' : '#252a34'};">
+            <div>
+              <strong>${s.supplier}</strong>
+              <div style="font-size:0.74rem; color:var(--text-muted);">Estoque vinculado: ${fmtBRL(s.stockCost)} • Pago: ${fmtBRL(s.paidTotal)}</div>
+            </div>
+            <strong style="color:#fbbf24;">A pagar: ${fmtBRL(s.pendingPayable)}</strong>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  // 3. Vendas por Vendedor & Comissão
+  const sellerSalesMap = new Map();
+  sellerOptions.forEach(vk => {
+    sellerSalesMap.set(vk, { seller: vk, count: 0, totalSold: 0 });
+  });
+  sales.forEach(s => {
+    const vk = String(s.seller || 'ADMIN').trim().toUpperCase();
+    const cur = sellerSalesMap.get(vk) || { seller: vk, count: 0, totalSold: 0 };
+    cur.count += 1;
+    cur.totalSold += Number(s.total || 0);
+    sellerSalesMap.set(vk, cur);
+  });
+
+  const sellerRowsArr = Array.from(sellerSalesMap.values())
+    .filter(row => finSellerFilter === 'todos' || row.seller === finSellerFilter)
+    .sort((a, b) => b.totalSold - a.totalSold);
+
+  const commTbody = document.getElementById('tableFinSellerCommissions');
+  if (commTbody) {
+    commTbody.innerHTML = sellerRowsArr.map(row => {
+      const rate = Number(sellerCommissionRates[row.seller] || 0);
+      const commVal = (row.totalSold * rate) / 100;
+      return `
+        <tr>
+          <td><strong>${row.seller}</strong></td>
+          <td>${row.count} pedido(s)</td>
+          <td><strong style="color:#34d399;">${fmtBRL(row.totalSold)}</strong></td>
+          <td><span class="badge-tag badge-info">${rate.toFixed(1)}%</span></td>
+          <td><strong style="color:#fbbf24;">${fmtBRL(commVal)}</strong></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // 4. Tabela principal de lançamentos financeiros
   const tbody = document.getElementById('tableFinEntries');
-  if (tbody) tbody.innerHTML = finEntries.map(f => `<tr><td><strong>${f.cod}</strong></td><td>${f.date}</td><td>${f.desc}</td><td>${f.category}</td><td><span class="badge-tag ${f.type === 'Receita' ? 'badge-receita' : 'badge-despesa'}">${f.type}</span></td><td><strong>${fmtBRL(f.amount)}</strong></td><td>${f.status}</td><td>-</td></tr>`).join('');
+  if (tbody) {
+    if (filteredEntries.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum lançamento encontrado para os filtros atuais.</td></tr>`;
+    } else {
+      tbody.innerHTML = filteredEntries.map(f => {
+        const isRev = f.type === 'Receita';
+        const typeBadge = isRev
+          ? `<span class="badge-tag badge-receita">Receita</span>`
+          : `<span class="badge-tag badge-despesa">Despesa</span>`;
+        const statusBadge = f.status === 'Pago'
+          ? `<span class="badge-tag badge-receita">Pago</span>`
+          : `<span class="badge-tag badge-warning">Pendente</span>`;
+        const metaExtra = [f.channel, f.supplier, f.seller].filter(Boolean).join(' • ');
+
+        return `
+          <tr>
+            <td>${f.date || '-'}</td>
+            <td>
+              <strong>${f.desc}</strong>
+              ${metaExtra ? `<div style="font-size:0.73rem; color:var(--text-muted);">${metaExtra}</div>` : ''}
+            </td>
+            <td><span class="badge-tag badge-info">${f.category || 'Geral'}</span></td>
+            <td>${typeBadge}</td>
+            <td><strong style="color:${isRev ? '#34d399' : '#f87171'};">${fmtBRL(f.amount || 0)}</strong></td>
+            <td>${statusBadge}</td>
+            <td style="white-space:nowrap;">
+              <div class="gm-gh-action-wrap">
+                <button type="button" class="gm-gh-pencil-btn" onclick="toggleFinanceEntryMenu(event, '${f.cod}')">
+                  <span>Ações</span>
+                  <i class="ph ph-caret-down" style="font-size:13px; color:#9ca3af;"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
 }
 
 function initCashAndTools() {
-  const toolOverlay = document.getElementById('cashToolModalOverlay');
-  document.getElementById('btnCloseCashTool')?.addEventListener('click', () => toolOverlay.classList.remove('active'));
-  document.getElementById('btnTogglePdvTools')?.addEventListener('click', (e) => { e.stopPropagation(); document.getElementById('pdvToolsMenu').classList.toggle('open'); });
-  document.addEventListener('click', () => document.getElementById('pdvToolsMenu')?.classList.remove('open'));
-  document.getElementById('btnPrintLastReceipt')?.addEventListener('click', (e) => { e.preventDefault(); if (sales.length) openReceiptModal(sales[0].id); });
+  document.getElementById('btnOpenReceiptModal')?.addEventListener('click', () => {
+    const last = sales[0];
+    if (!last) return showToast('Nenhuma venda para recibo!');
+    openReceiptModal(last.id);
+  });
+  document.getElementById('btnCloseReceiptModal')?.addEventListener('click', () => document.getElementById('receiptModalOverlay').classList.remove('active'));
+  document.getElementById('btnPrintReceipt')?.addEventListener('click', () => window.print());
+
+  document.getElementById('btnTogglePdvTools')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('pdvToolsDropdown')?.classList.toggle('open');
+  });
+  document.addEventListener('click', () => document.getElementById('pdvToolsDropdown')?.classList.remove('open'));
 }
 
-window.openCashMovementModal = function (type) {
-  const toolOverlay = document.getElementById('cashToolModalOverlay');
-  document.getElementById('cashToolModalTitle').textContent = `Lançar ${type}`;
-  document.getElementById('cashToolModalBody').innerHTML = `<form id="fcm"><div class="form-group"><label>Valor (R$):</label><input type="number" id="cmv" step="0.01" required /></div><button type="submit" class="btn-primary">Confirmar</button></form>`;
-  toolOverlay.classList.add('active');
-  document.getElementById('fcm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    cashMoves.unshift({ type, value: parseFloat(document.getElementById('cmv').value) || 0, date: getNowBrDateTime() });
-    saveAll(); toolOverlay.classList.remove('active'); showToast(`${type} registrado!`);
-  });
-};
-
 window.openReceiptModal = function (saleId) {
-  const s = sales.find(item => item.id === saleId);
+  const s = sales.find(item => String(item.id) === String(saleId));
   if (!s) return;
-  const discLine = Number(s.discount || 0) > 0 ? `<br>Desconto Aplicado: -${fmtBRL(s.discount)}` : '';
-  const trackLine = s.trackingCode ? `<br>Código de Rastreio: <strong>${s.trackingCode}</strong>` : '';
-  const obsLine = s.observation ? `<br>Obs.: ${s.observation}` : '';
-  const canalLine = s.type === 'Online / Nuvemshop' ? ' (Nuvemshop)' : '';
-  document.getElementById('cashToolModalTitle').textContent = `Comprovante #${s.id}`;
-  document.getElementById('cashToolModalBody').innerHTML = `
-    <div style="background:#fff;color:#111;padding:0.9rem;border-radius:6px;font-family:monospace;font-size:0.82rem;">
-      <strong>GRUPO MISTER PERFUMARIA${canalLine}</strong><br>
-      Pedido #${s.id} | ${s.date}<br>
-      Cliente: ${s.client}<br>
-      Entrega: ${s.shippingMethod || 'Loja'} | Status: ${s.orderStatus || 'Em Separação'}${trackLine}<br>
-      Itens: ${s.items}${discLine}${obsLine}<br>
-      <strong>TOTAL: ${fmtBRL(s.total)}</strong>
+  document.getElementById('receiptBodyContent').innerHTML = `
+    <div style="text-align:center; border-bottom:1px dashed #333; padding-bottom:0.75rem; margin-bottom:0.75rem;">
+      <h3 style="margin:0;">GRUPO MISTER</h3>
+      <small>Perfumaria & Decants — Comprovante #${s.id}</small>
     </div>
+    <p><strong>Data:</strong> ${s.date}<br><strong>Cliente:</strong> ${s.client}<br><strong>Vendedor:</strong> ${s.seller}<br><strong>Canal:</strong> ${s.type}<br><strong>Envio:</strong> ${s.shippingMethod || 'Retirada na Loja'}<br><strong>Status:</strong> ${s.orderStatus || 'Em Separação'}</p>
+    ${s.trackingCode ? `<p><strong>Rastreio:</strong> <code>${s.trackingCode}</code></p>` : ''}
+    ${s.shippingNotes ? `<p><strong>Detalhes de Envio:</strong> ${s.shippingNotes}</p>` : ''}
+    ${s.observation ? `<p><strong>Observação:</strong> ${s.observation}</p>` : ''}
+    <p><strong>Itens:</strong><br>${s.items}</p>
+    ${Number(s.discount || 0) > 0 ? `<p><strong>Desconto:</strong> -${fmtBRL(s.discount)}</p>` : ''}
+    <hr style="border-color:#252a34;">
+    <p style="font-size:1.1rem; display:flex; justify-content:space-between;"><strong>TOTAL:</strong><strong style="color:#34d399;">${fmtBRL(s.total)}</strong></p>
   `;
-  document.getElementById('cashToolModalOverlay').classList.add('active');
+  document.getElementById('receiptModalOverlay').classList.add('active');
 };
