@@ -576,6 +576,8 @@ let stockHasCostFilter = 'all';         // 'all' | 'yes' | 'no'
 // Estado da subaba "Consulta de Estoque" dentro de "Comercial" (somente leitura, sem custo/margem)
 let commercialCatalogFormatFilter = 'all';   // 'all' | 'decant' | 'bottle'
 let commercialCatalogOnlyAvailable = true;   // true | false
+let commercialCatalogMaxPrice = '';          // string numérica opcional
+let commercialCatalogSortBy = 'default';     // 'default' | 'price_asc' | 'price_desc'
 
 function isDecantProduct(prod) {
   if (!prod) return false;
@@ -587,16 +589,58 @@ function isDecantProduct(prod) {
   return false;
 }
 
-function isExpiringOrExpiredProduct(prod) {
-  if (!prod || !prod.expiry) return false;
-  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(prod.expiry).trim())
-    ? `${String(prod.expiry).trim()}T00:00:00`
-    : String(prod.expiry).trim();
+function getDaysUntilExpiry(expiryStr) {
+  if (!expiryStr) return null;
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(expiryStr).trim())
+    ? `${String(expiryStr).trim()}T00:00:00`
+    : String(expiryStr).trim();
   const expDate = new Date(iso);
-  if (Number.isNaN(expDate.getTime())) return false;
-  const diffDays = Math.ceil((expDate - new Date()) / (1000 * 60 * 60 * 24));
-  return diffDays <= 60;
+  if (Number.isNaN(expDate.getTime())) return null;
+  return Math.ceil((expDate - new Date()) / (1000 * 60 * 60 * 24));
 }
+
+function isExpiringOrExpiredProduct(prod) {
+  const daysLeft = getDaysUntilExpiry(prod?.expiry);
+  if (daysLeft === null) return false;
+  return daysLeft <= 60;
+}
+
+function renderCriticalExpiryBadge(expiryStr) {
+  const daysLeft = getDaysUntilExpiry(expiryStr);
+  if (daysLeft === null) return '';
+  if (daysLeft < 0) {
+    return `<span class="badge-tag badge-despesa" style="margin-left:0.35rem;">Vencido</span>`;
+  }
+  if (daysLeft <= 30) {
+    return `<span class="badge-tag badge-warning" style="margin-left:0.35rem;">Vence em ${daysLeft}d</span>`;
+  }
+  return '';
+}
+
+window.copyCommercialItemSummary = async function (prodId) {
+  const prod = products.find(p => p.id === prodId);
+  if (!prod) return;
+  const volParts = [prod.condition, prod.battery].filter(Boolean).join(' • ');
+  const summary = volParts
+    ? `${prod.name} (${volParts}) — ${fmtBRL(prod.price)}`
+    : `${prod.name} — ${fmtBRL(prod.price)}`;
+
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(summary);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = summary;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    showToast(`Copiado: ${summary}`);
+  } catch (_) {
+    showToast('Não foi possível copiar automaticamente.');
+  }
+};
 
 function parseSaleItemsStringToArray(itemsStr = '') {
   const clean = String(itemsStr || '').trim();
@@ -1509,11 +1553,11 @@ function ensureCommercialStockSubtabInMenuAndSection() {
 
       <div class="card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-radius:10px; padding:0.85rem; margin-bottom:0.85rem;">
         <div class="form-row" style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end;">
-          <div class="form-group" style="flex:1 1 220px; margin:0;">
+          <div class="form-group" style="flex:1 1 200px; margin:0;">
             <label for="comStockSearchInput">Buscar fragrância ou código:</label>
             <input type="text" id="comStockSearchInput" placeholder="Ex: Creed, 10ml, Árabe..." />
           </div>
-          <div class="form-group" style="min-width:170px; margin:0;">
+          <div class="form-group" style="min-width:155px; margin:0;">
             <label for="comStockCategoryFilter">Categoria:</label>
             <select id="comStockCategoryFilter">
               <option value="todos">Todas as categorias</option>
@@ -1521,6 +1565,18 @@ function ensureCommercialStockSubtabInMenuAndSection() {
               <option value="Árabe">Árabe</option>
               <option value="Nicho">Nicho</option>
               <option value="Importado">Importado</option>
+            </select>
+          </div>
+          <div class="form-group" style="width:135px; margin:0;">
+            <label for="comStockMaxPriceInput">Até R$ (Máx.):</label>
+            <input type="number" id="comStockMaxPriceInput" min="0" step="1" placeholder="Ex: 250" />
+          </div>
+          <div class="form-group" style="min-width:160px; margin:0;">
+            <label for="comStockSortSelect">Ordenar preço:</label>
+            <select id="comStockSortSelect">
+              <option value="default">Padrão</option>
+              <option value="price_asc">Menor preço</option>
+              <option value="price_desc">Maior preço</option>
             </select>
           </div>
           <button type="button" id="btnClearComStockFilters" class="btn-sm">Limpar</button>
@@ -1557,7 +1613,7 @@ function ensureCommercialStockSubtabInMenuAndSection() {
               <th>VALIDADE</th>
               <th>PREÇO VENDA</th>
               <th>DISPONÍVEL</th>
-              <th>AÇÃO</th>
+              <th>AÇÕES</th>
             </tr>
           </thead>
           <tbody id="tableCommercialStockCatalog"></tbody>
@@ -1573,6 +1629,14 @@ function initCommercialStockCatalogModule() {
 
   document.getElementById('comStockSearchInput')?.addEventListener('input', renderCommercialStockCatalog);
   document.getElementById('comStockCategoryFilter')?.addEventListener('change', renderCommercialStockCatalog);
+  document.getElementById('comStockMaxPriceInput')?.addEventListener('input', (e) => {
+    commercialCatalogMaxPrice = e.target.value;
+    renderCommercialStockCatalog();
+  });
+  document.getElementById('comStockSortSelect')?.addEventListener('change', (e) => {
+    commercialCatalogSortBy = e.target.value || 'default';
+    renderCommercialStockCatalog();
+  });
 
   document.querySelectorAll('#comCatalogFormatPills .gm-seg-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1593,8 +1657,14 @@ function initCommercialStockCatalogModule() {
   document.getElementById('btnClearComStockFilters')?.addEventListener('click', () => {
     const sInp = document.getElementById('comStockSearchInput');
     const cSel = document.getElementById('comStockCategoryFilter');
+    const pInp = document.getElementById('comStockMaxPriceInput');
+    const sortSel = document.getElementById('comStockSortSelect');
     if (sInp) sInp.value = '';
     if (cSel) cSel.value = 'todos';
+    if (pInp) pInp.value = '';
+    if (sortSel) sortSel.value = 'default';
+    commercialCatalogMaxPrice = '';
+    commercialCatalogSortBy = 'default';
     commercialCatalogFormatFilter = 'all';
     commercialCatalogOnlyAvailable = true;
     document.querySelectorAll('#comCatalogFormatPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-val') === 'all'));
@@ -1619,9 +1689,13 @@ function renderCommercialStockCatalog() {
 
   const term = (document.getElementById('comStockSearchInput')?.value || '').toLowerCase().trim();
   const cat = document.getElementById('comStockCategoryFilter')?.value || 'todos';
+  const maxPriceRaw = String(commercialCatalogMaxPrice || '').replace(',', '.').trim();
+  const maxPriceNum = maxPriceRaw !== '' ? parseFloat(maxPriceRaw) : null;
+  const hasMaxPrice = maxPriceNum !== null && Number.isFinite(maxPriceNum) && maxPriceNum >= 0;
 
   const filtered = products.filter(p => {
     const qtyNum = Number(p.qty) || 0;
+    const priceNum = Number(p.price) || 0;
     const isDecant = isDecantProduct(p);
 
     const matchTerm = !term
@@ -1635,9 +1709,16 @@ function renderCommercialStockCatalog() {
       || (commercialCatalogFormatFilter === 'decant' && isDecant)
       || (commercialCatalogFormatFilter === 'bottle' && !isDecant);
     const matchAvail = !commercialCatalogOnlyAvailable || qtyNum > 0;
+    const matchMaxPrice = !hasMaxPrice || priceNum <= maxPriceNum;
 
-    return matchTerm && matchCat && matchFormat && matchAvail;
+    return matchTerm && matchCat && matchFormat && matchAvail && matchMaxPrice;
   });
+
+  if (commercialCatalogSortBy === 'price_asc') {
+    filtered.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+  } else if (commercialCatalogSortBy === 'price_desc') {
+    filtered.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+  }
 
   if (filtered.length === 0) {
     tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.2rem;">Nenhuma fragrância disponível para o filtro selecionado.</td></tr>`;
@@ -1654,6 +1735,7 @@ function renderCommercialStockCatalog() {
     const qtyBadge = qtyNum > 0
       ? `<span class="badge-tag badge-receita">${qtyNum} un.</span>`
       : `<span class="badge-tag badge-despesa">Esgotado</span>`;
+    const expiryBadge = renderCriticalExpiryBadge(p.expiry);
 
     return `
       <tr>
@@ -1664,10 +1746,13 @@ function renderCommercialStockCatalog() {
           <span>${p.condition || 'Produto'}</span>
           ${p.battery ? `<small style="color:var(--text-muted); margin-left:4px;">• ${p.battery}</small>` : ''}
         </td>
-        <td>${formatDateSafe(p.expiry)}</td>
+        <td style="white-space:nowrap;">${formatDateSafe(p.expiry)}${expiryBadge}</td>
         <td><strong style="color:#34d399;">${fmtBRL(p.price)}</strong></td>
         <td>${qtyBadge}</td>
-        <td style="white-space:nowrap;">
+        <td style="white-space:nowrap; display:flex; gap:0.35rem; align-items:center;">
+          <button type="button" class="btn-sm" title="Copiar resumo para WhatsApp" onclick="copyCommercialItemSummary('${p.id}')">
+            <i class="ph ph-copy"></i> Copiar
+          </button>
           <button type="button" class="btn-sm btn-green" ${qtyNum <= 0 ? 'disabled' : ''} onclick="quickAddToPdv('${p.id}')">
             <i class="ph ph-shopping-cart"></i> Vender
           </button>
