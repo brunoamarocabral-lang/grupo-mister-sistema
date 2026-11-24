@@ -573,6 +573,10 @@ let stockFormatFilter = 'all';          // 'all' | 'decant' | 'bottle'
 let stockExpiryAlertFilter = 'all';     // 'all' | 'expiring'
 let stockHasCostFilter = 'all';         // 'all' | 'yes' | 'no'
 
+// Estado da subaba "Consulta de Estoque" dentro de "Comercial" (somente leitura, sem custo/margem)
+let commercialCatalogFormatFilter = 'all';   // 'all' | 'decant' | 'bottle'
+let commercialCatalogOnlyAvailable = true;   // true | false
+
 function isDecantProduct(prod) {
   if (!prod) return false;
   const cat = String(prod.condition || '').toLowerCase();
@@ -869,12 +873,16 @@ function getAllowedPermissionsForAccount(account) {
   if (!account) return ['dashboard'];
   if (isCurrentUserAdmin()) {
     return [
-      'dashboard', 'pdv', 'envios', 'clientes', 'historico_vendas', 'estoque',
+      'dashboard', 'pdv', 'consulta_estoque', 'envios', 'clientes', 'historico_vendas', 'estoque',
       'ferramentas', 'etiquetas', 'recompra', 'orcamentos', 'garantias',
       'trocas', 'financeiro', 'admin_only'
     ];
   }
-  return (Array.isArray(account.permissions) ? account.permissions : ['dashboard']).filter(p => p !== 'admin_only');
+  const base = (Array.isArray(account.permissions) ? account.permissions : ['dashboard']).filter(p => p !== 'admin_only');
+  if ((base.includes('pdv') || base.includes('clientes') || base.includes('historico_vendas')) && !base.includes('consulta_estoque')) {
+    base.push('consulta_estoque');
+  }
+  return base;
 }
 
 function setLoginOverlayVisible(visible) {
@@ -1302,7 +1310,7 @@ function initAdminAccountCreation() {
 
     const checkedPerms = Array.from(document.querySelectorAll('.acc-perm-chk:checked')).map(c => c.value);
     const permissions = isAdmin
-      ? ['dashboard', 'pdv', 'envios', 'clientes', 'historico_vendas', 'estoque', 'ferramentas', 'etiquetas', 'recompra', 'orcamentos', 'garantias', 'trocas', 'financeiro', 'admin_only']
+      ? ['dashboard', 'pdv', 'consulta_estoque', 'envios', 'clientes', 'historico_vendas', 'estoque', 'ferramentas', 'etiquetas', 'recompra', 'orcamentos', 'garantias', 'trocas', 'financeiro', 'admin_only']
       : checkedPerms.filter(p => p !== 'admin_only');
 
     try {
@@ -1398,6 +1406,7 @@ function startApp() {
   injectLayoutAndActionStyles();
   initMobileSidebarToggle();
   initLoginByCredentials();
+  ensureCommercialStockSubtabInMenuAndSection();
   initNavigation();
   initSalesAndPdv();
   initEditSaleModule();
@@ -1413,6 +1422,7 @@ function startApp() {
   initSimulators();
   initClientsModule();
   initStockModule();
+  initCommercialStockCatalogModule();
   initRmaModule();
   initFinanceModule();
   initCashAndTools();
@@ -1430,6 +1440,7 @@ function renderAll() {
   renderShipments();
   renderSales();
   renderQuickStock();
+  renderCommercialStockCatalog();
   renderRecompraAndBatches();
   renderQuotes();
   renderWarranties();
@@ -1444,6 +1455,229 @@ function renderAll() {
 }
 
 // ============================================================================
+// SUBABA "CONSULTA DE ESTOQUE" DENTRO DA ABA "COMERCIAL" (SEM EDIÇÃO / CUSTO / MARGEM)
+// ============================================================================
+function ensureCommercialStockSubtabInMenuAndSection() {
+  const submenu = document.querySelector('.nav-dropdown .submenu');
+  if (submenu && !submenu.querySelector('[data-target="consulta_estoque"]')) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'submenu-item';
+    btn.setAttribute('data-target', 'consulta_estoque');
+    btn.setAttribute('data-perm', 'consulta_estoque');
+    btn.innerHTML = `<i class="ph ph-magnifying-glass"></i><span>Consulta de Estoque</span>`;
+
+    const pdvBtn = submenu.querySelector('[data-target="pdv"]');
+    if (pdvBtn) {
+      pdvBtn.insertAdjacentElement('afterend', btn);
+    } else {
+      submenu.prepend(btn);
+    }
+  }
+
+  const mainContainer = document.getElementById('pdv')?.parentElement
+    || document.querySelector('.content-section')?.parentElement
+    || document.querySelector('main');
+
+  if (mainContainer && !document.getElementById('consulta_estoque')) {
+    const sec = document.createElement('section');
+    sec.id = 'consulta_estoque';
+    sec.className = 'content-section';
+    sec.innerHTML = `
+      <div class="section-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem; margin-bottom:0.85rem;">
+        <div>
+          <h3 style="margin:0; font-size:1.05rem;">Consulta de Estoque (Visão Comercial)</h3>
+          <small style="color:var(--text-muted);">Consulta somente leitura de itens disponíveis, categorias, volumes e validades.</small>
+        </div>
+        <span class="badge-tag badge-info"><i class="ph ph-eye"></i> Somente Consulta</span>
+      </div>
+
+      <div class="grid-3" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.7rem; margin-bottom:0.85rem;">
+        <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #34d399; border-radius:10px; padding:0.75rem 0.9rem;">
+          <small style="color:var(--text-muted); display:block; font-size:0.75rem;">Itens Disponíveis</small>
+          <strong id="comStockAvailSkus" style="font-size:1.25rem; color:#34d399;">0</strong>
+        </div>
+        <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #60a5fa; border-radius:10px; padding:0.75rem 0.9rem;">
+          <small style="color:var(--text-muted); display:block; font-size:0.75rem;">Unidades em Estoque</small>
+          <strong id="comStockAvailUnits" style="font-size:1.25rem; color:#f3f4f6;">0</strong>
+        </div>
+        <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #fbbf24; border-radius:10px; padding:0.75rem 0.9rem;">
+          <small style="color:var(--text-muted); display:block; font-size:0.75rem;">Decantes Disponíveis</small>
+          <strong id="comStockDecantsCount" style="font-size:1.25rem; color:#fbbf24;">0</strong>
+        </div>
+      </div>
+
+      <div class="card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-radius:10px; padding:0.85rem; margin-bottom:0.85rem;">
+        <div class="form-row" style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end;">
+          <div class="form-group" style="flex:1 1 220px; margin:0;">
+            <label for="comStockSearchInput">Buscar fragrância ou código:</label>
+            <input type="text" id="comStockSearchInput" placeholder="Ex: Creed, 10ml, Árabe..." />
+          </div>
+          <div class="form-group" style="min-width:170px; margin:0;">
+            <label for="comStockCategoryFilter">Categoria:</label>
+            <select id="comStockCategoryFilter">
+              <option value="todos">Todas as categorias</option>
+              <option value="Decant">Decant</option>
+              <option value="Árabe">Árabe</option>
+              <option value="Nicho">Nicho</option>
+              <option value="Importado">Importado</option>
+            </select>
+          </div>
+          <button type="button" id="btnClearComStockFilters" class="btn-sm">Limpar</button>
+        </div>
+
+        <div class="gm-seg-filters-row">
+          <div class="gm-seg-group">
+            <label>Tipo de Produto</label>
+            <div class="gm-seg-pills" id="comCatalogFormatPills">
+              <button type="button" class="gm-seg-btn ${commercialCatalogFormatFilter === 'all' ? 'active' : ''}" data-val="all">Todos</button>
+              <button type="button" class="gm-seg-btn ${commercialCatalogFormatFilter === 'decant' ? 'active' : ''}" data-val="decant">Decantes</button>
+              <button type="button" class="gm-seg-btn ${commercialCatalogFormatFilter === 'bottle' ? 'active' : ''}" data-val="bottle">Frascos Completos</button>
+            </div>
+          </div>
+
+          <div class="gm-seg-group">
+            <label>Disponibilidade</label>
+            <div class="gm-seg-pills" id="comCatalogAvailPills">
+              <button type="button" class="gm-seg-btn ${commercialCatalogOnlyAvailable ? 'active' : ''}" data-val="yes">Apenas Disponíveis (&gt; 0)</button>
+              <button type="button" class="gm-seg-btn ${!commercialCatalogOnlyAvailable ? 'active' : ''}" data-val="all">Mostrar Esgotados</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>CÓD.</th>
+              <th>FRAGRÂNCIA / DECANT</th>
+              <th>FORMATO</th>
+              <th>CATEGORIA / VOL.</th>
+              <th>VALIDADE</th>
+              <th>PREÇO VENDA</th>
+              <th>DISPONÍVEL</th>
+              <th>AÇÃO</th>
+            </tr>
+          </thead>
+          <tbody id="tableCommercialStockCatalog"></tbody>
+        </table>
+      </div>
+    `;
+    mainContainer.appendChild(sec);
+  }
+}
+
+function initCommercialStockCatalogModule() {
+  ensureCommercialStockSubtabInMenuAndSection();
+
+  document.getElementById('comStockSearchInput')?.addEventListener('input', renderCommercialStockCatalog);
+  document.getElementById('comStockCategoryFilter')?.addEventListener('change', renderCommercialStockCatalog);
+
+  document.querySelectorAll('#comCatalogFormatPills .gm-seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      commercialCatalogFormatFilter = btn.getAttribute('data-val') || 'all';
+      document.querySelectorAll('#comCatalogFormatPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+      renderCommercialStockCatalog();
+    });
+  });
+
+  document.querySelectorAll('#comCatalogAvailPills .gm-seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      commercialCatalogOnlyAvailable = (btn.getAttribute('data-val') || 'yes') === 'yes';
+      document.querySelectorAll('#comCatalogAvailPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+      renderCommercialStockCatalog();
+    });
+  });
+
+  document.getElementById('btnClearComStockFilters')?.addEventListener('click', () => {
+    const sInp = document.getElementById('comStockSearchInput');
+    const cSel = document.getElementById('comStockCategoryFilter');
+    if (sInp) sInp.value = '';
+    if (cSel) cSel.value = 'todos';
+    commercialCatalogFormatFilter = 'all';
+    commercialCatalogOnlyAvailable = true;
+    document.querySelectorAll('#comCatalogFormatPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-val') === 'all'));
+    document.querySelectorAll('#comCatalogAvailPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-val') === 'yes'));
+    renderCommercialStockCatalog();
+  });
+}
+
+function renderCommercialStockCatalog() {
+  ensureCommercialStockSubtabInMenuAndSection();
+  const tbody = document.getElementById('tableCommercialStockCatalog');
+  if (!tbody) return;
+
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const availItems = products.filter(p => (Number(p.qty) || 0) > 0);
+  const availUnits = availItems.reduce((acc, p) => acc + (Number(p.qty) || 0), 0);
+  const availDecants = availItems.filter(p => isDecantProduct(p)).length;
+
+  setTxt('comStockAvailSkus', availItems.length);
+  setTxt('comStockAvailUnits', availUnits);
+  setTxt('comStockDecantsCount', availDecants);
+
+  const term = (document.getElementById('comStockSearchInput')?.value || '').toLowerCase().trim();
+  const cat = document.getElementById('comStockCategoryFilter')?.value || 'todos';
+
+  const filtered = products.filter(p => {
+    const qtyNum = Number(p.qty) || 0;
+    const isDecant = isDecantProduct(p);
+
+    const matchTerm = !term
+      || String(p.name || '').toLowerCase().includes(term)
+      || String(p.id || '').toLowerCase().includes(term)
+      || String(p.condition || '').toLowerCase().includes(term)
+      || String(p.battery || '').toLowerCase().includes(term);
+
+    const matchCat = cat === 'todos' || p.condition === cat;
+    const matchFormat = commercialCatalogFormatFilter === 'all'
+      || (commercialCatalogFormatFilter === 'decant' && isDecant)
+      || (commercialCatalogFormatFilter === 'bottle' && !isDecant);
+    const matchAvail = !commercialCatalogOnlyAvailable || qtyNum > 0;
+
+    return matchTerm && matchCat && matchFormat && matchAvail;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.2rem;">Nenhuma fragrância disponível para o filtro selecionado.</td></tr>`;
+    return;
+  }
+
+  // Sem colunas/valores de custo ou margem e sem edição inline
+  tbody.innerHTML = filtered.map(p => {
+    const qtyNum = Number(p.qty) || 0;
+    const isDecant = isDecantProduct(p);
+    const formatBadge = isDecant
+      ? `<span class="badge-tag badge-warning">Decant</span>`
+      : `<span class="badge-tag badge-info">Frasco Completo</span>`;
+    const qtyBadge = qtyNum > 0
+      ? `<span class="badge-tag badge-receita">${qtyNum} un.</span>`
+      : `<span class="badge-tag badge-despesa">Esgotado</span>`;
+
+    return `
+      <tr>
+        <td><strong>${p.id}</strong></td>
+        <td><strong>${p.name}</strong></td>
+        <td>${formatBadge}</td>
+        <td>
+          <span>${p.condition || 'Produto'}</span>
+          ${p.battery ? `<small style="color:var(--text-muted); margin-left:4px;">• ${p.battery}</small>` : ''}
+        </td>
+        <td>${formatDateSafe(p.expiry)}</td>
+        <td><strong style="color:#34d399;">${fmtBRL(p.price)}</strong></td>
+        <td>${qtyBadge}</td>
+        <td style="white-space:nowrap;">
+          <button type="button" class="btn-sm btn-green" ${qtyNum <= 0 ? 'disabled' : ''} onclick="quickAddToPdv('${p.id}')">
+            <i class="ph ph-shopping-cart"></i> Vender
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ============================================================================
 // 5. NAVEGAÇÃO SPA
 // ============================================================================
 window.navigateToSection = function (targetId, labelText) {
@@ -1451,7 +1685,11 @@ window.navigateToSection = function (targetId, labelText) {
   document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
 
   const activeBtn = document.querySelector(`.nav-item[data-target="${targetId}"], .submenu-item[data-target="${targetId}"]`);
-  if (activeBtn) activeBtn.classList.add('active');
+  if (activeBtn) {
+    activeBtn.classList.add('active');
+    const parentDropdown = activeBtn.closest('.nav-dropdown');
+    if (parentDropdown) parentDropdown.classList.add('open');
+  }
 
   const targetSection = document.getElementById(targetId);
   if (targetSection) targetSection.classList.add('active');
@@ -1462,6 +1700,7 @@ window.navigateToSection = function (targetId, labelText) {
   setMobileSidebarOpen(false);
 
   if (targetId === 'estoque') renderStock();
+  if (targetId === 'consulta_estoque') renderCommercialStockCatalog();
 };
 
 function initNavigation() {
@@ -3095,1128 +3334,3 @@ function recalculateSaleTotalFromDraft(forceRecalcTotal = false) {
   }, 0);
 
   const itemsInput = document.getElementById('editSaleItems');
-  if (itemsInput) {
-    itemsInput.value = formatSaleItemsArrayToString(editingSaleItemsDraft);
-  }
-
-  const totalInput = document.getElementById('editSaleTotal');
-  const discInput = document.getElementById('editSaleDiscount');
-  if (forceRecalcTotal && totalInput && sumItems > 0) {
-    const disc = Math.max(0, parseFloat(discInput?.value) || 0);
-    totalInput.value = Math.max(0, sumItems - disc).toFixed(2);
-  }
-}
-
-function renderEditingSaleItemsRows(recalcTotal = false) {
-  const container = document.getElementById('gmSaleItemsRowsContainer');
-  if (!container) return;
-
-  if (!Array.isArray(editingSaleItemsDraft) || editingSaleItemsDraft.length === 0) {
-    container.innerHTML = `<div style="font-size:0.8rem; color:var(--text-muted); padding:0.35rem;">Nenhum item listado. Clique em "+ Adicionar Item".</div>`;
-    recalculateSaleTotalFromDraft(recalcTotal);
-    return;
-  }
-
-  container.innerHTML = editingSaleItemsDraft.map((it, idx) => {
-    const q = Math.max(1, parseInt(it.qty, 10) || 1);
-    const pr = Math.max(0, parseFloat(it.price) || 0);
-    const sub = q * pr;
-    return `
-      <div class="gm-sale-item-row">
-        <input type="text" value="${String(it.name || '').replace(/"/g, '&quot;')}" placeholder="Nome do item" oninput="updateDraftSaleItem(${idx}, 'name', this.value)" />
-        <input type="number" min="1" step="1" value="${q}" oninput="updateDraftSaleItem(${idx}, 'qty', this.value)" />
-        <input type="number" min="0" step="0.01" value="${pr}" oninput="updateDraftSaleItem(${idx}, 'price', this.value)" />
-        <span style="font-size:0.8rem; font-weight:700; text-align:right; color:#34d399;">${sub > 0 ? fmtBRL(sub) : '-'}</span>
-        <button type="button" class="btn-sm btn-danger" title="Remover item" onclick="removeDraftSaleItem(${idx})">&times;</button>
-      </div>
-    `;
-  }).join('');
-
-  recalculateSaleTotalFromDraft(recalcTotal);
-}
-
-window.updateDraftSaleItem = function (idx, field, val) {
-  if (!editingSaleItemsDraft[idx]) return;
-  if (field === 'qty') {
-    editingSaleItemsDraft[idx].qty = Math.max(1, parseInt(val, 10) || 1);
-  } else if (field === 'price') {
-    editingSaleItemsDraft[idx].price = Math.max(0, parseFloat(val) || 0);
-  } else {
-    editingSaleItemsDraft[idx].name = val;
-  }
-  const hasAnyPrice = editingSaleItemsDraft.some(x => (parseFloat(x.price) || 0) > 0);
-  recalculateSaleTotalFromDraft(hasAnyPrice);
-  renderEditingSaleItemsRows(hasAnyPrice);
-};
-
-window.removeDraftSaleItem = function (idx) {
-  editingSaleItemsDraft.splice(idx, 1);
-  renderEditingSaleItemsRows(true);
-};
-
-function initEditSaleModule() {
-  ensureEditSaleModalStructure();
-  const overlay = document.getElementById('editSaleModalOverlay');
-  document.getElementById('btnCloseEditSaleModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnCancelEditSaleModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  overlay?.addEventListener('click', (e) => {
-    if (e.target === overlay) overlay.classList.remove('active');
-  });
-
-  document.getElementById('formEditSale')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const saleId = document.getElementById('editSaleId').value;
-    const sale = sales.find(s => String(s.id) === String(saleId));
-    if (!sale) return;
-
-    const cleanDraft = editingSaleItemsDraft
-      .map(it => ({
-        name: String(it.name || '').trim(),
-        qty: Math.max(1, parseInt(it.qty, 10) || 1),
-        price: Math.max(0, parseFloat(it.price) || 0)
-      }))
-      .filter(it => it.name);
-
-    sale.rawItems = cleanDraft;
-    const formattedDraftStr = formatSaleItemsArrayToString(cleanDraft);
-
-    sale.client = document.getElementById('editSaleClient').value.trim().toUpperCase() || sale.client;
-    sale.seller = document.getElementById('editSaleSeller').value.trim().toUpperCase() || sale.seller;
-    sale.date = document.getElementById('editSaleDate').value.trim() || sale.date;
-    sale.payment = document.getElementById('editSalePayment').value;
-    sale.items = formattedDraftStr || document.getElementById('editSaleItems').value.trim() || sale.items;
-    sale.shippingMethod = document.getElementById('editSaleShippingMethod').value;
-    sale.trackingCode = document.getElementById('editSaleTrackingCode').value.trim().toUpperCase();
-    sale.shippingNotes = document.getElementById('editSaleShippingNotes').value.trim();
-    sale.observation = document.getElementById('editSaleObservation').value.trim();
-    sale.discount = parseFloat(document.getElementById('editSaleDiscount').value) || 0;
-    sale.total = Math.max(0, parseFloat(document.getElementById('editSaleTotal').value) || 0);
-    sale.orderStatus = document.getElementById('editSaleOrderStatus').value;
-    sale.shippingPacked = (sale.orderStatus !== 'Em Separação');
-
-    saveAll();
-    renderAll();
-    overlay.classList.remove('active');
-    showToast(`Venda #${sale.id} e itens atualizados com sucesso!`);
-  });
-}
-
-window.openEditSaleModal = function (saleId) {
-  ensureEditSaleModalStructure();
-  const s = sales.find(item => String(item.id) === String(saleId));
-  if (!s) return;
-
-  document.getElementById('editSaleHeaderId').textContent = `#${s.id}`;
-  document.getElementById('editSaleId').value = s.id;
-  document.getElementById('editSaleClient').value = s.client || '';
-  document.getElementById('editSaleSeller').value = s.seller || '';
-  document.getElementById('editSaleDate').value = s.date || '';
-  document.getElementById('editSalePayment').value = s.payment || 'Pix';
-  document.getElementById('editSaleItems').value = s.items || '';
-  document.getElementById('editSaleShippingMethod').value = s.shippingMethod || 'Retirada na Loja';
-  document.getElementById('editSaleTrackingCode').value = s.trackingCode || '';
-  document.getElementById('editSaleShippingNotes').value = s.shippingNotes || '';
-  document.getElementById('editSaleObservation').value = s.observation || '';
-  document.getElementById('editSaleDiscount').value = Number(s.discount || 0);
-  document.getElementById('editSaleTotal').value = Number(s.total || 0);
-  document.getElementById('editSaleOrderStatus').value = s.orderStatus || 'Em Separação';
-
-  const existingItems = Array.isArray(s.rawItems) && s.rawItems.length > 0
-    ? s.rawItems
-    : parseSaleItemsStringToArray(s.items);
-  editingSaleItemsDraft = existingItems.map(it => ({
-    name: it.name || '',
-    qty: Math.max(1, parseInt(it.qty, 10) || 1),
-    price: Number(it.price || 0)
-  }));
-  renderEditingSaleItemsRows(false);
-
-  document.getElementById('editSaleModalOverlay').classList.add('active');
-};
-
-function renderModalCart() {
-  const tbody = document.getElementById('modalCartTable');
-  const payVal = document.getElementById('modalPayValue');
-  if (!tbody) return;
-  if (modalCart.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Carrinho vazio</td></tr>';
-    if (payVal) payVal.value = 'R$ 0,00';
-    return;
-  }
-  const gross = modalCart.reduce((acc, i) => acc + i.total, 0);
-  const generalDisc = parseFloat(document.getElementById('modalGeneralDiscount')?.value) || 0;
-  const finalTotal = Math.max(0, gross - generalDisc);
-  tbody.innerHTML = modalCart.map(i => `<tr><td>${i.name}</td><td>${i.qty}</td><td>${fmtBRL(i.unitPrice)}</td><td><strong style="color:#34d399;">${fmtBRL(i.total)}</strong></td></tr>`).join('');
-  if (payVal) payVal.value = fmtBRL(finalTotal);
-}
-
-function renderSales() {
-  syncPdvLiveClockBadge();
-  const statusFilter = document.getElementById('salesStatusFilter')?.value || 'todos';
-  const channelFilter = document.getElementById('salesChannelFilter')?.value || 'todos';
-
-  const tableViewEl = document.getElementById('salesTableView');
-  const cardsViewEl = document.getElementById('salesCardsView');
-  const toggleBtnEl = document.getElementById('btnToggleListModel');
-  if (toggleBtnEl) toggleBtnEl.style.display = 'none';
-  if (tableViewEl) tableViewEl.style.display = 'none';
-  if (cardsViewEl) cardsViewEl.style.display = 'block';
-
-  const filteredSales = sales.filter(s => {
-    const st = s.orderStatus || 'Em Separação';
-    const matchStatus = statusFilter === 'todos' || st === statusFilter;
-    const matchChannel = channelFilter === 'todos' || (channelFilter === 'Online / Nuvemshop' ? s.type === 'Online / Nuvemshop' : s.type !== 'Online / Nuvemshop');
-    return matchStatus && matchChannel;
-  });
-
-  const cards = document.getElementById('cardsSalesList');
-  if (cards) cards.innerHTML = filteredSales.map(s => {
-    const st = s.orderStatus || 'Em Separação';
-    const ship = s.shippingMethod || 'Retirada na Loja';
-    const shipBadge = ship === 'Motoboy'
-      ? `<span class="badge-tag badge-motoboy">Motoboy</span>`
-      : ship === 'Correios'
-      ? `<span class="badge-tag badge-correios">Correios</span>`
-      : `<span class="badge-tag badge-info">${ship}</span>`;
-
-    return `
-      <div class="sale-card-item">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap;">
-          <div style="display:inline-flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
-            <strong>#${s.id} ${s.type === 'Online / Nuvemshop' ? '(Nuvemshop)' : ''}</strong>
-            ${shipBadge}
-          </div>
-          ${renderStatusSelectControl(s.id, st)}
-        </div>
-        <div>
-          <strong>${s.client}</strong>
-          <small style="color:var(--text-muted); margin-left:0.35rem;">${s.date} • ${s.items}</small>
-        </div>
-        ${s.trackingCode ? `<small style="color:#34d399;"><i class="ph ph-barcode"></i> Rastreio: <strong>${s.trackingCode}</strong></small>` : ''}
-        ${s.observation ? `<small style="color:#fbbf24;"><i class="ph ph-note"></i> ${s.observation}</small>` : ''}
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem; margin-top:0.25rem;">
-          <strong style="color:#34d399; font-size:0.98rem;">${fmtBRL(s.total)}</strong>
-          ${renderGithubPencilActionButton(s.id)}
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function renderQuickStock() {
-  const tbody = document.getElementById('tableQuickStock');
-  if (!tbody) return;
-  const term = (document.getElementById('quickStockSearch')?.value || '').toLowerCase();
-  const cond = document.getElementById('quickStockCondition')?.value || 'todos';
-  const filtered = products.filter(p => (p.name.toLowerCase().includes(term) || (p.imei || '').toLowerCase().includes(term)) && (cond === 'todos' || p.condition === cond));
-  tbody.innerHTML = filtered.map(p => `<tr><td>${p.id}</td><td><strong>${p.name}</strong></td><td><code>${p.imei || '-'}</code></td><td><span class="badge-tag badge-info">${p.condition}</span> <small>${p.battery || ''}</small></td><td><strong style="color:#34d399;">${fmtBRL(p.price)}</strong></td><td>${p.qty > 0 ? `<span class="badge-tag badge-receita">${p.qty} un.</span>` : `<span class="badge-tag badge-despesa">Esgotado</span>`}</td><td><button type="button" class="btn-sm btn-green" ${p.qty <= 0 ? 'disabled' : ''} onclick="quickAddToPdv('${p.id}')">Vender</button></td></tr>`).join('');
-}
-
-window.quickAddToPdv = function (prodId) {
-  const prod = products.find(p => p.id === prodId);
-  if (!prod || prod.qty <= 0) return;
-  modalCart = [{ prodId: prod.id, name: prod.name, qty: 1, unitPrice: prod.price, total: prod.price }];
-  document.getElementById('modalGeneralDiscount').value = '0';
-  renderModalCart();
-  document.getElementById('modalShippingMethod').value = 'Retirada na Loja';
-  document.getElementById('modalShippingNotes').value = '';
-  document.getElementById('modalOrderObservation').value = '';
-  document.getElementById('modalSaleDate').value = getNowBrDateTime();
-  document.getElementById('pdvModalOverlay').classList.add('active');
-};
-
-function initQuotesModule() {
-  const overlay = document.getElementById('quoteModalOverlay');
-  document.getElementById('btnOpenNewQuoteModal')?.addEventListener('click', () => { quoteCart = []; renderQuoteCart(); overlay.classList.add('active'); });
-  document.getElementById('btnCloseQuoteModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnCancelQuoteModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnAddQuoteItem')?.addEventListener('click', () => {
-    const prod = products.find(p => p.id === document.getElementById('quoteProductSelect').value);
-    const qty = parseInt(document.getElementById('quoteProductQty').value, 10) || 1;
-    if (!prod) return;
-    quoteCart.push({ prodId: prod.id, name: prod.name, qty, price: prod.price });
-    renderQuoteCart();
-  });
-  document.getElementById('btnSaveQuote')?.addEventListener('click', () => {
-    const clientName = document.getElementById('quoteClientName').value.trim().toUpperCase();
-    if (!clientName || quoteCart.length === 0) return showToast('Preencha cliente e itens!');
-    const gross = quoteCart.reduce((acc, i) => acc + i.price * i.qty, 0);
-    const disc = parseFloat(document.getElementById('quoteTradeInVal').value) || 0;
-    quotes.unshift({ cod: 'ORC-' + (501 + quotes.length), date: new Date().toLocaleDateString('pt-BR'), validUntil: '3 dias', clientName, clientPhone: document.getElementById('quoteClientPhone').value, seller: document.getElementById('quoteSellerSelect').value, items: [...quoteCart], tradeInVal: disc, netTotal: Math.max(0, gross - disc), status: 'Aberto' });
-    saveAll(); renderQuotes(); overlay.classList.remove('active'); showToast('Orçamento salvo!');
-  });
-}
-
-function renderQuoteCart() {
-  const tbody = document.getElementById('quoteItemsTableBody');
-  const totalEl = document.getElementById('quoteGrandTotalDisplay');
-  const disc = parseFloat(document.getElementById('quoteTradeInVal')?.value) || 0;
-  const gross = quoteCart.reduce((acc, i) => acc + i.price * i.qty, 0);
-  if (tbody) tbody.innerHTML = quoteCart.map((i, idx) => `<tr><td>${i.name}</td><td>${i.qty}</td><td>${fmtBRL(i.price)}</td><td>${fmtBRL(i.price * i.qty)}</td><td><button type="button" class="btn-sm" onclick="quoteCart.splice(${idx},1);renderQuoteCart()">&times;</button></td></tr>`).join('');
-  if (totalEl) totalEl.textContent = fmtBRL(Math.max(0, gross - disc));
-}
-
-function renderQuotes() {
-  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setTxt('quoteMetricTotal', quotes.length);
-  setTxt('quoteMetricOpen', quotes.filter(q => q.status === 'Aberto').length);
-  setTxt('quoteMetricApproved', quotes.filter(q => q.status === 'Aprovado').length);
-  setTxt('quoteMetricValue', fmtBRL(quotes.filter(q => q.status === 'Aberto').reduce((acc, q) => acc + q.netTotal, 0)));
-  const tbody = document.getElementById('tableQuotesList');
-  if (tbody) tbody.innerHTML = quotes.map(q => `<tr><td><strong>${q.cod}</strong></td><td>${q.date}</td><td>${q.clientName}</td><td>${q.items.map(i => `${i.name} (${i.qty}x)`).join('<br>')}</td><td>${fmtBRL(q.tradeInVal)}</td><td><strong style="color:#34d399;">${fmtBRL(q.netTotal)}</strong></td><td><span class="badge-tag ${q.status === 'Aprovado' ? 'badge-receita' : 'badge-warning'}">${q.status}</span></td><td>${q.status === 'Aberto' ? `<button type="button" class="btn-sm btn-green" onclick="convertQuoteToSale('${q.cod}')">Converter</button>` : '-'}</td></tr>`).join('');
-}
-
-window.convertQuoteToSale = function (cod) {
-  const q = quotes.find(item => item.cod === cod);
-  if (!q) return;
-  q.status = 'Aprovado';
-  sales.unshift({ id: String(9054500 + sales.length + 1), client: q.clientName, phone: q.clientPhone, seller: q.seller, date: getNowBrDateTime(), isoDate: new Date().toISOString().split('T')[0], type: 'Venda Presencial', shippingMethod: 'Retirada na Loja', trackingCode: '', orderStatus: 'Em Separação', observation: `Convertido do orçamento ${q.cod}`, shippingPacked: false, payment: 'Pix', discount: q.tradeInVal || 0, items: q.items.map(i => `${i.name} (${i.qty}x)`).join(', '), rawItems: [...q.items], total: q.netTotal, status: 'Concluído' });
-  saveAll(); renderAll(); showToast(`Orçamento ${cod} convertido em venda!`);
-};
-
-// ============================================================================
-// MÓDULO DE GARANTIAS & FISCAL
-// ============================================================================
-function initWarrantiesAndFiscalModule() {
-  const overlay = document.getElementById('warrantyModalOverlay');
-  const form = document.getElementById('formNewWarranty');
-  const saleSel = document.getElementById('warSaleSelect');
-
-  document.getElementById('btnOpenNewWarrantyModal')?.addEventListener('click', () => {
-    form?.reset();
-    document.getElementById('warStartDate').value = new Date().toISOString().split('T')[0];
-    overlay.classList.add('active');
-  });
-
-  document.getElementById('btnCloseWarrantyModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnCancelWarrantyModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-
-  saleSel?.addEventListener('change', () => {
-    const s = sales.find(item => String(item.id) === String(saleSel.value));
-    if (s) {
-      document.getElementById('warClientName').value = s.client || '';
-      document.getElementById('warClientPhone').value = s.phone || '';
-      document.getElementById('warProductModel').value = s.items || '';
-    }
-  });
-
-  form?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const termSel = document.getElementById('warTermSelect');
-    const selectedOpt = termSel.options[termSel.selectedIndex];
-    const days = parseInt(selectedOpt?.getAttribute('data-days'), 10) || 90;
-    const saleId = saleSel.value || 'AVULSO';
-    const linkedSale = sales.find(item => String(item.id) === String(saleId));
-
-    const newWarranty = {
-      cod: 'GAR-' + (1001 + warranties.length),
-      saleId,
-      clientName: document.getElementById('warClientName').value.trim().toUpperCase(),
-      clientPhone: document.getElementById('warClientPhone').value.trim(),
-      deviceModel: document.getElementById('warProductModel').value.trim(),
-      imei: document.getElementById('warBatchCode').value.trim() || 'AUTENTICADO',
-      term: termSel.value,
-      startDate: document.getElementById('warStartDate').value,
-      days,
-      value: linkedSale ? linkedSale.total : 0,
-      invoiceNumber: document.getElementById('warInvoiceNumber').value.trim() || 'Cupom Balcão'
-    };
-
-    warranties.unshift(newWarranty);
-    saveAll();
-    renderWarranties();
-    overlay.classList.remove('active');
-    showToast(`Certificado de garantia ${newWarranty.cod} emitido!`);
-  });
-}
-
-function renderWarranties() {
-  const tbody = document.getElementById('tableWarrantiesList');
-  if (tbody) tbody.innerHTML = warranties.map(w => {
-    const msg = `Olá *${w.clientName}*! Segue seu Certificado de Autenticidade *${w.cod}* da *GRUPO MISTER Perfumaria* referente a *${w.deviceModel}* (Lote: ${w.imei}) — Vigência: ${w.days} dias.`;
-    const digits = (w.clientPhone || '').replace(/\D/g, '');
-    const waHref = digits ? `https://wa.me/55${digits}?text=${encodeURIComponent(msg)}` : '#';
-    return `
-      <tr>
-        <td><strong>${w.cod}</strong></td>
-        <td>${w.clientName}</td>
-        <td>${w.deviceModel}</td>
-        <td><code>${w.imei}</code></td>
-        <td><span class="badge-tag badge-info">${w.term}</span></td>
-        <td>${w.invoiceNumber || 'Pendente'}</td>
-        <td>${formatDateSafe(w.startDate)} (${w.days}d)</td>
-        <td><span class="badge-tag badge-receita">Ativa</span></td>
-        <td>
-          <a href="${waHref}" target="_blank" class="btn-sm btn-green" style="text-decoration:none;" onclick="showToast('Abrindo certificado no WhatsApp...')">
-            <i class="ph ph-whatsapp-logo"></i> Enviar
-          </a>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-function initSimulators() {
-  document.getElementById('taxSimBaseValue')?.addEventListener('input', updateTaxSimulator);
-  document.getElementById('taxSimMode')?.addEventListener('change', updateTaxSimulator);
-  document.getElementById('btnSaveCustomRates')?.addEventListener('click', () => {
-    document.querySelectorAll('.rate-input').forEach(inp => { cardRates[parseInt(inp.dataset.idx, 10)] = parseFloat(inp.value) || 0; });
-    saveAll(); updateTaxSimulator(); showToast('Taxas salvas!');
-  });
-  document.getElementById('btnCopyTaxMsg')?.addEventListener('click', () => { navigator.clipboard?.writeText(document.getElementById('taxWhatsappPreview').textContent); showToast('Copiado!'); });
-
-  document.getElementById('upgTargetStockSelect')?.addEventListener('change', (e) => {
-    const prod = products.find(p => p.id === e.target.value);
-    if (prod) { document.getElementById('upgTargetModel').value = prod.name; document.getElementById('upgTargetPrice').value = prod.price; updateUpgradeSimulator(); }
-  });
-  ['upgTargetModel', 'upgTargetPrice', 'upgTradeInModel', 'upgTradeInBase', 'upgCashDown'].forEach(id => document.getElementById(id)?.addEventListener('input', updateUpgradeSimulator));
-  document.getElementById('btnCopyUpgradeMsg')?.addEventListener('click', () => { navigator.clipboard?.writeText(document.getElementById('upgWhatsappPreview').textContent); showToast('Proposta copiada!'); });
-}
-
-function updateTaxSimulator() {
-  const base = parseFloat(document.getElementById('taxSimBaseValue')?.value) || 0;
-  const mode = document.getElementById('taxSimMode')?.value || 'repasse';
-  const tbody = document.getElementById('taxSimTableBody');
-  const preview = document.getElementById('taxWhatsappPreview');
-  if (!tbody) return;
-  let html = '', lines = [`*SIMULAÇÃO GRUPO MISTER* — Pix: ${fmtBRL(base)}`];
-  for (let i = 1; i <= 12; i++) {
-    const rate = cardRates[i] ?? 0;
-    const tot = mode === 'repasse' ? base / (1 - rate / 100) : base;
-    const net = mode === 'repasse' ? base : base * (1 - rate / 100);
-    html += `<tr><td>${i}x</td><td><input type="number" class="rate-input" data-idx="${i}" value="${rate}" step="0.01" style="width:60px;background:#0b0f17;border:1px solid var(--border);color:#fff;padding:2px;" />%</td><td><strong>${fmtBRL(tot / i)}</strong></td><td>${fmtBRL(tot)}</td><td style="color:#34d399;">${fmtBRL(net)}</td></tr>`;
-    if ([1, 3, 6, 12].includes(i)) lines.push(`${i}x de ${fmtBRL(tot / i)}`);
-  }
-  tbody.innerHTML = html;
-  if (preview) preview.textContent = lines.join('\n');
-}
-
-function updateUpgradeSimulator() {
-  const m1 = document.getElementById('upgTargetModel')?.value || '';
-  const p1 = parseFloat(document.getElementById('upgTargetPrice')?.value) || 0;
-  const m2 = document.getElementById('upgTradeInModel')?.value || '';
-  const p2 = parseFloat(document.getElementById('upgTradeInBase')?.value) || 0;
-  const disc = parseFloat(document.getElementById('upgCashDown')?.value) || 0;
-  const rem = Math.max(0, p1 + p2 - disc);
-  const el = document.getElementById('upgRemainingDisplay');
-  if (el) el.textContent = fmtBRL(rem);
-  const prev = document.getElementById('upgWhatsappPreview');
-  if (prev) prev.textContent = `*COMBO GRUPO MISTER*\n• ${m1} (${fmtBRL(p1)})\n• ${m2} (${fmtBRL(p2)})\n• Desconto Combo: -${fmtBRL(disc)}\n*Total no Pix: ${fmtBRL(rem)}*`;
-}
-
-function initClientsModule() {
-  const overlay = document.getElementById('clientModalOverlay');
-  document.getElementById('btnOpenClientModal')?.addEventListener('click', () => overlay.classList.add('active'));
-  document.getElementById('btnCloseClientModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnCancelClientModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('formNewClient')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    clients.unshift({ cod: 'CLI-' + String(clients.length + 1).padStart(3, '0'), name: document.getElementById('newClientName').value.trim().toUpperCase(), cpf: document.getElementById('newClientCpf').value.trim(), phone: document.getElementById('newClientPhone').value.trim(), category: document.getElementById('newClientCategory').value, notes: document.getElementById('newClientNotes').value.trim() });
-    saveAll(); renderAll(); overlay.classList.remove('active'); showToast('Cliente cadastrado!');
-  });
-  document.getElementById('clientSearchInput')?.addEventListener('input', renderClients);
-  document.getElementById('clientCategoryFilter')?.addEventListener('change', renderClients);
-}
-
-function renderClients() {
-  const term = (document.getElementById('clientSearchInput')?.value || '').toLowerCase();
-  const cat = document.getElementById('clientCategoryFilter')?.value || 'todos';
-  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setTxt('metricTotalPessoas', clients.length);
-  setTxt('metricTotalClientes', clients.length);
-  setTxt('metricClientesVip', clients.filter(c => c.category === 'VIP / Recorrente').length);
-  const filtered = clients.filter(c => (c.name.toLowerCase().includes(term) || (c.cpf || '').includes(term)) && (cat === 'todos' || c.category === cat));
-  const tbody = document.getElementById('tableClientsDetailed');
-  if (tbody) tbody.innerHTML = filtered.map(c => `<tr><td>${c.cod}</td><td><strong>${c.name}</strong></td><td>${c.cpf}</td><td>${c.phone}</td><td>${c.notes || '-'}</td><td><span class="badge-tag ${c.category === 'VIP / Recorrente' ? 'badge-warning' : 'badge-info'}">${c.category}</span></td><td><button type="button" class="btn-sm btn-blue" onclick="selectClientForSale('${c.cod}')">Vender</button></td></tr>`).join('');
-}
-
-window.selectClientForSale = function (cod) {
-  modalCart = [];
-  document.getElementById('modalGeneralDiscount').value = '0';
-  renderModalCart();
-  const sel = document.getElementById('modalClientSelect'); if (sel) sel.value = cod;
-  document.getElementById('modalSaleDate').value = getNowBrDateTime();
-  document.getElementById('pdvModalOverlay').classList.add('active');
-};
-
-// ============================================================================
-// MÓDULO DE ESTOQUE (REPAGINADO: MÉTRICAS OPERACIONAIS + FILTROS SEM IMEI + AÇÕES)
-// ============================================================================
-function ensureSupplierFieldInProductModal() {
-  const modalForm = document.getElementById('formNewProduct');
-  if (!modalForm || document.getElementById('prodSupplier')) return;
-
-  const nameInput = document.getElementById('prodName');
-  const supGroup = document.createElement('div');
-  supGroup.className = 'form-group';
-  supGroup.id = 'prodSupplierFieldGroup';
-  supGroup.innerHTML = `<label for="prodSupplier">Fornecedor:</label><input type="text" id="prodSupplier" placeholder="Ex: Importadora Dubai, Fornecedor Local..." />`;
-
-  if (nameInput?.parentElement) {
-    nameInput.parentElement.insertAdjacentElement('afterend', supGroup);
-  } else {
-    modalForm.prepend(supGroup);
-  }
-}
-
-function ensureStockOperationalMetricsCards() {
-  const stockSection = document.getElementById('estoque');
-  if (!stockSection || document.getElementById('gmStockOperationalGrid')) return;
-
-  const grid = document.createElement('div');
-  grid.id = 'gmStockOperationalGrid';
-  grid.className = 'grid-4';
-  grid.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:0.75rem; margin-bottom:0.9rem;';
-  grid.innerHTML = `
-    <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #60a5fa; border-radius:10px; padding:0.8rem 0.95rem;">
-      <small style="color:var(--text-muted); display:block; font-size:0.76rem;">Unidades Totais</small>
-      <strong id="gmStockOpTotalUnits" style="font-size:1.35rem; color:#f3f4f6;">0</strong>
-    </div>
-    <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #34d399; border-radius:10px; padding:0.8rem 0.95rem;">
-      <small style="color:var(--text-muted); display:block; font-size:0.76rem;">Itens / SKUs Cadastrados</small>
-      <strong id="gmStockOpSkus" style="font-size:1.35rem; color:#34d399;">0</strong>
-    </div>
-    <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #fbbf24; border-radius:10px; padding:0.8rem 0.95rem;">
-      <small style="color:var(--text-muted); display:block; font-size:0.76rem;">Estoque Baixo (≤ 2)</small>
-      <strong id="gmStockOpLow" style="font-size:1.35rem; color:#fbbf24;">0</strong>
-    </div>
-    <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #f87171; border-radius:10px; padding:0.8rem 0.95rem;">
-      <small style="color:var(--text-muted); display:block; font-size:0.76rem;">Esgotados (0 un.)</small>
-      <strong id="gmStockOpOut" style="font-size:1.35rem; color:#f87171;">0</strong>
-    </div>
-  `;
-
-  const bar = document.getElementById('gmStockManagerBar');
-  if (bar) {
-    bar.insertAdjacentElement('afterend', grid);
-  } else {
-    stockSection.prepend(grid);
-  }
-}
-
-function ensureStockSegmentedFilterControls() {
-  const searchInput = document.getElementById('stockSearchInput');
-  if (!searchInput || document.getElementById('gmStockSegmentedBar')) return;
-
-  const parentBox = searchInput.closest('.filters-bar, .filter-row, .card, .section-card') || searchInput.parentElement;
-  if (!parentBox) return;
-
-  const segBar = document.createElement('div');
-  segBar.id = 'gmStockSegmentedBar';
-  segBar.className = 'gm-seg-filters-row';
-  segBar.innerHTML = `
-    <div class="gm-seg-group">
-      <label>Tipo de Produto</label>
-      <div class="gm-seg-pills" data-filter-key="format">
-        <button type="button" class="gm-seg-btn ${stockFormatFilter === 'all' ? 'active' : ''}" data-val="all">Todos</button>
-        <button type="button" class="gm-seg-btn ${stockFormatFilter === 'decant' ? 'active' : ''}" data-val="decant">Decantes</button>
-        <button type="button" class="gm-seg-btn ${stockFormatFilter === 'bottle' ? 'active' : ''}" data-val="bottle">Frascos Completos</button>
-      </div>
-    </div>
-
-    <div class="gm-seg-group">
-      <label>Apenas estoque atual (&gt; 0)?</label>
-      <div class="gm-seg-pills" data-filter-key="onlyInStock">
-        <button type="button" class="gm-seg-btn ${stockOnlyInStockFilter === 'no' ? 'active' : ''}" data-val="no">Não</button>
-        <button type="button" class="gm-seg-btn ${stockOnlyInStockFilter === 'yes' ? 'active' : ''}" data-val="yes">Sim</button>
-      </div>
-    </div>
-
-    <div class="gm-seg-group">
-      <label>Com fornecedor informado?</label>
-      <div class="gm-seg-pills" data-filter-key="supplier">
-        <button type="button" class="gm-seg-btn ${stockSupplierFilter === 'all' ? 'active' : ''}" data-val="all">Todos</button>
-        <button type="button" class="gm-seg-btn ${stockSupplierFilter === 'no' ? 'active' : ''}" data-val="no">Não</button>
-        <button type="button" class="gm-seg-btn ${stockSupplierFilter === 'yes' ? 'active' : ''}" data-val="yes">Sim</button>
-      </div>
-    </div>
-
-    <div class="gm-seg-group">
-      <label>Apenas estoque baixo (≤ 2)?</label>
-      <div class="gm-seg-pills" data-filter-key="lowStock">
-        <button type="button" class="gm-seg-btn ${stockLowStockFilter === 'no' ? 'active' : ''}" data-val="no">Não</button>
-        <button type="button" class="gm-seg-btn ${stockLowStockFilter === 'yes' ? 'active' : ''}" data-val="yes">Sim</button>
-      </div>
-    </div>
-
-    <div class="gm-seg-group">
-      <label>Validade próxima (≤ 60d / vencidos)?</label>
-      <div class="gm-seg-pills" data-filter-key="expiry">
-        <button type="button" class="gm-seg-btn ${stockExpiryAlertFilter === 'all' ? 'active' : ''}" data-val="all">Todos</button>
-        <button type="button" class="gm-seg-btn ${stockExpiryAlertFilter === 'expiring' ? 'active' : ''}" data-val="expiring">Alerta / Vencidos</button>
-      </div>
-    </div>
-
-    <div class="gm-seg-group">
-      <label>Custo cadastrado?</label>
-      <div class="gm-seg-pills" data-filter-key="hasCost">
-        <button type="button" class="gm-seg-btn ${stockHasCostFilter === 'all' ? 'active' : ''}" data-val="all">Todos</button>
-        <button type="button" class="gm-seg-btn ${stockHasCostFilter === 'yes' ? 'active' : ''}" data-val="yes">Sim</button>
-        <button type="button" class="gm-seg-btn ${stockHasCostFilter === 'no' ? 'active' : ''}" data-val="no">Não</button>
-      </div>
-    </div>
-  `;
-
-  parentBox.appendChild(segBar);
-
-  segBar.querySelectorAll('.gm-seg-pills').forEach(pillGroup => {
-    const key = pillGroup.getAttribute('data-filter-key');
-    pillGroup.querySelectorAll('.gm-seg-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const val = btn.getAttribute('data-val');
-        if (key === 'onlyInStock') stockOnlyInStockFilter = val;
-        if (key === 'supplier') stockSupplierFilter = val;
-        if (key === 'lowStock') stockLowStockFilter = val;
-        if (key === 'format') stockFormatFilter = val;
-        if (key === 'expiry') stockExpiryAlertFilter = val;
-        if (key === 'hasCost') stockHasCostFilter = val;
-        syncStockSegmentedButtonsUI();
-        renderStock();
-      });
-    });
-  });
-}
-
-function syncStockSegmentedButtonsUI() {
-  const segBar = document.getElementById('gmStockSegmentedBar');
-  if (!segBar) return;
-  segBar.querySelectorAll('.gm-seg-pills').forEach(pillGroup => {
-    const key = pillGroup.getAttribute('data-filter-key');
-    const map = {
-      onlyInStock: stockOnlyInStockFilter,
-      supplier: stockSupplierFilter,
-      lowStock: stockLowStockFilter,
-      format: stockFormatFilter,
-      expiry: stockExpiryAlertFilter,
-      hasCost: stockHasCostFilter
-    };
-    const current = map[key];
-    pillGroup.querySelectorAll('.gm-seg-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-val') === current);
-    });
-  });
-}
-
-function ensureStockTableHeaderWithoutBatch() {
-  const tbody = document.getElementById('tableStockDetailed');
-  const table = tbody?.closest('table');
-  if (!table) return;
-
-  const thead = table.querySelector('thead tr');
-  if (!thead) return;
-
-  const canManageStock = hasStockAccess();
-  thead.innerHTML = `
-    <th>CÓD.</th>
-    <th>FRAGRÂNCIA / DECANT</th>
-    <th>CATEGORIA / VOL.</th>
-    <th>VALIDADE</th>
-    ${canManageStock ? '<th class="admin-only-col">CUSTO</th>' : ''}
-    <th>VENDA</th>
-    ${canManageStock ? '<th class="admin-only-col">MARGEM</th>' : ''}
-    <th>QTD</th>
-    <th>AÇÕES</th>
-  `;
-}
-
-function ensureStockToolbarActions() {
-  ensureSupplierFieldInProductModal();
-  const stockSection = document.getElementById('estoque');
-  if (!stockSection || document.getElementById('gmStockManagerBar')) return;
-
-  const bar = document.createElement('div');
-  bar.id = 'gmStockManagerBar';
-  bar.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;';
-  bar.innerHTML = `
-    <button type="button" id="gmBtnImportNuvemApi" class="btn-primary"><i class="ph ph-cloud-arrow-down"></i> Importar Catálogo Nuvemshop</button>
-    <button type="button" id="gmBtnClearAllStock" class="btn-danger"><i class="ph ph-trash"></i> Zerar Estoque</button>
-  `;
-  stockSection.prepend(bar);
-
-  document.getElementById('gmBtnImportNuvemApi')?.addEventListener('click', async () => {
-    if (!hasStockAccess()) return showToast('Sem permissão de estoque.');
-    if (!confirm('Importar/atualizar produtos da Nuvemshop mantendo os custos e fornecedores já editados?')) return;
-    try {
-      const res = await fetch(`${BACKEND_API_URL}/api/nuvemshop/import-products`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) return showToast(data.error || 'Erro ao importar da Nuvemshop.');
-      await CloudSyncEngine.pullState(false);
-      showToast(`${data.importedCount || 0} item(ns) importados da Nuvemshop!`);
-    } catch (_) {
-      showToast('Erro de conexão com o servidor.');
-    }
-  });
-
-  document.getElementById('gmBtnClearAllStock')?.addEventListener('click', async () => {
-    if (!hasStockAccess()) return showToast('Sem permissão de estoque.');
-    if (!confirm('Tem certeza que deseja APAGAR TODOS os itens do estoque?')) return;
-    try {
-      const res = await fetch(`${BACKEND_API_URL}/api/products/clear`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) return showToast(data.error || 'Erro ao zerar estoque.');
-      products = [];
-      persistLocalOnly();
-      renderAll();
-      showToast('Estoque zerado com sucesso!');
-    } catch (_) {
-      showToast('Erro de conexão com o servidor.');
-    }
-  });
-}
-
-window.openNewProductModal = function () {
-  if (!hasStockAccess()) return showToast('Você não tem permissão para cadastrar no estoque.');
-  ensureSupplierFieldInProductModal();
-  const canEditCost = hasStockAccess();
-  document.getElementById('editProdId').value = '';
-  document.getElementById('productModalTitle').innerHTML = '<i class="ph ph-package"></i> Cadastrar Fragrância';
-  document.getElementById('btnSubmitProductModal').textContent = 'Salvar no Estoque';
-  document.getElementById('btnDeleteProductInModal').style.display = 'none';
-  document.getElementById('prodCodeDisplay').value = 'PRD-' + String(products.length + 1).padStart(2, '0');
-  document.getElementById('prodName').value = '';
-  const supInp = document.getElementById('prodSupplier');
-  if (supInp) supInp.value = '';
-  document.getElementById('prodImei').value = '';
-  document.getElementById('prodExpiry').value = '';
-  document.getElementById('prodCondition').value = 'Árabe';
-  document.getElementById('prodBattery').value = '';
-  document.getElementById('prodCost').value = '';
-  document.getElementById('prodPrice').value = '';
-  document.getElementById('prodQty').value = '1';
-  document.getElementById('prodNuvemId').value = '';
-  document.getElementById('prodNuvemVariantId').value = '';
-
-  const costGroup = document.getElementById('prodCostFieldGroup');
-  if (costGroup) costGroup.style.display = canEditCost ? '' : 'none';
-
-  document.getElementById('productModalOverlay').classList.add('active');
-};
-
-window.openEditProductModal = function (prodId) {
-  if (!hasStockAccess()) return showToast('Você não tem permissão para editar o estoque.');
-  ensureSupplierFieldInProductModal();
-  const prod = products.find(p => p.id === prodId);
-  if (!prod) return;
-  const canEditCost = hasStockAccess();
-
-  document.getElementById('editProdId').value = prod.id;
-  document.getElementById('productModalTitle').innerHTML = `<i class="ph ph-pencil-simple"></i> Editar Produto (${prod.id})`;
-  document.getElementById('btnSubmitProductModal').textContent = 'Salvar Alterações';
-  document.getElementById('btnDeleteProductInModal').style.display = canEditCost ? 'inline-flex' : 'none';
-
-  document.getElementById('prodCodeDisplay').value = prod.id || '';
-  document.getElementById('prodName').value = prod.name || '';
-  const supInp = document.getElementById('prodSupplier');
-  if (supInp) supInp.value = prod.supplier || '';
-  document.getElementById('prodImei').value = prod.imei || '';
-  document.getElementById('prodExpiry').value = prod.expiry || '';
-  document.getElementById('prodCondition').value = prod.condition || 'Árabe';
-  document.getElementById('prodBattery').value = prod.battery || '';
-  document.getElementById('prodCost').value = prod.cost ?? 0;
-  document.getElementById('prodPrice').value = prod.price ?? 0;
-  document.getElementById('prodQty').value = prod.qty ?? 0;
-  document.getElementById('prodNuvemId').value = prod.nuvemId || '';
-  document.getElementById('prodNuvemVariantId').value = prod.nuvemVarId || '';
-
-  const costGroup = document.getElementById('prodCostFieldGroup');
-  if (costGroup) costGroup.style.display = canEditCost ? '' : 'none';
-
-  document.getElementById('productModalOverlay').classList.add('active');
-};
-
-window.quickEditProductField = function (prodId, fieldKey) {
-  if (!hasStockAccess()) return showToast('Você não tem permissão para editar o estoque.');
-  const prod = products.find(p => p.id === prodId);
-  if (!prod) return;
-
-  const labels = {
-    id: 'Código do Produto',
-    name: 'Nome da Fragrância / Decant',
-    supplier: 'Fornecedor',
-    battery: 'Volume / Concentração',
-    expiry: 'Validade (AAAA-MM-DD)',
-    cost: 'Preço de Custo (R$)',
-    price: 'Preço de Venda (R$)',
-    qty: 'Quantidade em Estoque'
-  };
-
-  const currentVal = prod[fieldKey] ?? '';
-  const newVal = prompt(`Editar ${labels[fieldKey] || fieldKey}:`, currentVal);
-  if (newVal === null) return;
-
-  if (fieldKey === 'price' || fieldKey === 'cost') {
-    const parsed = parseFloat(String(newVal).replace(',', '.'));
-    if (isNaN(parsed) || parsed < 0) return showToast('Valor inválido.');
-    prod[fieldKey] = parsed;
-  } else if (fieldKey === 'qty') {
-    const parsed = parseInt(newVal, 10);
-    if (isNaN(parsed) || parsed < 0) return showToast('Quantidade inválida.');
-    prod.qty = parsed;
-  } else if (fieldKey === 'id') {
-    const clean = newVal.trim();
-    if (!clean) return showToast('Código não pode ficar vazio.');
-    prod.id = clean;
-  } else {
-    prod[fieldKey] = newVal.trim();
-  }
-
-  pushStockToNuvemshop(prod);
-  saveAll();
-  renderAll();
-  showToast(`${labels[fieldKey]} atualizado!`);
-};
-
-window.quickFilterStockChip = function (category) {
-  const sel = document.getElementById('stockConditionFilter');
-  if (sel) sel.value = category;
-  renderStock();
-};
-
-function initStockModule() {
-  ensureStockToolbarActions();
-  ensureStockOperationalMetricsCards();
-  ensureStockSegmentedFilterControls();
-  ensureStockTableHeaderWithoutBatch();
-
-  const overlay = document.getElementById('productModalOverlay');
-  document.getElementById('btnCloseProductModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
-  document.getElementById('btnCancelProductModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
-
-  document.getElementById('btnDeleteProductInModal')?.addEventListener('click', () => {
-    const targetId = document.getElementById('editProdId').value;
-    if (!targetId || !hasStockAccess()) return;
-    if (!confirm('Deseja excluir permanentemente este produto do estoque?')) return;
-    products = products.filter(p => p.id !== targetId);
-    saveAll();
-    renderAll();
-    overlay?.classList.remove('active');
-    showToast('Produto excluído do estoque.');
-  });
-
-  document.getElementById('formNewProduct')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    if (!hasStockAccess()) return showToast('Sem permissão para alterar o estoque.');
-    ensureSupplierFieldInProductModal();
-    const editingId = document.getElementById('editProdId').value;
-    const customCode = document.getElementById('prodCodeDisplay').value.trim();
-    const supplierVal = (document.getElementById('prodSupplier')?.value || '').trim();
-
-    if (editingId) {
-      const prod = products.find(p => p.id === editingId);
-      if (prod) {
-        prod.id = customCode || prod.id;
-        prod.name = document.getElementById('prodName').value.trim();
-        prod.supplier = supplierVal;
-        prod.imei = document.getElementById('prodImei').value.trim();
-        prod.expiry = document.getElementById('prodExpiry').value;
-        prod.condition = document.getElementById('prodCondition').value;
-        prod.battery = document.getElementById('prodBattery').value.trim();
-        prod.cost = parseFloat(document.getElementById('prodCost').value) || 0;
-        prod.price = parseFloat(document.getElementById('prodPrice').value) || 0;
-        prod.qty = parseInt(document.getElementById('prodQty').value, 10) || 0;
-        prod.nuvemId = document.getElementById('prodNuvemId').value.trim();
-        prod.nuvemVarId = document.getElementById('prodNuvemVariantId').value.trim();
-        pushStockToNuvemshop(prod);
-      }
-      saveAll();
-      renderAll();
-      overlay?.classList.remove('active');
-      showToast('Todas as informações do produto foram atualizadas!');
-    } else {
-      const newProd = {
-        id: customCode || ('PRD-' + String(products.length + 1).padStart(2, '0')),
-        name: document.getElementById('prodName').value.trim(),
-        supplier: supplierVal,
-        imei: document.getElementById('prodImei').value.trim(),
-        expiry: document.getElementById('prodExpiry').value,
-        condition: document.getElementById('prodCondition').value,
-        battery: document.getElementById('prodBattery').value.trim(),
-        cost: parseFloat(document.getElementById('prodCost').value) || 0,
-        price: parseFloat(document.getElementById('prodPrice').value) || 0,
-        qty: parseInt(document.getElementById('prodQty').value, 10) || 0,
-        nuvemId: document.getElementById('prodNuvemId').value.trim(),
-        nuvemVarId: document.getElementById('prodNuvemVariantId').value.trim()
-      };
-      products.unshift(newProd);
-      pushStockToNuvemshop(newProd);
-      saveAll();
-      renderAll();
-      overlay?.classList.remove('active');
-      showToast('Fragrância cadastrada!');
-    }
-  });
-
-  ['stockSearchInput', 'stockConditionFilter', 'stockAvailabilityFilter'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', renderStock);
-    document.getElementById(id)?.addEventListener('change', renderStock);
-  });
-
-  document.getElementById('btnClearStockFilters')?.addEventListener('click', () => {
-    const sInp = document.getElementById('stockSearchInput');
-    const cSel = document.getElementById('stockConditionFilter');
-    const aSel = document.getElementById('stockAvailabilityFilter');
-    if (sInp) sInp.value = '';
-    if (cSel) cSel.value = 'todos';
-    if (aSel) aSel.value = 'todos';
-    stockOnlyInStockFilter = 'no';
-    stockSupplierFilter = 'all';
-    stockLowStockFilter = 'no';
-    stockFormatFilter = 'all';
-    stockExpiryAlertFilter = 'all';
-    stockHasCostFilter = 'all';
-    syncStockSegmentedButtonsUI();
-    renderStock();
-  });
-}
-
-function renderStock() {
-  ensureStockToolbarActions();
-  ensureStockOperationalMetricsCards();
-  ensureStockSegmentedFilterControls();
-  ensureStockTableHeaderWithoutBatch();
-
-  const canManageStock = hasStockAccess();
-  const stockBar = document.getElementById('gmStockManagerBar');
-  if (stockBar) stockBar.style.display = canManageStock ? 'flex' : 'none';
-
-  // Oculta cards financeiros antigos da aba estoque; mantém apenas métricas operacionais
-  const adminGrid = document.getElementById('stockAdminMetricsGrid');
-  const sellerBanner = document.getElementById('stockSellerQuickFilterBanner');
-  if (adminGrid) adminGrid.style.display = 'none';
-  if (sellerBanner) sellerBanner.style.display = 'none';
-
-  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  const totalUnits = products.reduce((a, p) => a + (Number(p.qty) || 0), 0);
-  const lowCount = products.filter(p => (Number(p.qty) || 0) <= 2).length;
-  const outCount = products.filter(p => (Number(p.qty) || 0) === 0).length;
-
-  setTxt('gmStockOpTotalUnits', totalUnits);
-  setTxt('gmStockOpSkus', products.length);
-  setTxt('gmStockOpLow', lowCount);
-  setTxt('gmStockOpOut', outCount);
-
-  const term = (document.getElementById('stockSearchInput')?.value || '').toLowerCase();
-  const cond = document.getElementById('stockConditionFilter')?.value || 'todos';
-  const avail = document.getElementById('stockAvailabilityFilter')?.value || 'todos';
-
-  const filtered = products.filter(p => {
-    const qtyNum = Number(p.qty) || 0;
-    const costNum = Number(p.cost) || 0;
-    const hasSup = Boolean(p.supplier && String(p.supplier).trim() && String(p.supplier).trim().toLowerCase() !== 'sem fornecedor');
-    const isDecant = isDecantProduct(p);
-    const isExpAlert = isExpiringOrExpiredProduct(p);
-
-    const matchTerm =
-      String(p.name || '').toLowerCase().includes(term)
-      || String(p.supplier || '').toLowerCase().includes(term)
-      || String(p.id || '').toLowerCase().includes(term)
-      || String(p.battery || '').toLowerCase().includes(term);
-
-    const matchCond = cond === 'todos' || p.condition === cond;
-    const matchAvail = avail === 'todos' || (avail === 'disponivel' && qtyNum > 0) || (avail === 'esgotado' && qtyNum === 0);
-    const matchOnlyInStock = stockOnlyInStockFilter !== 'yes' || qtyNum > 0;
-    const matchLow = stockLowStockFilter !== 'yes' || qtyNum <= 2;
-    const matchSup = stockSupplierFilter === 'all'
-      || (stockSupplierFilter === 'yes' && hasSup)
-      || (stockSupplierFilter === 'no' && !hasSup);
-    const matchFormat = stockFormatFilter === 'all'
-      || (stockFormatFilter === 'decant' && isDecant)
-      || (stockFormatFilter === 'bottle' && !isDecant);
-    const matchExpiry = stockExpiryAlertFilter !== 'expiring' || isExpAlert;
-    const matchCost = stockHasCostFilter === 'all'
-      || (stockHasCostFilter === 'yes' && costNum > 0)
-      || (stockHasCostFilter === 'no' && costNum <= 0);
-
-    return matchTerm && matchCond && matchAvail && matchOnlyInStock && matchLow && matchSup && matchFormat && matchExpiry && matchCost;
-  });
-
-  const tbody = document.getElementById('tableStockDetailed');
-  if (!tbody) return;
-
-  if (filtered.length === 0) {
-    const colSpan = canManageStock ? 9 : 7;
-    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum item encontrado para os filtros selecionados.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = filtered.map(p => {
-    const costVal = Number(p.cost) || 0;
-    const priceVal = Number(p.price) || 0;
-    const qtyVal = Number(p.qty) || 0;
-    const margin = priceVal > 0 ? (((priceVal - costVal) / priceVal) * 100).toFixed(1) : '0.0';
-    const supLabel = p.supplier || 'Sem fornecedor';
-    const qtyBadgeClass = qtyVal === 0 ? 'badge-despesa' : (qtyVal <= 2 ? 'badge-warning' : 'badge-receita');
-
-    return `
-      <tr>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'id')"><strong>${p.id}</strong></td>
-        <td class="editable-cell">
-          <div>
-            <strong style="cursor:pointer;" onclick="openViewStockProductModal('${p.id}')">${p.name}</strong>
-            <div style="font-size:0.75rem; color:#9ca3af; margin-top:2px; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'supplier')">
-              Fornecedor: <span style="color:#e5e7eb;">${supLabel}</span>
-            </div>
-          </div>
-        </td>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'battery')">
-          <span class="badge-tag badge-info">${p.condition || 'Produto'}</span>
-          ${p.battery ? `<small style="color:var(--text-muted); margin-left:4px;">${p.battery}</small>` : ''}
-        </td>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'expiry')">${formatDateSafe(p.expiry)}</td>
-        ${canManageStock ? `<td class="editable-cell" onclick="quickEditProductField('${p.id}', 'cost')" style="color:#fbbf24;">${fmtBRL(costVal)}</td>` : ''}
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'price')"><strong style="color:#34d399;">${fmtBRL(priceVal)}</strong></td>
-        ${canManageStock ? `<td><span class="badge-tag badge-receita">${margin}%</span></td>` : ''}
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'qty')">
-          <span class="badge-tag ${qtyBadgeClass}">${qtyVal} un.</span>
-        </td>
-        <td style="white-space:nowrap;">
-          ${renderStockActionButton(p.id)}
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-window.adjustStockQty = function (id, delta) {
-  if (!hasStockAccess()) return showToast('Sem permissão para alterar o estoque.');
-  const prod = products.find(p => p.id === id);
-  if (!prod) return;
-  prod.qty = Math.max(0, prod.qty + delta);
-  pushStockToNuvemshop(prod); saveAll(); renderAll();
-};
-
-// ============================================================================
-// MÓDULO DE TROCAS E DEVOLUÇÕES
-// ============================================================================
-function initRmaModule() {
-  const overlay = document.getElementById('rmaModalOverlay');
-  const form = document.getElementById('formNewRma');
-  const saleSel = document.getElementById('rmaSaleSelect');
-
-  document.getElementById('btnOpenNewRmaModal')?.addEventListener('click', () => {
-    form?.reset();
-    overlay.classList.add('active');
-  });
-
-  document.getElementById('btnCloseRmaModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnCancelRmaModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-
-  saleSel?.addEventListener('change', () => {
-    const s = sales.find(item => String(item.id) === String(saleSel.value));
-    if (s) {
-      document.getElementById('rmaClientName').value = s.client || '';
-      document.getElementById('rmaDeviceName').value = s.items || '';
-      document.getElementById('rmaAmountInput').value = Number(s.total || 0);
-    }
-  });
-
-  form?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const itemName = document.getElementById('rmaDeviceName').value.trim();
-    const stockAction = document.getElementById('rmaStockActionSelect').value;
-
-    if (stockAction === 'retornar_estoque') {
-      const matchedProd = products.find(p => itemName.toLowerCase().includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(itemName.toLowerCase()));
-      if (matchedProd) {
-        matchedProd.qty += 1;
-        pushStockToNuvemshop(matchedProd);
-      }
-    }
-
-    const newRma = {
-      cod: 'RMA-' + (201 + rmaList.length),
-      date: new Date().toLocaleDateString('pt-BR'),
-      saleId: saleSel.value || 'AVULSO',
-      clientName: document.getElementById('rmaClientName').value.trim().toUpperCase(),
-      deviceName: itemName,
-      type: document.getElementById('rmaTypeSelect').value,
-      stockAction,
-      amount: parseFloat(document.getElementById('rmaAmountInput').value) || 0,
-      reason: document.getElementById('rmaReasonInput').value.trim() || 'Troca solicitada pelo cliente',
-      status: 'Concluído'
-    };
-
-    rmaList.unshift(newRma);
-    saveAll();
-    renderAll();
-    overlay.classList.remove('active');
-    showToast(`Troca / Devolução ${newRma.cod} registrada!`);
-  });
-}
-
-function renderRma() {
-  const tbody = document.getElementById('tableRmaList');
-  if (tbody) tbody.innerHTML = rmaList.map(r => `
-    <tr>
-      <td><strong>${r.cod}</strong></td>
-      <td>${r.date}</td>
-      <td>${r.clientName}</td>
-      <td>${r.deviceName}</td>
-      <td>${r.type}</td>
-      <td>${r.stockAction === 'retornar_estoque' ? '<span class="badge-tag badge-info">Retornou +1</span>' : '<span class="badge-tag badge-warning">Avaria</span>'}</td>
-      <td>${fmtBRL(r.amount)}</td>
-      <td><span class="badge-tag badge-receita">${r.status}</span></td>
-      <td><small style="color:var(--text-muted);">${r.reason || '-'}</small></td>
-    </tr>
-  `).join('');
-}
-
-function initFinanceModule() {}
-function renderFinance() {
-  const vendas = sales.reduce((a, s) => a + Number(s.total || 0), 0);
-  const desp = finEntries.filter(f => f.type === 'Despesa').reduce((a, f) => a + Number(f.amount || 0), 0);
-  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setTxt('finMetricGross', fmtBRL(vendas));
-  setTxt('finMetricCmv', fmtBRL(vendas * 0.55));
-  setTxt('finMetricExpenses', fmtBRL(desp));
-  setTxt('finMetricNetProfit', fmtBRL(vendas - vendas * 0.55 - desp));
-  const tbody = document.getElementById('tableFinEntries');
-  if (tbody) tbody.innerHTML = finEntries.map(f => `<tr><td><strong>${f.cod}</strong></td><td>${f.date}</td><td>${f.desc}</td><td>${f.category}</td><td><span class="badge-tag ${f.type === 'Receita' ? 'badge-receita' : 'badge-despesa'}">${f.type}</span></td><td><strong>${fmtBRL(f.amount)}</strong></td><td>${f.status}</td><td>-</td></tr>`).join('');
-}
-
-function initCashAndTools() {
-  const toolOverlay = document.getElementById('cashToolModalOverlay');
-  document.getElementById('btnCloseCashTool')?.addEventListener('click', () => toolOverlay.classList.remove('active'));
-  document.getElementById('btnTogglePdvTools')?.addEventListener('click', (e) => { e.stopPropagation(); document.getElementById('pdvToolsMenu').classList.toggle('open'); });
-  document.addEventListener('click', () => document.getElementById('pdvToolsMenu')?.classList.remove('open'));
-  document.getElementById('btnPrintLastReceipt')?.addEventListener('click', (e) => { e.preventDefault(); if (sales.length) openReceiptModal(sales[0].id); });
-}
-
-window.openCashMovementModal = function (type) {
-  const toolOverlay = document.getElementById('cashToolModalOverlay');
-  document.getElementById('cashToolModalTitle').textContent = `Lançar ${type}`;
-  document.getElementById('cashToolModalBody').innerHTML = `<form id="fcm"><div class="form-group"><label>Valor (R$):</label><input type="number" id="cmv" step="0.01" required /></div><button type="submit" class="btn-primary">Confirmar</button></form>`;
-  toolOverlay.classList.add('active');
-  document.getElementById('fcm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    cashMoves.unshift({ type, value: parseFloat(document.getElementById('cmv').value) || 0, date: getNowBrDateTime() });
-    saveAll(); toolOverlay.classList.remove('active'); showToast(`${type} registrado!`);
-  });
-};
-
-window.openReceiptModal = function (saleId) {
-  const s = sales.find(item => item.id === saleId);
-  if (!s) return;
-  const discLine = Number(s.discount || 0) > 0 ? `<br>Desconto Aplicado: -${fmtBRL(s.discount)}` : '';
-  const trackLine = s.trackingCode ? `<br>Código de Rastreio: <strong>${s.trackingCode}</strong>` : '';
-  const obsLine = s.observation ? `<br>Obs.: ${s.observation}` : '';
-  const canalLine = s.type === 'Online / Nuvemshop' ? ' (Nuvemshop)' : '';
-  document.getElementById('cashToolModalTitle').textContent = `Comprovante #${s.id}`;
-  document.getElementById('cashToolModalBody').innerHTML = `
-    <div style="background:#fff;color:#111;padding:0.9rem;border-radius:6px;font-family:monospace;font-size:0.82rem;">
-      <strong>GRUPO MISTER PERFUMARIA${canalLine}</strong><br>
-      Pedido #${s.id} | ${s.date}<br>
-      Cliente: ${s.client}<br>
-      Entrega: ${s.shippingMethod || 'Loja'} | Status: ${s.orderStatus || 'Em Separação'}${trackLine}<br>
-      Itens: ${s.items}${discLine}${obsLine}<br>
-      <strong>TOTAL: ${fmtBRL(s.total)}</strong>
-    </div>
-  `;
-  document.getElementById('cashToolModalOverlay').classList.add('active');
-};
