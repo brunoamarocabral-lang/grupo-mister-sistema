@@ -789,7 +789,25 @@ function persistLocalOnly() {
   localStorage.setItem(STORAGE_KEYS.FINANCE, JSON.stringify(finEntries));
   localStorage.setItem(STORAGE_KEYS.COMMISSIONS, JSON.stringify(sellerCommissionRates));
 }
+const BRAND_LOGO_PATH = 'logo-grupo-mister.png_2.jpg'; // Altera se renomeares o ficheiro na pasta
 
+function applyBrandLogoEverywhere() {
+  // 1. Ícone da aba ("globinho" do navegador)
+  let favicon = document.querySelector('link[rel="icon"]');
+  if (!favicon) {
+    favicon = document.createElement('link');
+    favicon.rel = 'icon';
+    document.head.appendChild(favicon);
+  }
+  favicon.href = BRAND_LOGO_PATH;
+
+  // 2. Imagens da marca na página de login, sidebar e cabeçalho
+  document.querySelectorAll('img.sidebar-brand-logo, img.topbar-brand-logo, #loginScreenOverlay img').forEach((img) => {
+    img.src = BRAND_LOGO_PATH;
+    img.style.display = 'block';
+    img.style.objectFit = 'contain';
+  });
+}
 function saveAll() {
   syncSalesToFinanceEntries();
   persistLocalOnly();
