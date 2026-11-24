@@ -363,7 +363,7 @@ function injectLayoutAndActionStyles() {
       margin: 4px 2px;
     }
 
-    /* Segmented filter toggles */
+    /* Segmented filter toggles (estilo referência sem IMEI) */
     .gm-seg-filters-row {
       display: flex;
       flex-wrap: wrap;
@@ -450,22 +450,6 @@ function injectLayoutAndActionStyles() {
       gap: 0.35rem;
     }
 
-    .gm-client-form-grid,
-    .gm-edit-sale-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
-      gap: 0.55rem;
-    }
-
-    .gm-cep-preview-box {
-      margin-top: 0.55rem;
-      padding: 0.5rem 0.65rem;
-      border-radius: 7px;
-      background: rgba(16, 24, 39, 0.72);
-      border: 1px solid rgba(96, 165, 250, 0.25);
-      font-size: 0.8rem;
-    }
-
     .gm-sale-item-row {
       display: grid;
       grid-template-columns: minmax(140px, 1.8fr) 74px 105px 95px 34px;
@@ -495,9 +479,7 @@ function injectLayoutAndActionStyles() {
 
     /* Opacidade / fundo sólido no modal Visualizar para máxima leitura */
     #viewSaleModalOverlay.modal-overlay,
-    #viewStockProductModalOverlay.modal-overlay,
-    #editClientModalOverlay.modal-overlay,
-    #viewClientModalOverlay.modal-overlay {
+    #viewStockProductModalOverlay.modal-overlay {
       background: rgba(7, 10, 16, 0.9) !important;
       backdrop-filter: blur(4px);
       z-index: 100000 !important;
@@ -552,9 +534,9 @@ function injectLayoutAndActionStyles() {
 const DEFAULT_PRODUCTS = [];
 
 const DEFAULT_CLIENTS = [
-  { cod: 'CLI-001', name: 'MARCELO SOUZA', cpf: '384.910.228-40', phone: '(11) 98765-4321', birthDate: '', cep: '', street: '', number: '', complement: '', neighborhood: '', city: '', category: 'VIP / Recorrente', notes: 'Colecionador de árabes e nichos' },
-  { cod: 'CLI-002', name: 'JULIANA ALMEIDA', cpf: '291.445.882-19', phone: '(11) 99412-3308', birthDate: '', cep: '', street: '', number: '', complement: '', neighborhood: '', city: '', category: 'Cliente Final', notes: 'Ama decants 10ml e gourmands' },
-  { cod: 'CLI-003', name: 'RODRIGO CASTRO', cpf: '412.889.104-55', phone: '(11) 99123-7744', birthDate: '', cep: '', street: '', number: '', complement: '', neighborhood: '', city: '', category: 'VIP / Recorrente', notes: 'Comprador de Creed e Tom Ford' }
+  { cod: 'CLI-001', name: 'MARCELO SOUZA', cpf: '384.910.228-40', phone: '(11) 98765-4321', category: 'VIP / Recorrente', notes: 'Colecionador de árabes e nichos' },
+  { cod: 'CLI-002', name: 'JULIANA ALMEIDA', cpf: '291.445.882-19', phone: '(11) 99412-3308', category: 'Cliente Final', notes: 'Ama decants 10ml e gourmands' },
+  { cod: 'CLI-003', name: 'RODRIGO CASTRO', cpf: '412.889.104-55', phone: '(11) 99123-7744', category: 'VIP / Recorrente', notes: 'Comprador de Creed e Tom Ford' }
 ];
 
 const DEFAULT_SALES = [];
@@ -583,11 +565,7 @@ let cardRates = loadJsonKey(STORAGE_KEYS.RATES, DEFAULT_RATES);
 let rmaList = loadJsonKey(STORAGE_KEYS.RMA, DEFAULT_RMA);
 let finEntries = loadJsonKey(STORAGE_KEYS.FINANCE, DEFAULT_FINANCE);
 
-// Estado dos filtros de Clientes
-let clientBirthdayFilter = 'all';     // 'all' | 'today' | 'month'
-let clientAgeRangeFilter = 'all';     // 'all' | '18_24' | '25_34' | '35_44' | '45_plus'
-
-// Estado dos filtros segmentados do Estoque
+// Estado dos filtros segmentados do Estoque (estilo referência sem IMEI)
 let stockOnlyInStockFilter = 'no';      // 'no' | 'yes'
 let stockSupplierFilter = 'all';        // 'all' | 'yes' | 'no'
 let stockLowStockFilter = 'no';         // 'no' | 'yes'
@@ -1747,6 +1725,7 @@ function renderCommercialStockCatalog() {
     return;
   }
 
+  // Sem colunas/valores de custo ou margem e sem edição inline
   tbody.innerHTML = filtered.map(p => {
     const qtyNum = Number(p.qty) || 0;
     const isDecant = isDecantProduct(p);
@@ -1807,7 +1786,6 @@ window.navigateToSection = function (targetId, labelText) {
 
   if (targetId === 'estoque') renderStock();
   if (targetId === 'consulta_estoque') renderCommercialStockCatalog();
-  if (targetId === 'clientes') renderClients();
 };
 
 function initNavigation() {
@@ -2742,7 +2720,7 @@ async function pushStockToNuvemshop(product) {
 }
 
 function populateSelectDropdowns() {
-  const clientOptions = `<option value="">Consumidor Balcão / Avulso</option>` + clients.map(c => `<option value="${c.cod}">${c.name} (${c.cpf || 'Sem CPF'})</option>`).join('');
+  const clientOptions = `<option value="">Consumidor Balcão / Avulso</option>` + clients.map(c => `<option value="${c.cod}">${c.name} (${c.cpf})</option>`).join('');
   const modalClientSel = document.getElementById('modalClientSelect');
   if (modalClientSel) modalClientSel.innerHTML = clientOptions;
 
@@ -3850,815 +3828,30 @@ function updateUpgradeSimulator() {
   if (prev) prev.textContent = `*COMBO GRUPO MISTER*\n• ${m1} (${fmtBRL(p1)})\n• ${m2} (${fmtBRL(p2)})\n• Desconto Combo: -${fmtBRL(disc)}\n*Total no Pix: ${fmtBRL(rem)}*`;
 }
 
-// ============================================================================
-// HELPERS DE DATA, IDADE, ENDEREÇO E VIACEP (CLIENTES)
-// ============================================================================
-function calculateClientAge(birthDateStr) {
-  if (!birthDateStr) return null;
-  const parts = String(birthDateStr).split('-');
-  if (parts.length !== 3) return null;
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1;
-  const day = parseInt(parts[2], 10);
-  if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-
-  const today = new Date();
-  let age = today.getFullYear() - year;
-  const mDiff = today.getMonth() - month;
-  if (mDiff < 0 || (mDiff === 0 && today.getDate() < day)) {
-    age--;
-  }
-  return age >= 0 ? age : null;
-}
-
-function isBirthdayToday(birthDateStr) {
-  if (!birthDateStr) return false;
-  const parts = String(birthDateStr).split('-');
-  if (parts.length !== 3) return false;
-  const month = parseInt(parts[1], 10);
-  const day = parseInt(parts[2], 10);
-  const today = new Date();
-  return (today.getMonth() + 1) === month && today.getDate() === day;
-}
-
-function isBirthdayThisMonth(birthDateStr) {
-  if (!birthDateStr) return false;
-  const parts = String(birthDateStr).split('-');
-  if (parts.length !== 3) return false;
-  const month = parseInt(parts[1], 10);
-  const today = new Date();
-  return (today.getMonth() + 1) === month;
-}
-
-function matchesClientAgeRange(birthDateStr, rangeKey) {
-  if (!rangeKey || rangeKey === 'all') return true;
-  const age = calculateClientAge(birthDateStr);
-  if (age === null) return false;
-  if (rangeKey === '18_24') return age >= 18 && age <= 24;
-  if (rangeKey === '25_34') return age >= 25 && age <= 34;
-  if (rangeKey === '35_44') return age >= 35 && age <= 44;
-  if (rangeKey === '45_plus') return age >= 45;
-  return true;
-}
-
-function formatClientFullAddress(c) {
-  if (!c) return '';
-  const line1Parts = [];
-  if (c.street) line1Parts.push(c.street);
-  if (c.number) line1Parts.push(`nº ${c.number}`);
-  if (c.complement) line1Parts.push(`(${c.complement})`);
-  const line1 = line1Parts.join(', ');
-
-  const line2Parts = [];
-  if (c.neighborhood) line2Parts.push(c.neighborhood);
-  if (c.city) line2Parts.push(c.city);
-  const line2 = line2Parts.join(' - ');
-
-  const cepPart = c.cep ? `CEP: ${c.cep}` : '';
-  return [line1, line2, cepPart].filter(Boolean).join(' • ');
-}
-
-async function lookupCepAddressViaCep(rawCep, targets = {}) {
-  const digits = String(rawCep || '').replace(/\D/g, '');
-  const { streetEl, neighborhoodEl, cityEl, previewEl } = targets;
-
-  if (digits.length !== 8) {
-    if (previewEl) {
-      previewEl.style.display = 'none';
-      previewEl.innerHTML = '';
-    }
-    return;
-  }
-
-  if (previewEl) {
-    previewEl.style.display = 'block';
-    previewEl.innerHTML = `<span style="color:#93c5fd;">Buscando CEP ${digits.replace(/(\d{5})(\d{3})/, '$1-$2')}...</span>`;
-  }
-
-  try {
-    const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
-    const data = await res.json();
-    if (data?.erro) {
-      if (previewEl) {
-        previewEl.style.display = 'block';
-        previewEl.innerHTML = `<span style="color:#f87171;">CEP não encontrado. Você pode preencher o endereço manualmente.</span>`;
-      }
-      return;
-    }
-
-    const cityUf = [data.localidade, data.uf].filter(Boolean).join(' - ');
-    if (streetEl && data.logradouro) streetEl.value = data.logradouro;
-    if (neighborhoodEl && data.bairro) neighborhoodEl.value = data.bairro;
-    if (cityEl && cityUf) cityEl.value = cityUf;
-
-    if (previewEl) {
-      previewEl.style.display = 'block';
-      previewEl.innerHTML = `
-        <div style="color:#34d399; font-weight:600; margin-bottom:2px;">Endereço localizado:</div>
-        <div style="color:#e5e7eb;">
-          ${data.logradouro || 'Logradouro não informado'}${data.bairro ? ` • ${data.bairro}` : ''}${cityUf ? ` • ${cityUf}` : ''}
-        </div>
-      `;
-    }
-  } catch (_) {
-    if (previewEl) {
-      previewEl.style.display = 'block';
-      previewEl.innerHTML = `<span style="color:#fbbf24;">Não foi possível consultar o CEP agora. Preencha os campos manualmente.</span>`;
-    }
-  }
-}
-
-// ============================================================================
-// MENU "AÇÕES ▾" DO CLIENTE
-// ============================================================================
-window.toggleClientActionMenu = function (event, clientCod) {
-  event.stopPropagation();
-  const menuId = `gmClientMenu_${String(clientCod).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-  let menu = document.getElementById(menuId);
-  const wasOpen = menu?.classList.contains('open');
-  if (typeof closeAllGithubActionMenus === 'function') closeAllGithubActionMenus();
-
-  if (!menu) {
-    menu = document.createElement('div');
-    menu.id = menuId;
-    menu.className = 'gm-gh-dropdown';
-    menu.innerHTML = `
-      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewClientModal('${clientCod}')">
-        <i class="ph ph-eye" style="color:#34d399; font-size:15px;"></i>
-        <span>Visualizar</span>
-      </button>
-      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditClientModal('${clientCod}')">
-        <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
-        <span>Editar</span>
-      </button>
-      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openClientWhatsapp('${clientCod}')">
-        <i class="ph ph-whatsapp-logo" style="color:#34d399; font-size:15px;"></i>
-        <span>WhatsApp</span>
-      </button>
-      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); selectClientForSale('${clientCod}')">
-        <i class="ph ph-shopping-cart" style="color:#fbbf24; font-size:15px;"></i>
-        <span>Nova Venda</span>
-      </button>
-      <div class="gm-gh-dropdown-divider"></div>
-      <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteClientRecord('${clientCod}')">
-        <i class="ph ph-trash" style="font-size:15px;"></i>
-        <span>Apagar</span>
-      </button>
-    `;
-    document.body.appendChild(menu);
-  }
-
-  if (!wasOpen && typeof positionGithubMenu === 'function') {
-    positionGithubMenu(menu, event.currentTarget);
-  }
-};
-
-function renderClientActionButton(clientCod) {
-  return `
-    <div class="gm-gh-action-wrap">
-      <button type="button"
-        class="gm-gh-pencil-btn"
-        title="Ações do cliente"
-        aria-label="Ações do cliente"
-        onclick="toggleClientActionMenu(event, '${clientCod}')">
-        <span>Ações</span>
-        <i class="ph ph-caret-down" style="font-size:13px; color:#9ca3af;"></i>
-      </button>
-    </div>
-  `;
-}
-
-// ============================================================================
-// BARRA DE CLIENTES ULTRA CLEAN (LINHA ÚNICA ALINHADA, ALTURA UNIFORME 38PX)
-// ============================================================================
-function injectClientsToolbarPolishStyles() {
-  if (document.getElementById('gmClientsToolbarPolishStyles')) return;
-  const style = document.createElement('style');
-  style.id = 'gmClientsToolbarPolishStyles';
-  style.textContent = `
-    #clientes .filters-bar,
-    #clientes .filter-row,
-    #clientes .clients-toolbar,
-    #clientes .search-filter-bar {
-      display: flex !important;
-      flex-wrap: wrap !important;
-      align-items: center !important;
-      gap: 0.55rem !important;
-    }
-
-    #clientSearchInput {
-      height: 38px !important;
-      min-height: 38px !important;
-      max-height: 38px !important;
-      padding: 0 0.8rem !important;
-      font-size: 0.83rem !important;
-      border-radius: 8px !important;
-      flex: 1 1 200px !important;
-      max-width: 300px !important;
-    }
-
-    #clientCategoryFilter {
-      height: 38px !important;
-      min-height: 38px !important;
-      max-height: 38px !important;
-      padding: 0 0.75rem !important;
-      font-size: 0.83rem !important;
-      border-radius: 8px !important;
-      min-width: 150px !important;
-      flex: 0 1 175px !important;
-    }
-
-    #gmClientQualificationFilters {
-      display: inline-flex !important;
-      flex-wrap: wrap !important;
-      align-items: center !important;
-      gap: 0.55rem !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      border: none !important;
-    }
-
-    #gmClientQualificationFilters .gm-seg-pills {
-      display: inline-flex !important;
-      flex-wrap: nowrap !important;
-      align-items: center !important;
-      background: #0d121b !important;
-      border: 1px solid #263042 !important;
-      border-radius: 8px !important;
-      padding: 3px !important;
-      gap: 2px !important;
-      height: 38px !important;
-      box-sizing: border-box !important;
-    }
-
-    #gmClientQualificationFilters .gm-seg-btn {
-      height: 30px !important;
-      padding: 0 0.65rem !important;
-      font-size: 0.78rem !important;
-      font-weight: 600 !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      gap: 0.3rem !important;
-      white-space: nowrap !important;
-      border-radius: 6px !important;
-    }
-
-    #gmClientQualificationFilters #clientAgeRangeFilter {
-      height: 38px !important;
-      min-height: 38px !important;
-      max-height: 38px !important;
-      min-width: 150px !important;
-      padding: 0 0.75rem !important;
-      font-size: 0.83rem !important;
-      border-radius: 8px !important;
-      background: #0d121b !important;
-      border: 1px solid #263042 !important;
-      color: #f3f4f6 !important;
-    }
-
-    #btnOpenClientModal,
-    #clientes [data-open-client-modal],
-    #clientes .btn-new-client {
-      height: 38px !important;
-      min-height: 38px !important;
-      max-height: 38px !important;
-      padding: 0 1rem !important;
-      font-size: 0.83rem !important;
-      font-weight: 600 !important;
-      border-radius: 8px !important;
-      display: inline-flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      gap: 0.45rem !important;
-      white-space: nowrap !important;
-      width: auto !important;
-      flex: 0 0 auto !important;
-      margin-left: auto !important;
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-// ============================================================================
-// MÓDULO DE CLIENTES (DATA NASCIMENTO + ENDEREÇO CEP VIA-CEP + AÇÕES ▾ + MODAIS)
-// ============================================================================
-function ensureClientExtraFieldsInNewModal() {
-  const form = document.getElementById('formNewClient');
-  if (!form || document.getElementById('newClientBirthDate')) return;
-
-  const block = document.createElement('div');
-  block.id = 'newClientExtraFieldsBlock';
-  block.className = 'gm-modal-section-card';
-  block.style.marginTop = '0.6rem';
-  block.innerHTML = `
-    <div class="gm-modal-section-title"><i class="ph ph-cake" style="color:#fbbf24;"></i> Nascimento e Qualificação</div>
-    <div class="gm-client-form-grid">
-      <div class="form-group">
-        <label for="newClientBirthDate">Data de Nascimento:</label>
-        <input type="date" id="newClientBirthDate" />
-      </div>
-    </div>
-    <div class="gm-modal-section-title" style="margin-top:0.65rem;"><i class="ph ph-map-pin" style="color:#60a5fa;"></i> Endereço Completo (Busca Automática por CEP)</div>
-    <div class="gm-client-form-grid">
-      <div class="form-group">
-        <label for="newClientCep">CEP:</label>
-        <input type="text" id="newClientCep" placeholder="00000-000" maxlength="9" />
-      </div>
-      <div class="form-group">
-        <label for="newClientStreet">Rua / Logradouro:</label>
-        <input type="text" id="newClientStreet" placeholder="Rua / Avenida" />
-      </div>
-      <div class="form-group">
-        <label for="newClientNumber">Número:</label>
-        <input type="text" id="newClientNumber" placeholder="Ex: 120" />
-      </div>
-      <div class="form-group">
-        <label for="newClientComplement">Complemento:</label>
-        <input type="text" id="newClientComplement" placeholder="Apto, bloco, casa..." />
-      </div>
-      <div class="form-group">
-        <label for="newClientNeighborhood">Bairro:</label>
-        <input type="text" id="newClientNeighborhood" placeholder="Bairro" />
-      </div>
-      <div class="form-group">
-        <label for="newClientCity">Cidade / UF:</label>
-        <input type="text" id="newClientCity" placeholder="Ex: Jundiaí - SP" />
-      </div>
-    </div>
-    <div id="newClientCepPreview" class="gm-cep-preview-box" style="display:none;"></div>
-  `;
-
-  const submitBtn = form.querySelector('button[type="submit"]');
-  if (submitBtn) {
-    submitBtn.parentElement.insertAdjacentElement('beforebegin', block);
-  } else {
-    form.appendChild(block);
-  }
-
-  const cepInp = document.getElementById('newClientCep');
-  const triggerNewCep = () => lookupCepAddressViaCep(cepInp.value, {
-    streetEl: document.getElementById('newClientStreet'),
-    neighborhoodEl: document.getElementById('newClientNeighborhood'),
-    cityEl: document.getElementById('newClientCity'),
-    previewEl: document.getElementById('newClientCepPreview')
-  });
-  cepInp?.addEventListener('blur', triggerNewCep);
-  cepInp?.addEventListener('input', () => {
-    const digits = cepInp.value.replace(/\D/g, '');
-    if (digits.length === 8) triggerNewCep();
-  });
-}
-
-function ensureClientEditAndViewModals() {
-  if (!document.getElementById('editClientModalOverlay')) {
-    const editOverlay = document.createElement('div');
-    editOverlay.id = 'editClientModalOverlay';
-    editOverlay.className = 'modal-overlay';
-    editOverlay.innerHTML = `
-      <div class="modal-content gm-view-modal-card">
-        <div class="modal-header">
-          <h3><i class="ph ph-pencil-simple" style="color:#60a5fa;"></i> Editar Cliente <span id="editClientHeaderCod" style="color:#fbbf24;"></span></h3>
-          <button type="button" id="btnCloseEditClientModal" class="btn-close">&times;</button>
-        </div>
-        <form id="formEditClient" class="modal-body">
-          <input type="hidden" id="editClientOriginalCod" />
-
-          <div class="gm-modal-section-card">
-            <div class="gm-modal-section-title"><i class="ph ph-user" style="color:#60a5fa;"></i> Dados Pessoais e Aniversário</div>
-            <div class="gm-client-form-grid">
-              <div class="form-group">
-                <label for="editClientName">Nome Completo:</label>
-                <input type="text" id="editClientName" required />
-              </div>
-              <div class="form-group">
-                <label for="editClientCpf">CPF:</label>
-                <input type="text" id="editClientCpf" />
-              </div>
-              <div class="form-group">
-                <label for="editClientPhone">Telefone / WhatsApp:</label>
-                <input type="text" id="editClientPhone" />
-              </div>
-              <div class="form-group">
-                <label for="editClientBirthDate">Data de Nascimento:</label>
-                <input type="date" id="editClientBirthDate" />
-              </div>
-              <div class="form-group">
-                <label for="editClientCategory">Categoria:</label>
-                <select id="editClientCategory">
-                  <option value="Cliente Final">Cliente Final</option>
-                  <option value="VIP / Recorrente">VIP / Recorrente</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div class="gm-modal-section-card accent-amber">
-            <div class="gm-modal-section-title"><i class="ph ph-map-pin" style="color:#fbbf24;"></i> Endereço Completo (Digite o CEP para preencher)</div>
-            <div class="gm-client-form-grid">
-              <div class="form-group">
-                <label for="editClientCep">CEP:</label>
-                <input type="text" id="editClientCep" placeholder="00000-000" maxlength="9" />
-              </div>
-              <div class="form-group">
-                <label for="editClientStreet">Rua:</label>
-                <input type="text" id="editClientStreet" placeholder="Rua / Logradouro" />
-              </div>
-              <div class="form-group">
-                <label for="editClientNumber">Número:</label>
-                <input type="text" id="editClientNumber" placeholder="Número" />
-              </div>
-              <div class="form-group">
-                <label for="editClientComplement">Complemento:</label>
-                <input type="text" id="editClientComplement" placeholder="Apto, bloco, ref..." />
-              </div>
-              <div class="form-group">
-                <label for="editClientNeighborhood">Bairro:</label>
-                <input type="text" id="editClientNeighborhood" placeholder="Bairro" />
-              </div>
-              <div class="form-group">
-                <label for="editClientCity">Cidade:</label>
-                <input type="text" id="editClientCity" placeholder="Cidade - UF" />
-              </div>
-            </div>
-            <div id="editClientCepPreview" class="gm-cep-preview-box" style="display:none;"></div>
-          </div>
-
-          <div class="gm-modal-section-card accent-emerald">
-            <div class="gm-modal-section-title"><i class="ph ph-note" style="color:#34d399;"></i> Preferências e Observações</div>
-            <div class="form-group" style="margin:0;">
-              <label for="editClientNotes">Observações (perfumes preferidos, estilo, etc.):</label>
-              <input type="text" id="editClientNotes" placeholder="Ex: Prefere amadeirados e decants 10ml" />
-            </div>
-          </div>
-
-          <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
-            <button type="button" id="btnCancelEditClientModal" class="btn-sm">Cancelar</button>
-            <button type="submit" class="btn-primary"><i class="ph ph-check"></i> Salvar Alterações</button>
-          </div>
-        </form>
-      </div>
-    `;
-    document.body.appendChild(editOverlay);
-
-    const closeEdit = () => editOverlay.classList.remove('active');
-    document.getElementById('btnCloseEditClientModal')?.addEventListener('click', closeEdit);
-    document.getElementById('btnCancelEditClientModal')?.addEventListener('click', closeEdit);
-    editOverlay.addEventListener('click', (e) => {
-      if (e.target === editOverlay) closeEdit();
-    });
-
-    const editCepInp = document.getElementById('editClientCep');
-    const triggerEditCep = () => lookupCepAddressViaCep(editCepInp.value, {
-      streetEl: document.getElementById('editClientStreet'),
-      neighborhoodEl: document.getElementById('editClientNeighborhood'),
-      cityEl: document.getElementById('editClientCity'),
-      previewEl: document.getElementById('editClientCepPreview')
-    });
-    editCepInp?.addEventListener('blur', triggerEditCep);
-    editCepInp?.addEventListener('input', () => {
-      const digits = editCepInp.value.replace(/\D/g, '');
-      if (digits.length === 8) triggerEditCep();
-    });
-
-    document.getElementById('formEditClient')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const cod = document.getElementById('editClientOriginalCod').value;
-      const cli = clients.find(c => c.cod === cod);
-      if (!cli) return;
-
-      cli.name = document.getElementById('editClientName').value.trim().toUpperCase() || cli.name;
-      cli.cpf = document.getElementById('editClientCpf').value.trim();
-      cli.phone = document.getElementById('editClientPhone').value.trim();
-      cli.birthDate = document.getElementById('editClientBirthDate').value || '';
-      cli.category = document.getElementById('editClientCategory').value || 'Cliente Final';
-      cli.cep = document.getElementById('editClientCep').value.trim();
-      cli.street = document.getElementById('editClientStreet').value.trim();
-      cli.number = document.getElementById('editClientNumber').value.trim();
-      cli.complement = document.getElementById('editClientComplement').value.trim();
-      cli.neighborhood = document.getElementById('editClientNeighborhood').value.trim();
-      cli.city = document.getElementById('editClientCity').value.trim();
-      cli.notes = document.getElementById('editClientNotes').value.trim();
-
-      saveAll();
-      renderAll();
-      closeEdit();
-      showToast(`Cliente "${cli.name}" atualizado!`);
-    });
-  }
-
-  if (!document.getElementById('viewClientModalOverlay')) {
-    const viewOverlay = document.createElement('div');
-    viewOverlay.id = 'viewClientModalOverlay';
-    viewOverlay.className = 'modal-overlay';
-    viewOverlay.innerHTML = `
-      <div class="modal-content gm-view-modal-card">
-        <div class="modal-header">
-          <h3><i class="ph ph-eye" style="color:#34d399;"></i> Ficha do Cliente <span id="viewClientHeaderCod" style="color:#fbbf24;"></span></h3>
-          <button type="button" id="btnCloseViewClientModal" class="btn-close">&times;</button>
-        </div>
-        <div id="viewClientModalBody" class="modal-body"></div>
-        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem; flex-wrap:wrap;">
-          <button type="button" id="btnViewClientWhatsapp" class="btn-sm btn-green"><i class="ph ph-whatsapp-logo"></i> WhatsApp</button>
-          <button type="button" id="btnViewClientEdit" class="btn-primary"><i class="ph ph-pencil-simple"></i> Editar</button>
-          <button type="button" id="btnCloseViewClientModalFooter" class="btn-sm">Fechar</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(viewOverlay);
-
-    const closeView = () => viewOverlay.classList.remove('active');
-    document.getElementById('btnCloseViewClientModal')?.addEventListener('click', closeView);
-    document.getElementById('btnCloseViewClientModalFooter')?.addEventListener('click', closeView);
-    viewOverlay.addEventListener('click', (e) => {
-      if (e.target === viewOverlay) closeView();
-    });
-  }
-}
-
-window.openEditClientModal = function (clientCod) {
-  ensureClientEditAndViewModals();
-  const cli = clients.find(c => c.cod === clientCod);
-  if (!cli) return;
-
-  document.getElementById('editClientHeaderCod').textContent = `(${cli.cod})`;
-  document.getElementById('editClientOriginalCod').value = cli.cod;
-  document.getElementById('editClientName').value = cli.name || '';
-  document.getElementById('editClientCpf').value = cli.cpf || '';
-  document.getElementById('editClientPhone').value = cli.phone || '';
-  document.getElementById('editClientBirthDate').value = cli.birthDate || '';
-  document.getElementById('editClientCategory').value = cli.category || 'Cliente Final';
-  document.getElementById('editClientCep').value = cli.cep || '';
-  document.getElementById('editClientStreet').value = cli.street || '';
-  document.getElementById('editClientNumber').value = cli.number || '';
-  document.getElementById('editClientComplement').value = cli.complement || '';
-  document.getElementById('editClientNeighborhood').value = cli.neighborhood || '';
-  document.getElementById('editClientCity').value = cli.city || '';
-  document.getElementById('editClientNotes').value = cli.notes || '';
-
-  const previewEl = document.getElementById('editClientCepPreview');
-  const fullAddr = formatClientFullAddress(cli);
-  if (previewEl) {
-    if (fullAddr) {
-      previewEl.style.display = 'block';
-      previewEl.innerHTML = `<strong>Endereço cadastrado:</strong> ${fullAddr}`;
-    } else {
-      previewEl.style.display = 'none';
-      previewEl.innerHTML = '';
-    }
-  }
-
-  document.getElementById('editClientModalOverlay')?.classList.add('active');
-};
-
-window.openViewClientModal = function (clientCod) {
-  ensureClientEditAndViewModals();
-  const cli = clients.find(c => c.cod === clientCod);
-  if (!cli) return;
-
-  const age = calculateClientAge(cli.birthDate);
-  const bdayToday = isBirthdayToday(cli.birthDate);
-  const ageText = age !== null ? `${age} anos` : 'Não informada';
-  const dobText = cli.birthDate
-    ? `${formatDateSafe(cli.birthDate)} (${ageText})${bdayToday ? ' • 🎂 Aniversariante hoje!' : ''}`
-    : 'Não informada';
-  const addrText = formatClientFullAddress(cli) || 'Endereço não cadastrado';
-
-  document.getElementById('viewClientHeaderCod').textContent = `(${cli.cod})`;
-  document.getElementById('viewClientModalBody').innerHTML = `
-    <div class="gm-view-grid">
-      <div class="gm-view-box"><small>Código</small><strong>${cli.cod}</strong></div>
-      <div class="gm-view-box"><small>Nome</small><strong>${cli.name || '-'}</strong></div>
-      <div class="gm-view-box"><small>CPF</small><strong>${cli.cpf || '-'}</strong></div>
-      <div class="gm-view-box"><small>Telefone / WhatsApp</small><strong>${cli.phone || '-'}</strong></div>
-      <div class="gm-view-box"><small>Data de Nascimento / Idade</small><strong>${dobText}</strong></div>
-      <div class="gm-view-box"><small>Categoria</small><strong>${cli.category || 'Cliente Final'}</strong></div>
-    </div>
-    <div class="gm-view-box" style="margin-bottom:0.75rem;">
-      <small>Endereço Completo</small>
-      <strong>${addrText}</strong>
-    </div>
-    <div class="gm-view-box">
-      <small>Observações</small>
-      <strong>${cli.notes || 'Nenhuma observação'}</strong>
-    </div>
-  `;
-
-  const btnEdit = document.getElementById('btnViewClientEdit');
-  if (btnEdit) {
-    btnEdit.onclick = () => {
-      document.getElementById('viewClientModalOverlay')?.classList.remove('active');
-      openEditClientModal(cli.cod);
-    };
-  }
-
-  const btnWa = document.getElementById('btnViewClientWhatsapp');
-  if (btnWa) {
-    btnWa.onclick = () => openClientWhatsapp(cli.cod);
-  }
-
-  document.getElementById('viewClientModalOverlay')?.classList.add('active');
-};
-
-window.openClientWhatsapp = function (clientCod) {
-  const cli = clients.find(c => c.cod === clientCod);
-  if (!cli) return;
-  const digits = String(cli.phone || '').replace(/\D/g, '');
-  if (!digits) return showToast('Cliente sem telefone/WhatsApp cadastrado.');
-
-  const text = isBirthdayToday(cli.birthDate)
-    ? `Feliz aniversário, *${cli.name}*! 🎂 A *GRUPO MISTER Perfumaria* preparou um presente especial para comemorar o seu dia!`
-    : `Olá *${cli.name}*! Como podemos te ajudar hoje?`;
-  const fullPhone = digits.startsWith('55') ? digits : `55${digits}`;
-  window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`, '_blank');
-};
-
-window.deleteClientRecord = function (clientCod) {
-  const cli = clients.find(c => c.cod === clientCod);
-  if (!cli) return;
-  if (!confirm(`Deseja realmente excluir o cliente "${cli.name}" (${cli.cod})?`)) return;
-  clients = clients.filter(c => c.cod !== clientCod);
-  saveAll();
-  renderAll();
-  showToast(`Cliente "${cli.name}" removido.`);
-};
-
-function ensureClientsTableHeaderWithActions() {
-  const tbody = document.getElementById('tableClientsDetailed');
-  const table = tbody?.closest('table');
-  if (!table) return;
-  const thead = table.querySelector('thead tr');
-  if (!thead) return;
-
-  thead.innerHTML = `
-    <th>CÓD.</th>
-    <th>NOME</th>
-    <th>CPF</th>
-    <th>TELEFONE</th>
-    <th>NASCIMENTO / IDADE</th>
-    <th>ENDEREÇO</th>
-    <th>CATEGORIA</th>
-    <th>AÇÕES</th>
-  `;
-}
-
-function ensureClientsQualificationFiltersBar() {
-  injectClientsToolbarPolishStyles();
-
-  const searchInput = document.getElementById('clientSearchInput');
-  if (!searchInput || document.getElementById('gmClientQualificationFilters')) return;
-
-  const catSelect = document.getElementById('clientCategoryFilter');
-  const parentBox = searchInput.closest('.filters-bar, .filter-row, .clients-toolbar, .search-filter-bar, .card, .section-card') || searchInput.parentElement;
-  if (!parentBox) return;
-
-  const inlineFilters = document.createElement('div');
-  inlineFilters.id = 'gmClientQualificationFilters';
-  inlineFilters.innerHTML = `
-    <div class="gm-seg-pills" id="clientBirthdayPills" title="Filtrar aniversariantes">
-      <button type="button" class="gm-seg-btn ${clientBirthdayFilter === 'all' ? 'active' : ''}" data-val="all">Todos</button>
-      <button type="button" class="gm-seg-btn ${clientBirthdayFilter === 'today' ? 'active' : ''}" data-val="today">🎂 Hoje</button>
-      <button type="button" class="gm-seg-btn ${clientBirthdayFilter === 'month' ? 'active' : ''}" data-val="month">📅 Deste Mês</button>
-    </div>
-
-    <select id="clientAgeRangeFilter" title="Filtrar por faixa etária">
-      <option value="all" ${clientAgeRangeFilter === 'all' ? 'selected' : ''}>Todas as idades</option>
-      <option value="18_24" ${clientAgeRangeFilter === '18_24' ? 'selected' : ''}>18 a 24 anos</option>
-      <option value="25_34" ${clientAgeRangeFilter === '25_34' ? 'selected' : ''}>25 a 34 anos</option>
-      <option value="35_44" ${clientAgeRangeFilter === '35_44' ? 'selected' : ''}>35 a 44 anos</option>
-      <option value="45_plus" ${clientAgeRangeFilter === '45_plus' ? 'selected' : ''}>45+ anos</option>
-    </select>
-  `;
-
-  if (catSelect && catSelect.parentElement === parentBox) {
-    catSelect.insertAdjacentElement('afterend', inlineFilters);
-  } else {
-    parentBox.appendChild(inlineFilters);
-  }
-
-  inlineFilters.querySelectorAll('#clientBirthdayPills .gm-seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      clientBirthdayFilter = btn.getAttribute('data-val') || 'all';
-      inlineFilters.querySelectorAll('#clientBirthdayPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b === btn));
-      renderClients();
-    });
-  });
-
-  document.getElementById('clientAgeRangeFilter')?.addEventListener('change', (e) => {
-    clientAgeRangeFilter = e.target.value || 'all';
-    renderClients();
-  });
-}
-
 function initClientsModule() {
-  ensureClientExtraFieldsInNewModal();
-  ensureClientEditAndViewModals();
-  ensureClientsQualificationFiltersBar();
-  ensureClientsTableHeaderWithActions();
-
   const overlay = document.getElementById('clientModalOverlay');
-  document.getElementById('btnOpenClientModal')?.addEventListener('click', () => {
-    ensureClientExtraFieldsInNewModal();
-    const prev = document.getElementById('newClientCepPreview');
-    if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
-    overlay?.classList.add('active');
-  });
-  document.getElementById('btnCloseClientModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
-  document.getElementById('btnCancelClientModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
-
+  document.getElementById('btnOpenClientModal')?.addEventListener('click', () => overlay.classList.add('active'));
+  document.getElementById('btnCloseClientModal')?.addEventListener('click', () => overlay.classList.remove('active'));
+  document.getElementById('btnCancelClientModal')?.addEventListener('click', () => overlay.classList.remove('active'));
   document.getElementById('formNewClient')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    ensureClientExtraFieldsInNewModal();
-    const newClient = {
-      cod: 'CLI-' + String(clients.length + 1).padStart(3, '0'),
-      name: document.getElementById('newClientName').value.trim().toUpperCase(),
-      cpf: document.getElementById('newClientCpf').value.trim(),
-      phone: document.getElementById('newClientPhone').value.trim(),
-      birthDate: document.getElementById('newClientBirthDate')?.value || '',
-      cep: document.getElementById('newClientCep')?.value.trim() || '',
-      street: document.getElementById('newClientStreet')?.value.trim() || '',
-      number: document.getElementById('newClientNumber')?.value.trim() || '',
-      complement: document.getElementById('newClientComplement')?.value.trim() || '',
-      neighborhood: document.getElementById('newClientNeighborhood')?.value.trim() || '',
-      city: document.getElementById('newClientCity')?.value.trim() || '',
-      category: document.getElementById('newClientCategory').value,
-      notes: document.getElementById('newClientNotes').value.trim()
-    };
-    clients.unshift(newClient);
-    e.target.reset();
-    const prev = document.getElementById('newClientCepPreview');
-    if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
-    saveAll();
-    renderAll();
-    overlay?.classList.remove('active');
-    showToast('Cliente cadastrado!');
+    clients.unshift({ cod: 'CLI-' + String(clients.length + 1).padStart(3, '0'), name: document.getElementById('newClientName').value.trim().toUpperCase(), cpf: document.getElementById('newClientCpf').value.trim(), phone: document.getElementById('newClientPhone').value.trim(), category: document.getElementById('newClientCategory').value, notes: document.getElementById('newClientNotes').value.trim() });
+    saveAll(); renderAll(); overlay.classList.remove('active'); showToast('Cliente cadastrado!');
   });
-
   document.getElementById('clientSearchInput')?.addEventListener('input', renderClients);
   document.getElementById('clientCategoryFilter')?.addEventListener('change', renderClients);
 }
 
 function renderClients() {
-  ensureClientsQualificationFiltersBar();
-  ensureClientsTableHeaderWithActions();
-
   const term = (document.getElementById('clientSearchInput')?.value || '').toLowerCase();
   const cat = document.getElementById('clientCategoryFilter')?.value || 'todos';
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   setTxt('metricTotalPessoas', clients.length);
   setTxt('metricTotalClientes', clients.length);
   setTxt('metricClientesVip', clients.filter(c => c.category === 'VIP / Recorrente').length);
-
-  const filtered = clients.filter(c => {
-    const addrStr = formatClientFullAddress(c).toLowerCase();
-    const matchTerm = !term
-      || String(c.name || '').toLowerCase().includes(term)
-      || String(c.cpf || '').includes(term)
-      || String(c.phone || '').toLowerCase().includes(term)
-      || addrStr.includes(term);
-
-    const matchCat = cat === 'todos' || c.category === cat;
-    const matchBday = clientBirthdayFilter === 'all'
-      || (clientBirthdayFilter === 'today' && isBirthdayToday(c.birthDate))
-      || (clientBirthdayFilter === 'month' && isBirthdayThisMonth(c.birthDate));
-    const matchAge = matchesClientAgeRange(c.birthDate, clientAgeRangeFilter);
-
-    return matchTerm && matchCat && matchBday && matchAge;
-  });
-
+  const filtered = clients.filter(c => (c.name.toLowerCase().includes(term) || (c.cpf || '').includes(term)) && (cat === 'todos' || c.category === cat));
   const tbody = document.getElementById('tableClientsDetailed');
-  if (!tbody) return;
-
-  if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.2rem;">Nenhum cliente encontrado para os filtros selecionados.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = filtered.map(c => {
-    const age = calculateClientAge(c.birthDate);
-    const bdayToday = isBirthdayToday(c.birthDate);
-    const dobDisplay = c.birthDate
-      ? `<div>${formatDateSafe(c.birthDate)} ${age !== null ? `<small style="color:var(--text-muted);">(${age}a)</small>` : ''}</div>${bdayToday ? `<span class="badge-tag badge-warning" style="margin-top:2px;">🎂 Hoje</span>` : ''}`
-      : `<span style="color:var(--text-muted);">-</span>`;
-
-    const addrDisplay = formatClientFullAddress(c) || `<span style="color:var(--text-muted);">-</span>`;
-
-    return `
-      <tr>
-        <td><strong>${c.cod}</strong></td>
-        <td>
-          <strong>${c.name}</strong>
-          ${c.notes ? `<div style="font-size:0.74rem; color:var(--text-muted);">${c.notes}</div>` : ''}
-        </td>
-        <td style="white-space:nowrap;">${c.cpf || '-'}</td>
-        <td style="white-space:nowrap;">${c.phone || '-'}</td>
-        <td>${dobDisplay}</td>
-        <td style="max-width:240px;">${addrDisplay}</td>
-        <td style="white-space:nowrap;"><span class="badge-tag ${c.category === 'VIP / Recorrente' ? 'badge-warning' : 'badge-info'}">${c.category}</span></td>
-        <td style="white-space:nowrap;">${renderClientActionButton(c.cod)}</td>
-      </tr>
-    `;
-  }).join('');
+  if (tbody) tbody.innerHTML = filtered.map(c => `<tr><td>${c.cod}</td><td><strong>${c.name}</strong></td><td>${c.cpf}</td><td>${c.phone}</td><td>${c.notes || '-'}</td><td><span class="badge-tag ${c.category === 'VIP / Recorrente' ? 'badge-warning' : 'badge-info'}">${c.category}</span></td><td><button type="button" class="btn-sm btn-blue" onclick="selectClientForSale('${c.cod}')">Vender</button></td></tr>`).join('');
 }
 
 window.selectClientForSale = function (cod) {
@@ -4978,24 +4171,35 @@ window.quickEditProductField = function (prodId, fieldKey) {
   };
 
   const currentVal = prod[fieldKey] ?? '';
-  const input = prompt(`Editar ${labels[fieldKey] || fieldKey}:`, String(currentVal));
-  if (input === null) return;
+  const newVal = prompt(`Editar ${labels[fieldKey] || fieldKey}:`, currentVal);
+  if (newVal === null) return;
 
-  if (fieldKey === 'qty') {
-    prod.qty = Math.max(0, parseInt(input, 10) || 0);
-    pushStockToNuvemshop(prod);
-  } else if (fieldKey === 'cost' || fieldKey === 'price') {
-    prod[fieldKey] = Math.max(0, parseFloat(String(input).replace(',', '.')) || 0);
+  if (fieldKey === 'price' || fieldKey === 'cost') {
+    const parsed = parseFloat(String(newVal).replace(',', '.'));
+    if (isNaN(parsed) || parsed < 0) return showToast('Valor inválido.');
+    prod[fieldKey] = parsed;
+  } else if (fieldKey === 'qty') {
+    const parsed = parseInt(newVal, 10);
+    if (isNaN(parsed) || parsed < 0) return showToast('Quantidade inválida.');
+    prod.qty = parsed;
   } else if (fieldKey === 'id') {
-    const cleanCode = input.trim().toUpperCase();
-    if (cleanCode) prod.id = cleanCode;
+    const clean = newVal.trim();
+    if (!clean) return showToast('Código não pode ficar vazio.');
+    prod.id = clean;
   } else {
-    prod[fieldKey] = input.trim();
+    prod[fieldKey] = newVal.trim();
   }
 
+  pushStockToNuvemshop(prod);
   saveAll();
   renderAll();
-  showToast('Item atualizado!');
+  showToast(`${labels[fieldKey]} atualizado!`);
+};
+
+window.quickFilterStockChip = function (category) {
+  const sel = document.getElementById('stockConditionFilter');
+  if (sel) sel.value = category;
+  renderStock();
 };
 
 function initStockModule() {
@@ -5005,89 +4209,94 @@ function initStockModule() {
   ensureStockTableHeaderWithoutBatch();
 
   const overlay = document.getElementById('productModalOverlay');
-  document.getElementById('btnOpenNewProductModal')?.addEventListener('click', openNewProductModal);
-  document.getElementById('btnCloseProductModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnCancelProductModal')?.addEventListener('click', () => overlay.classList.remove('active'));
+  document.getElementById('btnCloseProductModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
+  document.getElementById('btnCancelProductModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
 
   document.getElementById('btnDeleteProductInModal')?.addEventListener('click', () => {
     const targetId = document.getElementById('editProdId').value;
-    if (!targetId) return;
-    if (!confirm('Deseja realmente excluir este produto do estoque?')) return;
+    if (!targetId || !hasStockAccess()) return;
+    if (!confirm('Deseja excluir permanentemente este produto do estoque?')) return;
     products = products.filter(p => p.id !== targetId);
     saveAll();
     renderAll();
-    overlay.classList.remove('active');
-    showToast('Produto removido do estoque.');
+    overlay?.classList.remove('active');
+    showToast('Produto excluído do estoque.');
   });
 
   document.getElementById('formNewProduct')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (!hasStockAccess()) return showToast('Você não tem permissão para alterar o estoque.');
+    if (!hasStockAccess()) return showToast('Sem permissão para alterar o estoque.');
     ensureSupplierFieldInProductModal();
+    const editingId = document.getElementById('editProdId').value;
+    const customCode = document.getElementById('prodCodeDisplay').value.trim();
+    const supplierVal = (document.getElementById('prodSupplier')?.value || '').trim();
 
-    const editId = document.getElementById('editProdId').value;
-    const customCode = (document.getElementById('prodCodeDisplay').value || '').trim().toUpperCase();
-    const name = document.getElementById('prodName').value.trim();
-    const supplier = (document.getElementById('prodSupplier')?.value || '').trim();
-    const imei = document.getElementById('prodImei').value.trim();
-    const expiry = document.getElementById('prodExpiry').value;
-    const condition = document.getElementById('prodCondition').value;
-    const battery = document.getElementById('prodBattery').value.trim();
-    const price = parseFloat(document.getElementById('prodPrice').value) || 0;
-    const qty = Math.max(0, parseInt(document.getElementById('prodQty').value, 10) || 0);
-    const nuvemId = document.getElementById('prodNuvemId').value.trim();
-    const nuvemVarId = document.getElementById('prodNuvemVariantId').value.trim();
-
-    if (editId) {
-      const existing = products.find(p => p.id === editId);
-      if (existing) {
-        if (customCode) existing.id = customCode;
-        existing.name = name;
-        existing.supplier = supplier;
-        existing.imei = imei;
-        existing.expiry = expiry;
-        existing.condition = condition;
-        existing.battery = battery;
-        if (hasStockAccess()) {
-          existing.cost = parseFloat(document.getElementById('prodCost').value) || 0;
-        }
-        existing.price = price;
-        existing.qty = qty;
-        existing.nuvemId = nuvemId;
-        existing.nuvemVarId = nuvemVarId;
-        pushStockToNuvemshop(existing);
+    if (editingId) {
+      const prod = products.find(p => p.id === editingId);
+      if (prod) {
+        prod.id = customCode || prod.id;
+        prod.name = document.getElementById('prodName').value.trim();
+        prod.supplier = supplierVal;
+        prod.imei = document.getElementById('prodImei').value.trim();
+        prod.expiry = document.getElementById('prodExpiry').value;
+        prod.condition = document.getElementById('prodCondition').value;
+        prod.battery = document.getElementById('prodBattery').value.trim();
+        prod.cost = parseFloat(document.getElementById('prodCost').value) || 0;
+        prod.price = parseFloat(document.getElementById('prodPrice').value) || 0;
+        prod.qty = parseInt(document.getElementById('prodQty').value, 10) || 0;
+        prod.nuvemId = document.getElementById('prodNuvemId').value.trim();
+        prod.nuvemVarId = document.getElementById('prodNuvemVariantId').value.trim();
+        pushStockToNuvemshop(prod);
       }
-      showToast('Produto atualizado!');
+      saveAll();
+      renderAll();
+      overlay?.classList.remove('active');
+      showToast('Todas as informações do produto foram atualizadas!');
     } else {
-      const cost = hasStockAccess() ? (parseFloat(document.getElementById('prodCost').value) || 0) : 0;
       const newProd = {
         id: customCode || ('PRD-' + String(products.length + 1).padStart(2, '0')),
-        name,
-        supplier,
-        imei,
-        expiry,
-        condition,
-        battery,
-        cost,
-        price,
-        qty,
-        nuvemId,
-        nuvemVarId
+        name: document.getElementById('prodName').value.trim(),
+        supplier: supplierVal,
+        imei: document.getElementById('prodImei').value.trim(),
+        expiry: document.getElementById('prodExpiry').value,
+        condition: document.getElementById('prodCondition').value,
+        battery: document.getElementById('prodBattery').value.trim(),
+        cost: parseFloat(document.getElementById('prodCost').value) || 0,
+        price: parseFloat(document.getElementById('prodPrice').value) || 0,
+        qty: parseInt(document.getElementById('prodQty').value, 10) || 0,
+        nuvemId: document.getElementById('prodNuvemId').value.trim(),
+        nuvemVarId: document.getElementById('prodNuvemVariantId').value.trim()
       };
       products.unshift(newProd);
       pushStockToNuvemshop(newProd);
-      showToast('Produto salvo no estoque!');
+      saveAll();
+      renderAll();
+      overlay?.classList.remove('active');
+      showToast('Fragrância cadastrada!');
     }
-
-    e.target.reset();
-    document.getElementById('editProdId').value = '';
-    saveAll();
-    renderAll();
-    overlay.classList.remove('active');
   });
 
-  document.getElementById('stockSearchInput')?.addEventListener('input', renderStock);
-  document.getElementById('stockConditionFilter')?.addEventListener('change', renderStock);
+  ['stockSearchInput', 'stockConditionFilter', 'stockAvailabilityFilter'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', renderStock);
+    document.getElementById(id)?.addEventListener('change', renderStock);
+  });
+
+  document.getElementById('btnClearStockFilters')?.addEventListener('click', () => {
+    const sInp = document.getElementById('stockSearchInput');
+    const cSel = document.getElementById('stockConditionFilter');
+    const aSel = document.getElementById('stockAvailabilityFilter');
+    if (sInp) sInp.value = '';
+    if (cSel) cSel.value = 'todos';
+    if (aSel) aSel.value = 'todos';
+    stockOnlyInStockFilter = 'no';
+    stockSupplierFilter = 'all';
+    stockLowStockFilter = 'no';
+    stockFormatFilter = 'all';
+    stockExpiryAlertFilter = 'all';
+    stockHasCostFilter = 'all';
+    syncStockSegmentedButtonsUI();
+    renderStock();
+  });
 }
 
 function renderStock() {
@@ -5097,52 +4306,58 @@ function renderStock() {
   ensureStockTableHeaderWithoutBatch();
 
   const canManageStock = hasStockAccess();
-  const term = (document.getElementById('stockSearchInput')?.value || '').toLowerCase();
-  const cond = document.getElementById('stockConditionFilter')?.value || 'todos';
-  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const stockBar = document.getElementById('gmStockManagerBar');
+  if (stockBar) stockBar.style.display = canManageStock ? 'flex' : 'none';
 
-  const totalUnits = products.reduce((acc, p) => acc + (Number(p.qty) || 0), 0);
-  const lowStockCount = products.filter(p => (Number(p.qty) || 0) > 0 && (Number(p.qty) || 0) <= 2).length;
-  const outStockCount = products.filter(p => (Number(p.qty) || 0) === 0).length;
-  const totalInvested = products.reduce((acc, p) => acc + (Number(p.cost || 0) * (Number(p.qty) || 0)), 0);
+  // Oculta cards financeiros antigos da aba estoque; mantém apenas métricas operacionais
+  const adminGrid = document.getElementById('stockAdminMetricsGrid');
+  const sellerBanner = document.getElementById('stockSellerQuickFilterBanner');
+  if (adminGrid) adminGrid.style.display = 'none';
+  if (sellerBanner) sellerBanner.style.display = 'none';
+
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const totalUnits = products.reduce((a, p) => a + (Number(p.qty) || 0), 0);
+  const lowCount = products.filter(p => (Number(p.qty) || 0) <= 2).length;
+  const outCount = products.filter(p => (Number(p.qty) || 0) === 0).length;
 
   setTxt('gmStockOpTotalUnits', totalUnits);
   setTxt('gmStockOpSkus', products.length);
-  setTxt('gmStockOpLow', lowStockCount);
-  setTxt('gmStockOpOut', outStockCount);
+  setTxt('gmStockOpLow', lowCount);
+  setTxt('gmStockOpOut', outCount);
 
-  setTxt('metricTotalStockUnits', totalUnits);
-  setTxt('metricStockInvested', canManageStock ? fmtBRL(totalInvested) : 'Restrito');
-  setTxt('metricLowStockCount', lowStockCount);
+  const term = (document.getElementById('stockSearchInput')?.value || '').toLowerCase();
+  const cond = document.getElementById('stockConditionFilter')?.value || 'todos';
+  const avail = document.getElementById('stockAvailabilityFilter')?.value || 'todos';
 
   const filtered = products.filter(p => {
     const qtyNum = Number(p.qty) || 0;
     const costNum = Number(p.cost) || 0;
-    const hasSupplier = Boolean(p.supplier && String(p.supplier).trim().length > 0);
+    const hasSup = Boolean(p.supplier && String(p.supplier).trim() && String(p.supplier).trim().toLowerCase() !== 'sem fornecedor');
     const isDecant = isDecantProduct(p);
-    const isExpiring = isExpiringOrExpiredProduct(p);
+    const isExpAlert = isExpiringOrExpiredProduct(p);
 
-    const matchTerm = !term
-      || String(p.name || '').toLowerCase().includes(term)
-      || String(p.id || '').toLowerCase().includes(term)
+    const matchTerm =
+      String(p.name || '').toLowerCase().includes(term)
       || String(p.supplier || '').toLowerCase().includes(term)
-      || String(p.condition || '').toLowerCase().includes(term);
+      || String(p.id || '').toLowerCase().includes(term)
+      || String(p.battery || '').toLowerCase().includes(term);
 
     const matchCond = cond === 'todos' || p.condition === cond;
+    const matchAvail = avail === 'todos' || (avail === 'disponivel' && qtyNum > 0) || (avail === 'esgotado' && qtyNum === 0);
+    const matchOnlyInStock = stockOnlyInStockFilter !== 'yes' || qtyNum > 0;
+    const matchLow = stockLowStockFilter !== 'yes' || qtyNum <= 2;
+    const matchSup = stockSupplierFilter === 'all'
+      || (stockSupplierFilter === 'yes' && hasSup)
+      || (stockSupplierFilter === 'no' && !hasSup);
     const matchFormat = stockFormatFilter === 'all'
       || (stockFormatFilter === 'decant' && isDecant)
       || (stockFormatFilter === 'bottle' && !isDecant);
-    const matchInStock = stockOnlyInStockFilter !== 'yes' || qtyNum > 0;
-    const matchSupplier = stockSupplierFilter === 'all'
-      || (stockSupplierFilter === 'yes' && hasSupplier)
-      || (stockSupplierFilter === 'no' && !hasSupplier);
-    const matchLowStock = stockLowStockFilter !== 'yes' || (qtyNum > 0 && qtyNum <= 2);
-    const matchExpiry = stockExpiryAlertFilter !== 'expiring' || isExpiring;
+    const matchExpiry = stockExpiryAlertFilter !== 'expiring' || isExpAlert;
     const matchCost = stockHasCostFilter === 'all'
       || (stockHasCostFilter === 'yes' && costNum > 0)
       || (stockHasCostFilter === 'no' && costNum <= 0);
 
-    return matchTerm && matchCond && matchFormat && matchInStock && matchSupplier && matchLowStock && matchExpiry && matchCost;
+    return matchTerm && matchCond && matchAvail && matchOnlyInStock && matchLow && matchSup && matchFormat && matchExpiry && matchCost;
   });
 
   const tbody = document.getElementById('tableStockDetailed');
@@ -5150,171 +4365,182 @@ function renderStock() {
 
   if (filtered.length === 0) {
     const colSpan = canManageStock ? 9 : 7;
-    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; color:var(--text-muted); padding:1.2rem;">Nenhum produto encontrado para os filtros selecionados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum item encontrado para os filtros selecionados.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = filtered.map(p => {
-    const costNum = Number(p.cost) || 0;
-    const priceNum = Number(p.price) || 0;
-    const qtyNum = Number(p.qty) || 0;
-    const marginVal = priceNum - costNum;
-    const marginPct = priceNum > 0 ? ((marginVal / priceNum) * 100).toFixed(0) : 0;
-    const expiryBadge = renderCriticalExpiryBadge(p.expiry);
-    const formatPill = isDecantProduct(p)
-      ? `<span class="badge-tag badge-warning" style="margin-left:0.25rem;">Decant</span>`
-      : `<span class="badge-tag badge-info" style="margin-left:0.25rem;">Frasco</span>`;
+    const costVal = Number(p.cost) || 0;
+    const priceVal = Number(p.price) || 0;
+    const qtyVal = Number(p.qty) || 0;
+    const margin = priceVal > 0 ? (((priceVal - costVal) / priceVal) * 100).toFixed(1) : '0.0';
+    const supLabel = p.supplier || 'Sem fornecedor';
+    const qtyBadgeClass = qtyVal === 0 ? 'badge-despesa' : (qtyVal <= 2 ? 'badge-warning' : 'badge-receita');
 
     return `
       <tr>
-        <td style="white-space:nowrap;">
-          <strong style="cursor:pointer; text-decoration:underline dotted;" onclick="quickEditProductField('${p.id}', 'id')">${p.id}</strong>
-        </td>
-        <td>
-          <strong style="cursor:pointer;" onclick="quickEditProductField('${p.id}', 'name')">${p.name}</strong>
-          ${formatPill}
-          <div style="font-size:0.73rem; color:var(--text-muted); cursor:pointer;" onclick="quickEditProductField('${p.id}', 'supplier')">
-            Fornecedor: ${p.supplier ? `<span style="color:#cbd5e1;">${p.supplier}</span>` : `<span style="color:#fbbf24;">Sem fornecedor</span>`}
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'id')"><strong>${p.id}</strong></td>
+        <td class="editable-cell">
+          <div>
+            <strong style="cursor:pointer;" onclick="openViewStockProductModal('${p.id}')">${p.name}</strong>
+            <div style="font-size:0.75rem; color:#9ca3af; margin-top:2px; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'supplier')">
+              Fornecedor: <span style="color:#e5e7eb;">${supLabel}</span>
+            </div>
           </div>
         </td>
-        <td>
-          <span class="badge-tag badge-info">${p.condition}</span>
-          <small style="cursor:pointer; color:var(--text-muted);" onclick="quickEditProductField('${p.id}', 'battery')">${p.battery || 'Vol. padrão'}</small>
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'battery')">
+          <span class="badge-tag badge-info">${p.condition || 'Produto'}</span>
+          ${p.battery ? `<small style="color:var(--text-muted); margin-left:4px;">${p.battery}</small>` : ''}
         </td>
-        <td style="white-space:nowrap; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'expiry')">
-          ${formatDateSafe(p.expiry)}${expiryBadge}
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'expiry')">${formatDateSafe(p.expiry)}</td>
+        ${canManageStock ? `<td class="editable-cell" onclick="quickEditProductField('${p.id}', 'cost')" style="color:#fbbf24;">${fmtBRL(costVal)}</td>` : ''}
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'price')"><strong style="color:#34d399;">${fmtBRL(priceVal)}</strong></td>
+        ${canManageStock ? `<td><span class="badge-tag badge-receita">${margin}%</span></td>` : ''}
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'qty')">
+          <span class="badge-tag ${qtyBadgeClass}">${qtyVal} un.</span>
         </td>
-        ${canManageStock ? `<td class="admin-only-col" style="white-space:nowrap; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'cost')">${fmtBRL(costNum)}</td>` : ''}
-        <td style="white-space:nowrap; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'price')"><strong style="color:#34d399;">${fmtBRL(priceNum)}</strong></td>
-        ${canManageStock ? `<td class="admin-only-col" style="white-space:nowrap;"><span class="badge-tag ${marginVal >= 0 ? 'badge-receita' : 'badge-despesa'}">${fmtBRL(marginVal)} (${marginPct}%)</span></td>` : ''}
-        <td style="white-space:nowrap; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'qty')">
-          ${qtyNum > 2 ? `<span class="badge-tag badge-receita">${qtyNum} un.</span>` : qtyNum > 0 ? `<span class="badge-tag badge-warning">${qtyNum} un. (Baixo)</span>` : `<span class="badge-tag badge-despesa">0 un.</span>`}
+        <td style="white-space:nowrap;">
+          ${renderStockActionButton(p.id)}
         </td>
-        <td style="white-space:nowrap;">${renderStockActionButton(p.id)}</td>
       </tr>
     `;
   }).join('');
 }
 
+window.adjustStockQty = function (id, delta) {
+  if (!hasStockAccess()) return showToast('Sem permissão para alterar o estoque.');
+  const prod = products.find(p => p.id === id);
+  if (!prod) return;
+  prod.qty = Math.max(0, prod.qty + delta);
+  pushStockToNuvemshop(prod); saveAll(); renderAll();
+};
+
 // ============================================================================
-// MÓDULO DE TROCAS & DEVOLUÇÕES (RMA)
+// MÓDULO DE TROCAS E DEVOLUÇÕES
 // ============================================================================
 function initRmaModule() {
   const overlay = document.getElementById('rmaModalOverlay');
-  document.getElementById('btnOpenNewRmaModal')?.addEventListener('click', () => overlay.classList.add('active'));
+  const form = document.getElementById('formNewRma');
+  const saleSel = document.getElementById('rmaSaleSelect');
+
+  document.getElementById('btnOpenNewRmaModal')?.addEventListener('click', () => {
+    form?.reset();
+    overlay.classList.add('active');
+  });
+
   document.getElementById('btnCloseRmaModal')?.addEventListener('click', () => overlay.classList.remove('active'));
   document.getElementById('btnCancelRmaModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('formNewRma')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const saleId = document.getElementById('rmaSaleSelect').value;
-    const linkedSale = sales.find(s => String(s.id) === String(saleId));
-    const clientName = (document.getElementById('rmaClientName').value.trim() || linkedSale?.client || 'CONSUMIDOR BALCÃO').toUpperCase();
-    const itemDesc = document.getElementById('rmaItemDesc').value.trim() || linkedSale?.items || 'Item';
-    const reason = document.getElementById('rmaReason').value;
-    const returnToStock = document.getElementById('rmaReturnToStock').checked;
 
-    if (returnToStock) {
-      const matchProd = products.find(p => itemDesc.toLowerCase().includes(p.name.toLowerCase()));
-      if (matchProd) { matchProd.qty += 1; pushStockToNuvemshop(matchProd); }
+  saleSel?.addEventListener('change', () => {
+    const s = sales.find(item => String(item.id) === String(saleSel.value));
+    if (s) {
+      document.getElementById('rmaClientName').value = s.client || '';
+      document.getElementById('rmaDeviceName').value = s.items || '';
+      document.getElementById('rmaAmountInput').value = Number(s.total || 0);
+    }
+  });
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const itemName = document.getElementById('rmaDeviceName').value.trim();
+    const stockAction = document.getElementById('rmaStockActionSelect').value;
+
+    if (stockAction === 'retornar_estoque') {
+      const matchedProd = products.find(p => itemName.toLowerCase().includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(itemName.toLowerCase()));
+      if (matchedProd) {
+        matchedProd.qty += 1;
+        pushStockToNuvemshop(matchedProd);
+      }
     }
 
-    rmaList.unshift({ id: 'RMA-' + (201 + rmaList.length), saleId: saleId || '-', date: new Date().toLocaleDateString('pt-BR'), client: clientName, item: itemDesc, reason, status: 'Concluído', returnToStock });
-    saveAll(); renderAll(); overlay.classList.remove('active'); showToast('Troca/devolução registrada!');
+    const newRma = {
+      cod: 'RMA-' + (201 + rmaList.length),
+      date: new Date().toLocaleDateString('pt-BR'),
+      saleId: saleSel.value || 'AVULSO',
+      clientName: document.getElementById('rmaClientName').value.trim().toUpperCase(),
+      deviceName: itemName,
+      type: document.getElementById('rmaTypeSelect').value,
+      stockAction,
+      amount: parseFloat(document.getElementById('rmaAmountInput').value) || 0,
+      reason: document.getElementById('rmaReasonInput').value.trim() || 'Troca solicitada pelo cliente',
+      status: 'Concluído'
+    };
+
+    rmaList.unshift(newRma);
+    saveAll();
+    renderAll();
+    overlay.classList.remove('active');
+    showToast(`Troca / Devolução ${newRma.cod} registrada!`);
   });
 }
 
 function renderRma() {
   const tbody = document.getElementById('tableRmaList');
-  if (!tbody) return;
-  tbody.innerHTML = rmaList.map(r => `<tr><td><strong>${r.id}</strong></td><td>${r.date}</td><td>${r.client}</td><td>${r.item}</td><td><span class="badge-tag badge-warning">${r.reason}</span></td><td>${r.returnToStock ? '<span class="badge-tag badge-receita">Sim</span>' : '<span class="badge-tag badge-despesa">Não</span>'}</td><td><span class="badge-tag badge-info">${r.status}</span></td></tr>`).join('');
+  if (tbody) tbody.innerHTML = rmaList.map(r => `
+    <tr>
+      <td><strong>${r.cod}</strong></td>
+      <td>${r.date}</td>
+      <td>${r.clientName}</td>
+      <td>${r.deviceName}</td>
+      <td>${r.type}</td>
+      <td>${r.stockAction === 'retornar_estoque' ? '<span class="badge-tag badge-info">Retornou +1</span>' : '<span class="badge-tag badge-warning">Avaria</span>'}</td>
+      <td>${fmtBRL(r.amount)}</td>
+      <td><span class="badge-tag badge-receita">${r.status}</span></td>
+      <td><small style="color:var(--text-muted);">${r.reason || '-'}</small></td>
+    </tr>
+  `).join('');
 }
 
-// ============================================================================
-// MÓDULO FINANCEIRO
-// ============================================================================
-function initFinanceModule() {
-  const overlay = document.getElementById('financeModalOverlay');
-  document.getElementById('btnOpenFinanceModal')?.addEventListener('click', () => overlay.classList.add('active'));
-  document.getElementById('btnCloseFinanceModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnCancelFinanceModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('formNewFinance')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    finEntries.unshift({ id: 'FIN-' + (301 + finEntries.length), date: document.getElementById('finDate').value || new Date().toISOString().split('T')[0], type: document.getElementById('finType').value, category: document.getElementById('finCategory').value, desc: document.getElementById('finDesc').value.trim(), value: parseFloat(document.getElementById('finValue').value) || 0, status: document.getElementById('finStatus').value });
-    saveAll(); renderFinance(); overlay.classList.remove('active'); showToast('Lançamento financeiro salvo!');
-  });
-  ['finFilterType', 'finFilterStatus'].forEach(id => document.getElementById(id)?.addEventListener('change', renderFinance));
-}
-
+function initFinanceModule() {}
 function renderFinance() {
+  const vendas = sales.reduce((a, s) => a + Number(s.total || 0), 0);
+  const desp = finEntries.filter(f => f.type === 'Despesa').reduce((a, f) => a + Number(f.amount || 0), 0);
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  const adminFlag = isCurrentUserAdmin();
-  if (!adminFlag) {
-    ['finReceitasMes', 'finDespesasMes', 'finResultadoLiquido', 'finContasPendentes'].forEach(id => setTxt(id, 'Restrito'));
-    const tbody = document.getElementById('tableFinanceEntries');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">Acesso financeiro restrito ao Administrador.</td></tr>';
-    return;
-  }
-
-  const salesRevenue = sales.reduce((acc, s) => acc + Number(s.total || 0), 0);
-  const manualReceitas = finEntries.filter(f => f.type === 'Receita' && f.status === 'Pago').reduce((acc, f) => acc + Number(f.value || 0), 0);
-  const despesasPagas = finEntries.filter(f => f.type === 'Despesa' && f.status === 'Pago').reduce((acc, f) => acc + Number(f.value || 0), 0);
-  const pendentesVal = finEntries.filter(f => f.status === 'Pendente').reduce((acc, f) => acc + Number(f.value || 0), 0);
-  const totalReceitas = salesRevenue + manualReceitas;
-  const lucroLiquido = totalReceitas - despesasPagas;
-
-  setTxt('finReceitasMes', fmtBRL(totalReceitas));
-  setTxt('finDespesasMes', fmtBRL(despesasPagas));
-  setTxt('finResultadoLiquido', fmtBRL(lucroLiquido));
-  setTxt('finContasPendentes', fmtBRL(pendentesVal));
-
-  const fType = document.getElementById('finFilterType')?.value || 'todos';
-  const fStatus = document.getElementById('finFilterStatus')?.value || 'todos';
-  const tbody = document.getElementById('tableFinanceEntries');
-  if (!tbody) return;
-
-  const filtered = finEntries.filter(f => (fType === 'todos' || f.type === fType) && (fStatus === 'todos' || f.status === fStatus));
-  tbody.innerHTML = filtered.map(f => {
-    const isReceita = f.type === 'Receita';
-    const isPago = f.status === 'Pago';
-    return `
-      <tr>
-        <td>${formatDateSafe(f.date)}</td>
-        <td><span class="badge-tag ${isReceita ? 'badge-receita' : 'badge-despesa'}">${f.type}</span></td>
-        <td><span class="badge-tag badge-info">${f.category}</span></td>
-        <td><strong>${f.desc}</strong></td>
-        <td><strong style="color:${isReceita ? '#34d399' : '#f87171'};">${fmtBRL(f.value)}</strong></td>
-        <td><span class="badge-tag ${isPago ? 'badge-receita' : 'badge-warning'}">${f.status}</span></td>
-        <td>${!isPago ? `<button type="button" class="btn-sm btn-green" onclick="markFinancePaid('${f.id}')">Baixar</button>` : '—'}</td>
-      </tr>
-    `;
-  }).join('');
+  setTxt('finMetricGross', fmtBRL(vendas));
+  setTxt('finMetricCmv', fmtBRL(vendas * 0.55));
+  setTxt('finMetricExpenses', fmtBRL(desp));
+  setTxt('finMetricNetProfit', fmtBRL(vendas - vendas * 0.55 - desp));
+  const tbody = document.getElementById('tableFinEntries');
+  if (tbody) tbody.innerHTML = finEntries.map(f => `<tr><td><strong>${f.cod}</strong></td><td>${f.date}</td><td>${f.desc}</td><td>${f.category}</td><td><span class="badge-tag ${f.type === 'Receita' ? 'badge-receita' : 'badge-despesa'}">${f.type}</span></td><td><strong>${fmtBRL(f.amount)}</strong></td><td>${f.status}</td><td>-</td></tr>`).join('');
 }
 
-window.markFinancePaid = function (id) {
-  const item = finEntries.find(f => f.id === id);
-  if (item) { item.status = 'Pago'; saveAll(); renderFinance(); showToast('Título baixado!'); }
+function initCashAndTools() {
+  const toolOverlay = document.getElementById('cashToolModalOverlay');
+  document.getElementById('btnCloseCashTool')?.addEventListener('click', () => toolOverlay.classList.remove('active'));
+  document.getElementById('btnTogglePdvTools')?.addEventListener('click', (e) => { e.stopPropagation(); document.getElementById('pdvToolsMenu').classList.toggle('open'); });
+  document.addEventListener('click', () => document.getElementById('pdvToolsMenu')?.classList.remove('open'));
+  document.getElementById('btnPrintLastReceipt')?.addEventListener('click', (e) => { e.preventDefault(); if (sales.length) openReceiptModal(sales[0].id); });
+}
+
+window.openCashMovementModal = function (type) {
+  const toolOverlay = document.getElementById('cashToolModalOverlay');
+  document.getElementById('cashToolModalTitle').textContent = `Lançar ${type}`;
+  document.getElementById('cashToolModalBody').innerHTML = `<form id="fcm"><div class="form-group"><label>Valor (R$):</label><input type="number" id="cmv" step="0.01" required /></div><button type="submit" class="btn-primary">Confirmar</button></form>`;
+  toolOverlay.classList.add('active');
+  document.getElementById('fcm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    cashMoves.unshift({ type, value: parseFloat(document.getElementById('cmv').value) || 0, date: getNowBrDateTime() });
+    saveAll(); toolOverlay.classList.remove('active'); showToast(`${type} registrado!`);
+  });
 };
 
-// ============================================================================
-// CAIXA & RECIBO
-// ============================================================================
-function initCashAndTools() {
-  document.getElementById('btnOpenCashModal')?.addEventListener('click', () => document.getElementById('cashModalOverlay').classList.add('active'));
-  document.getElementById('btnCloseCashModal')?.addEventListener('click', () => document.getElementById('cashModalOverlay').classList.remove('active'));
-  document.getElementById('btnCancelCashModal')?.addEventListener('click', () => document.getElementById('cashModalOverlay').classList.remove('active'));
-  document.getElementById('formCashMove')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    cashMoves.unshift({ date: new Date().toLocaleString('pt-BR'), type: document.getElementById('cashMoveType').value, value: parseFloat(document.getElementById('cashMoveValue').value) || 0, reason: document.getElementById('cashMoveReason').value });
-    saveAll(); e.target.reset(); document.getElementById('cashModalOverlay').classList.remove('active'); showToast('Movimentação salva!');
-  });
-  document.getElementById('btnCloseReceiptModal')?.addEventListener('click', () => document.getElementById('receiptModalOverlay').classList.remove('active'));
-  document.getElementById('btnPrintReceipt')?.addEventListener('click', () => window.print());
-}
-
 window.openReceiptModal = function (saleId) {
-  const s = sales.find(item => String(item.id) === String(saleId));
+  const s = sales.find(item => item.id === saleId);
   if (!s) return;
-  const adminFlag = isCurrentUserAdmin();
-  document.getElementById('receiptBodyContent').innerHTML = `<div style="font-family:monospace;font-size:13px;line-height:1.5;"><center><strong>GRUPO MISTER PERFUMARIA</strong><br>Comprovante #${s.id}</center><hr>Data: ${s.date}<br>Cliente: ${s.client}<br>Canal: ${s.type || 'Venda Presencial'}<br>Envio: ${s.shippingMethod || 'Retirada na Loja'}<br>Status: ${s.orderStatus || 'Em Separação'}${s.trackingCode ? `<br>Rastreio: ${s.trackingCode}` : ''}${s.observation ? `<br>Obs: ${s.observation}` : ''}<br>Itens: ${s.items}<hr>${adminFlag ? `<strong>TOTAL: ${fmtBRL(s.total)}</strong>` : '<strong>COMPROVANTE DE PEDIDO</strong>'}<br>Pagamento: ${s.payment}</div>`;
-  document.getElementById('receiptModalOverlay').classList.add('active');
+  const discLine = Number(s.discount || 0) > 0 ? `<br>Desconto Aplicado: -${fmtBRL(s.discount)}` : '';
+  const trackLine = s.trackingCode ? `<br>Código de Rastreio: <strong>${s.trackingCode}</strong>` : '';
+  const obsLine = s.observation ? `<br>Obs.: ${s.observation}` : '';
+  const canalLine = s.type === 'Online / Nuvemshop' ? ' (Nuvemshop)' : '';
+  document.getElementById('cashToolModalTitle').textContent = `Comprovante #${s.id}`;
+  document.getElementById('cashToolModalBody').innerHTML = `
+    <div style="background:#fff;color:#111;padding:0.9rem;border-radius:6px;font-family:monospace;font-size:0.82rem;">
+      <strong>GRUPO MISTER PERFUMARIA${canalLine}</strong><br>
+      Pedido #${s.id} | ${s.date}<br>
+      Cliente: ${s.client}<br>
+      Entrega: ${s.shippingMethod || 'Loja'} | Status: ${s.orderStatus || 'Em Separação'}${trackLine}<br>
+      Itens: ${s.items}${discLine}${obsLine}<br>
+      <strong>TOTAL: ${fmtBRL(s.total)}</strong>
+    </div>
+  `;
+  document.getElementById('cashToolModalOverlay').classList.add('active');
 };
