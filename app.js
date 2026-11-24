@@ -85,7 +85,7 @@ function injectLayoutAndActionStyles() {
     .content-section th,
     .content-section td {
       padding: 0.58rem 0.55rem !important;
-      font-size: 0.8rem !important;
+      font-size: 0.82rem !important;
       vertical-align: middle !important;
       line-height: 1.38;
     }
@@ -123,7 +123,24 @@ function injectLayoutAndActionStyles() {
       max-width: 100% !important;
       min-width: 0 !important;
       box-sizing: border-box !important;
-      font-size: 0.84rem !important;
+      font-size: 0.86rem !important;
+    }
+
+    /* Escrita dos botões proporcional ao tamanho do campo */
+    .btn-sm {
+      font-size: 0.86rem !important;
+      font-weight: 600 !important;
+      padding: 0.42rem 0.78rem !important;
+      line-height: 1.25 !important;
+    }
+
+    .btn-primary,
+    .btn-danger,
+    .btn-green,
+    .btn-blue {
+      font-size: 0.9rem !important;
+      font-weight: 600 !important;
+      line-height: 1.25 !important;
     }
 
     /* Histórico de vendas sempre apenas em cards */
@@ -147,10 +164,10 @@ function injectLayoutAndActionStyles() {
       border: 1px solid var(--border, #252a34);
       border-left: 3px solid #60a5fa;
       border-radius: 10px;
-      padding: 0.8rem 0.95rem;
+      padding: 0.85rem 1rem;
       display: flex;
       flex-direction: column;
-      gap: 0.4rem;
+      gap: 0.45rem;
     }
 
     /* Badges semânticos globais para fácil identificação visual */
@@ -158,9 +175,9 @@ function injectLayoutAndActionStyles() {
       display: inline-flex;
       align-items: center;
       gap: 0.3rem;
-      padding: 0.22rem 0.55rem;
+      padding: 0.24rem 0.6rem;
       border-radius: 6px;
-      font-size: 0.74rem;
+      font-size: 0.76rem;
       font-weight: 700;
       white-space: nowrap;
       border: 1px solid transparent;
@@ -218,11 +235,11 @@ function injectLayoutAndActionStyles() {
     }
 
     select.status-inline-select {
-      min-width: 142px !important;
+      min-width: 150px !important;
       width: auto !important;
-      padding: 0.36rem 1.7rem 0.36rem 0.65rem !important;
+      padding: 0.42rem 1.8rem 0.42rem 0.72rem !important;
       border-radius: 8px !important;
-      font-size: 0.78rem !important;
+      font-size: 0.84rem !important;
       font-weight: 700 !important;
       line-height: 1.25 !important;
       white-space: nowrap !important;
@@ -261,7 +278,7 @@ function injectLayoutAndActionStyles() {
       flex-shrink: 0;
     }
 
-    /* Botão "Ações ▾" e menu suspenso */
+    /* Botão "Ações ▾" limpo (sem ícone antes) e texto proporcional */
     .gm-gh-action-wrap {
       position: relative;
       display: inline-flex;
@@ -272,15 +289,16 @@ function injectLayoutAndActionStyles() {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.4rem;
-      height: 32px;
-      padding: 0 0.72rem;
+      gap: 0.48rem;
+      height: 36px;
+      padding: 0 0.95rem;
       border-radius: 8px;
       border: 1px solid #30363d;
       background: #181d26;
       color: #f3f4f6;
-      font-size: 0.78rem;
+      font-size: 0.9rem;
       font-weight: 600;
+      letter-spacing: 0.01em;
       white-space: nowrap;
       cursor: pointer;
       transition: background 0.15s ease, border-color 0.15s ease;
@@ -294,12 +312,12 @@ function injectLayoutAndActionStyles() {
     .gm-gh-dropdown {
       display: none;
       position: fixed;
-      min-width: 185px;
+      min-width: 195px;
       background: #161b22;
       border: 1px solid #30363d;
       border-radius: 10px;
       box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65);
-      padding: 5px;
+      padding: 6px;
       z-index: 99999;
     }
 
@@ -311,13 +329,13 @@ function injectLayoutAndActionStyles() {
       width: 100%;
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 8px 11px;
+      gap: 9px;
+      padding: 9px 12px;
       border: none;
       background: transparent;
       color: #e6edf3;
-      font-size: 0.8rem;
-      font-weight: 500;
+      font-size: 0.88rem;
+      font-weight: 600;
       text-align: left;
       border-radius: 7px;
       cursor: pointer;
@@ -360,7 +378,7 @@ function injectLayoutAndActionStyles() {
     }
 
     .gm-modal-section-title {
-      font-size: 0.76rem;
+      font-size: 0.78rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
@@ -373,7 +391,7 @@ function injectLayoutAndActionStyles() {
 
     .gm-sale-item-row {
       display: grid;
-      grid-template-columns: minmax(140px, 1.8fr) 74px 105px 95px 32px;
+      grid-template-columns: minmax(140px, 1.8fr) 74px 105px 95px 34px;
       gap: 0.45rem;
       align-items: center;
       margin-bottom: 0.45rem;
@@ -387,8 +405,8 @@ function injectLayoutAndActionStyles() {
       width: 100%;
       min-width: 0;
       box-sizing: border-box;
-      font-size: 0.8rem;
-      padding: 0.36rem 0.48rem;
+      font-size: 0.84rem;
+      padding: 0.38rem 0.5rem;
     }
 
     .gm-edit-sale-card {
@@ -429,12 +447,12 @@ function injectLayoutAndActionStyles() {
     .gm-view-box small {
       display: block;
       color: var(--text-muted, #9ca3af);
-      font-size: 0.72rem;
+      font-size: 0.74rem;
       margin-bottom: 0.2rem;
     }
 
     .gm-view-box strong {
-      font-size: 0.88rem;
+      font-size: 0.9rem;
       word-break: break-word;
     }
   `;
@@ -2486,28 +2504,28 @@ window.toggleSaleGithubMenu = function (event, saleId) {
     menu.className = 'gm-gh-dropdown';
     menu.innerHTML = `
       <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditSaleModal('${saleId}')">
-        <i class="ph ph-pencil-simple" style="color:#60a5fa;"></i>
+        <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:16px;"></i>
         <span>Editar</span>
       </button>
       <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewSaleModal('${saleId}')">
-        <i class="ph ph-eye" style="color:#34d399;"></i>
+        <i class="ph ph-eye" style="color:#34d399; font-size:16px;"></i>
         <span>Visualizar</span>
       </button>
       <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openOrderTrackingModal('${saleId}')">
-        <i class="ph ph-barcode" style="color:#38bdf8;"></i>
+        <i class="ph ph-barcode" style="color:#38bdf8; font-size:16px;"></i>
         <span>Rastreio</span>
       </button>
       <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openOrderObsModal('${saleId}')">
-        <i class="ph ph-note-pencil" style="color:#fbbf24;"></i>
+        <i class="ph ph-note-pencil" style="color:#fbbf24; font-size:16px;"></i>
         <span>Obs.</span>
       </button>
       <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openReceiptModal('${saleId}')">
-        <i class="ph ph-printer" style="color:#c084fc;"></i>
+        <i class="ph ph-printer" style="color:#c084fc; font-size:16px;"></i>
         <span>Recibo</span>
       </button>
       <div class="gm-gh-dropdown-divider"></div>
       <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteSaleRecord('${saleId}')">
-        <i class="ph ph-trash"></i>
+        <i class="ph ph-trash" style="font-size:16px;"></i>
         <span>Apagar</span>
       </button>
     `;
@@ -2517,8 +2535,8 @@ window.toggleSaleGithubMenu = function (event, saleId) {
   if (!wasOpen) {
     const rect = event.currentTarget.getBoundingClientRect();
     menu.classList.add('open');
-    const menuWidth = menu.offsetWidth || 185;
-    const menuHeight = menu.offsetHeight || 235;
+    const menuWidth = menu.offsetWidth || 195;
+    const menuHeight = menu.offsetHeight || 250;
     const leftPos = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
     const topPos = (rect.bottom + menuHeight + 8 > window.innerHeight)
       ? Math.max(8, rect.top - menuHeight - 4)
@@ -2536,9 +2554,8 @@ function renderGithubPencilActionButton(saleId) {
         title="Ações da venda"
         aria-label="Ações da venda"
         onclick="toggleSaleGithubMenu(event, '${saleId}')">
-        <i class="ph ph-squares-four" style="font-size:15px; color:#60a5fa;"></i>
         <span>Ações</span>
-        <i class="ph ph-caret-down" style="font-size:12px; color:#9ca3af;"></i>
+        <i class="ph ph-caret-down" style="font-size:13px; color:#9ca3af;"></i>
       </button>
     </div>
   `;
@@ -2775,7 +2792,7 @@ function ensureSaleItemsEditorInsideModal() {
       <div class="gm-modal-section-title" style="margin:0;"><i class="ph ph-list-checks" style="color:#60a5fa;"></i> Itens Unitários (Item por Item)</div>
       <button type="button" id="gmBtnAddEditSaleItem" class="btn-sm btn-blue"><i class="ph ph-plus"></i> Adicionar Item</button>
     </div>
-    <div style="display:grid; grid-template-columns:minmax(140px,1.8fr) 74px 105px 95px 32px; gap:0.45rem; font-size:0.72rem; color:var(--text-muted); padding:0 0.5rem 0.25rem;">
+    <div style="display:grid; grid-template-columns:minmax(140px,1.8fr) 74px 105px 95px 34px; gap:0.45rem; font-size:0.74rem; color:var(--text-muted); padding:0 0.5rem 0.25rem;">
       <span>Item / Fragrância</span>
       <span>Qtd</span>
       <span>Unit. (R$)</span>
@@ -2822,7 +2839,7 @@ function renderEditingSaleItemsRows(recalcTotal = false) {
   if (!container) return;
 
   if (!Array.isArray(editingSaleItemsDraft) || editingSaleItemsDraft.length === 0) {
-    container.innerHTML = `<div style="font-size:0.78rem; color:var(--text-muted); padding:0.35rem;">Nenhum item listado. Clique em "+ Adicionar Item".</div>`;
+    container.innerHTML = `<div style="font-size:0.8rem; color:var(--text-muted); padding:0.35rem;">Nenhum item listado. Clique em "+ Adicionar Item".</div>`;
     recalculateSaleTotalFromDraft(recalcTotal);
     return;
   }
@@ -2836,7 +2853,7 @@ function renderEditingSaleItemsRows(recalcTotal = false) {
         <input type="text" value="${String(it.name || '').replace(/"/g, '&quot;')}" placeholder="Nome do item" oninput="updateDraftSaleItem(${idx}, 'name', this.value)" />
         <input type="number" min="1" step="1" value="${q}" oninput="updateDraftSaleItem(${idx}, 'qty', this.value)" />
         <input type="number" min="0" step="0.01" value="${pr}" oninput="updateDraftSaleItem(${idx}, 'price', this.value)" />
-        <span style="font-size:0.78rem; font-weight:700; text-align:right; color:#34d399;">${sub > 0 ? fmtBRL(sub) : '-'}</span>
+        <span style="font-size:0.8rem; font-weight:700; text-align:right; color:#34d399;">${sub > 0 ? fmtBRL(sub) : '-'}</span>
         <button type="button" class="btn-sm btn-danger" title="Remover item" onclick="removeDraftSaleItem(${idx})">&times;</button>
       </div>
     `;
@@ -3004,8 +3021,8 @@ function renderSales() {
         </div>
         ${s.trackingCode ? `<small style="color:#34d399;"><i class="ph ph-barcode"></i> Rastreio: <strong>${s.trackingCode}</strong></small>` : ''}
         ${s.observation ? `<small style="color:#fbbf24;"><i class="ph ph-note"></i> ${s.observation}</small>` : ''}
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem; margin-top:0.2rem;">
-          <strong style="color:#34d399; font-size:0.95rem;">${fmtBRL(s.total)}</strong>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.4rem; margin-top:0.25rem;">
+          <strong style="color:#34d399; font-size:0.98rem;">${fmtBRL(s.total)}</strong>
           ${renderGithubPencilActionButton(s.id)}
         </div>
       </div>
@@ -3554,8 +3571,8 @@ function renderStock() {
       title="${titleText}"
       aria-label="${titleText}"
       onclick="openEditProductModal('${prodId}')"
-      style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; border:1px solid #30363d; background:#21262d; color:#60a5fa; cursor:pointer; flex-shrink:0;">
-      <i class="ph ph-pencil-simple" style="font-size:15px;"></i>
+      style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; border:1px solid #30363d; background:#21262d; color:#60a5fa; cursor:pointer; flex-shrink:0;">
+      <i class="ph ph-pencil-simple" style="font-size:16px;"></i>
     </button>
   `;
 
@@ -3571,7 +3588,7 @@ function renderStock() {
           <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
             <div>
               <strong style="cursor:pointer;" onclick="openEditProductModal('${p.id}')">${p.name}</strong>
-              <div style="font-size:0.74rem; color:#9ca3af; margin-top:2px; cursor:pointer;" onclick="openEditProductModal('${p.id}')">
+              <div style="font-size:0.76rem; color:#9ca3af; margin-top:2px; cursor:pointer;" onclick="openEditProductModal('${p.id}')">
                 Fornecedor: <span style="color:#e5e7eb;">${supLabel}</span>
               </div>
             </div>
@@ -3725,7 +3742,7 @@ window.openReceiptModal = function (saleId) {
   const canalLine = s.type === 'Online / Nuvemshop' ? ' (Nuvemshop)' : '';
   document.getElementById('cashToolModalTitle').textContent = `Comprovante #${s.id}`;
   document.getElementById('cashToolModalBody').innerHTML = `
-    <div style="background:#fff;color:#111;padding:0.9rem;border-radius:6px;font-family:monospace;font-size:0.78rem;">
+    <div style="background:#fff;color:#111;padding:0.9rem;border-radius:6px;font-family:monospace;font-size:0.82rem;">
       <strong>GRUPO MISTER PERFUMARIA${canalLine}</strong><br>
       Pedido #${s.id} | ${s.date}<br>
       Cliente: ${s.client}<br>
