@@ -478,11 +478,13 @@ function injectLayoutAndActionStyles() {
       overflow-y: auto;
     }
 
-    /* Opacidade / fundo sólido no modal Visualizar para máxima leitura */
+    /* Opacidade / fundo sólido nos modais de visualização e edição */
     #viewSaleModalOverlay.modal-overlay,
     #viewStockProductModalOverlay.modal-overlay,
     #finEntryModalOverlay.modal-overlay,
-    #viewFinEntryModalOverlay.modal-overlay {
+    #viewFinEntryModalOverlay.modal-overlay,
+    #clientFormModalOverlay.modal-overlay,
+    #viewClientModalOverlay.modal-overlay {
       background: rgba(7, 10, 16, 0.9) !important;
       backdrop-filter: blur(4px);
       z-index: 100000 !important;
@@ -534,6 +536,16 @@ function injectLayoutAndActionStyles() {
       gap: 0.85rem;
       margin-bottom: 1rem;
     }
+
+    .gm-client-address-preview {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      border-radius: 8px;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.82rem;
+      color: #dbeafe;
+      margin-top: 0.5rem;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -544,9 +556,54 @@ function injectLayoutAndActionStyles() {
 const DEFAULT_PRODUCTS = [];
 
 const DEFAULT_CLIENTS = [
-  { cod: 'CLI-001', name: 'MARCELO SOUZA', cpf: '384.910.228-40', phone: '(11) 98765-4321', category: 'VIP / Recorrente', notes: 'Colecionador de árabes e nichos' },
-  { cod: 'CLI-002', name: 'JULIANA ALMEIDA', cpf: '291.445.882-19', phone: '(11) 99412-3308', category: 'Cliente Final', notes: 'Ama decants 10ml e gourmands' },
-  { cod: 'CLI-003', name: 'RODRIGO CASTRO', cpf: '412.889.104-55', phone: '(11) 99123-7744', category: 'VIP / Recorrente', notes: 'Comprador de Creed e Tom Ford' }
+  {
+    cod: 'CLI-001',
+    name: 'MARCELO SOUZA',
+    cpf: '384.910.228-40',
+    phone: '(11) 98765-4321',
+    birthDate: '1995-11-24',
+    cep: '13201-000',
+    street: 'Rua do Rosário',
+    number: '450',
+    complement: 'Apto 42',
+    neighborhood: 'Centro',
+    city: 'Jundiaí',
+    state: 'SP',
+    category: 'VIP / Recorrente',
+    notes: 'Colecionador de árabes e nichos'
+  },
+  {
+    cod: 'CLI-002',
+    name: 'JULIANA ALMEIDA',
+    cpf: '291.445.882-19',
+    phone: '(11) 99412-3308',
+    birthDate: '1998-06-14',
+    cep: '13208-050',
+    street: 'Av. Nove de Julho',
+    number: '1200',
+    complement: '',
+    neighborhood: 'Anhanguera',
+    city: 'Jundiaí',
+    state: 'SP',
+    category: 'Cliente Final',
+    notes: 'Ama decants 10ml e gourmands'
+  },
+  {
+    cod: 'CLI-003',
+    name: 'RODRIGO CASTRO',
+    cpf: '412.889.104-55',
+    phone: '(11) 99123-7744',
+    birthDate: '1991-09-02',
+    cep: '13214-000',
+    street: 'Rua Barão de Jundiaí',
+    number: '88',
+    complement: 'Bloco B',
+    neighborhood: 'Centro',
+    city: 'Jundiaí',
+    state: 'SP',
+    category: 'VIP / Recorrente',
+    notes: 'Comprador de Creed e Tom Ford'
+  }
 ];
 
 const DEFAULT_SALES = [];
@@ -583,6 +640,9 @@ let finChannelFilter = 'todos';      // 'todos' | 'Venda Presencial' | 'Online /
 let finChannelSort = 'revenue_desc'; // 'revenue_desc' | 'orders_desc'
 let finSupplierFilter = 'todos';     // 'todos' ou nome do fornecedor
 let finSellerFilter = 'todos';       // 'todos' ou nome do vendedor
+
+// Estado dos filtros da aba de Clientes
+let clientSearchScope = 'all';       // 'all' | 'name' | 'phone' | 'order'
 
 // Estado dos filtros segmentados do Estoque (estilo referência sem IMEI)
 let stockOnlyInStockFilter = 'no';      // 'no' | 'yes'
@@ -1809,6 +1869,7 @@ window.navigateToSection = function (targetId, labelText) {
 
   if (targetId === 'estoque') renderStock();
   if (targetId === 'consulta_estoque') renderCommercialStockCatalog();
+  if (targetId === 'clientes') renderClients();
   if (targetId === 'financeiro') {
     syncSalesToFinanceEntries();
     renderFinance();
@@ -2748,7 +2809,7 @@ async function pushStockToNuvemshop(product) {
 }
 
 function populateSelectDropdowns() {
-  const clientOptions = `<option value="">Consumidor Balcão / Avulso</option>` + clients.map(c => `<option value="${c.cod}">${c.name} (${c.cpf})</option>`).join('');
+  const clientOptions = `<option value="">Consumidor Balcão / Avulso</option>` + clients.map(c => `<option value="${c.cod}">${c.name} (${c.cpf || c.phone || c.cod})</option>`).join('');
   const modalClientSel = document.getElementById('modalClientSelect');
   if (modalClientSel) modalClientSel.innerHTML = clientOptions;
 
@@ -2958,7 +3019,7 @@ function initSalesAndPdv() {
 }
 
 // ============================================================================
-// MENU SUSPENSO "AÇÕES ▾" (VENDAS, ESTOQUE E FINANCEIRO)
+// MENU SUSPENSO "AÇÕES ▾" (VENDAS, ESTOQUE, CLIENTES E FINANCEIRO)
 // ============================================================================
 function closeAllGithubActionMenus() {
   document.querySelectorAll('.gm-gh-dropdown.open').forEach(el => el.classList.remove('open'));
@@ -3856,30 +3917,658 @@ function updateUpgradeSimulator() {
   if (prev) prev.textContent = `*COMBO GRUPO MISTER*\n• ${m1} (${fmtBRL(p1)})\n• ${m2} (${fmtBRL(p2)})\n• Desconto Combo: -${fmtBRL(disc)}\n*Total no Pix: ${fmtBRL(rem)}*`;
 }
 
+// ============================================================================
+// MÓDULO DE CLIENTES COMPLETO (BUSCA POR NOME/NÚMERO/PEDIDO, NASCIMENTO & CEP)
+// ============================================================================
+function normalizeDigits(val = '') {
+  return String(val || '').replace(/\D/g, '');
+}
+
+function calculateAgeFromBirthDate(birthStr) {
+  if (!birthStr) return null;
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(birthStr).trim())
+    ? `${String(birthStr).trim()}T00:00:00`
+    : String(birthStr).trim();
+  const dob = new Date(iso);
+  if (Number.isNaN(dob.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const mDiff = now.getMonth() - dob.getMonth();
+  if (mDiff < 0 || (mDiff === 0 && now.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age >= 0 ? age : null;
+}
+
+function isBirthdayToday(birthStr) {
+  if (!birthStr) return false;
+  const parts = String(birthStr).trim().split('-');
+  if (parts.length !== 3) return false;
+  const now = new Date();
+  return Number(parts[1]) === (now.getMonth() + 1) && Number(parts[2]) === now.getDate();
+}
+
+function formatFullClientAddress(client) {
+  if (!client) return '';
+  const streetLine = [client.street, client.number].filter(Boolean).join(', ');
+  const compLine = client.complement ? ` (${client.complement})` : '';
+  const cityState = [client.city, client.state].filter(Boolean).join('/');
+  const mainParts = [
+    streetLine ? `${streetLine}${compLine}` : '',
+    client.neighborhood || '',
+    cityState,
+    client.cep ? `CEP ${client.cep}` : ''
+  ].filter(Boolean);
+  return mainParts.join(' • ');
+}
+
+function getClientSalesHistory(client) {
+  if (!client) return [];
+  const cName = String(client.name || '').toLowerCase().trim();
+  const cPhoneDigits = normalizeDigits(client.phone);
+
+  return sales.filter(s => {
+    const sName = String(s.client || '').toLowerCase().trim();
+    const sPhoneDigits = normalizeDigits(s.phone);
+    const matchName = Boolean(cName && sName && sName === cName);
+    const matchPhone = Boolean(cPhoneDigits && sPhoneDigits && sPhoneDigits.includes(cPhoneDigits));
+    return matchName || matchPhone;
+  });
+}
+
+function ensureClientSearchCustomBar() {
+  const clientSec = document.getElementById('clientes');
+  const searchInp = document.getElementById('clientSearchInput');
+  if (!clientSec || !searchInp) return;
+
+  searchInp.placeholder = 'Buscar por nome, telefone ou Nº do pedido (ex: 9054501)...';
+
+  if (!document.getElementById('gmClientSearchScopeGroup')) {
+    const scopeWrap = document.createElement('div');
+    scopeWrap.id = 'gmClientSearchScopeGroup';
+    scopeWrap.className = 'form-group';
+    scopeWrap.style.cssText = 'min-width:175px; margin:0;';
+    scopeWrap.innerHTML = `
+      <label for="clientSearchScopeSelect">Filtrar busca por:</label>
+      <select id="clientSearchScopeSelect">
+        <option value="all">Nome, Telefone ou Pedido</option>
+        <option value="name">Apenas Nome / CPF</option>
+        <option value="phone">Apenas Número (Telefone)</option>
+        <option value="order">Apenas Nº do Pedido</option>
+      </select>
+    `;
+    searchInp.insertAdjacentElement('afterend', scopeWrap);
+
+    document.getElementById('clientSearchScopeSelect')?.addEventListener('change', (e) => {
+      clientSearchScope = e.target.value || 'all';
+      renderClients();
+    });
+  }
+}
+
+function ensureClientFormAndViewModals() {
+  if (!document.getElementById('clientFormModalOverlay')) {
+    const overlay = document.createElement('div');
+    overlay.id = 'clientFormModalOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-content gm-view-modal-card">
+        <div class="modal-header">
+          <h3><i class="ph ph-user-plus" style="color:#60a5fa;"></i> <span id="clientFormModalTitle">Cadastrar Cliente</span></h3>
+          <button type="button" id="btnCloseClientFormModal" class="btn-close">&times;</button>
+        </div>
+        <form id="formClientFull" class="modal-body">
+          <input type="hidden" id="clientEditCod" />
+
+          <div class="gm-modal-section-card">
+            <div class="gm-modal-section-title"><i class="ph ph-identification-card" style="color:#60a5fa;"></i> Dados Pessoais</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(185px, 1fr)); gap:0.6rem;">
+              <div class="form-group" style="margin:0;">
+                <label for="clientFormName">Nome Completo:</label>
+                <input type="text" id="clientFormName" required placeholder="Ex: João Silva" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="clientFormPhone">Número / WhatsApp:</label>
+                <input type="text" id="clientFormPhone" placeholder="(11) 99999-9999" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="clientFormCpf">CPF:</label>
+                <input type="text" id="clientFormCpf" placeholder="000.000.000-00" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="clientFormBirthDate">Data de Nascimento:</label>
+                <input type="date" id="clientFormBirthDate" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="clientFormCategory">Categoria:</label>
+                <select id="clientFormCategory">
+                  <option value="Cliente Final">Cliente Final</option>
+                  <option value="VIP / Recorrente">VIP / Recorrente</option>
+                </select>
+              </div>
+            </div>
+            <div id="clientFormAgePreview" style="margin-top:0.45rem; font-size:0.78rem; color:#9ca3af;"></div>
+          </div>
+
+          <div class="gm-modal-section-card accent-amber">
+            <div class="gm-modal-section-title"><i class="ph ph-map-pin" style="color:#fbbf24;"></i> Endereço & CEP Automático</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:0.6rem;">
+              <div class="form-group" style="margin:0;">
+                <label for="clientFormCep">CEP:</label>
+                <div style="display:flex; gap:0.35rem;">
+                  <input type="text" id="clientFormCep" placeholder="00000-000" maxlength="9" />
+                  <button type="button" id="btnLookupClientCep" class="btn-sm btn-blue" title="Buscar CEP"><i class="ph ph-magnifying-glass"></i></button>
+                </div>
+              </div>
+              <div class="form-group" style="grid-column:span 2; margin:0;">
+                <label for="clientFormStreet">Rua / Logradouro:</label>
+                <input type="text" id="clientFormStreet" placeholder="Rua / Avenida" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="clientFormNumber">Número:</label>
+                <input type="text" id="clientFormNumber" placeholder="Nº" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="clientFormComplement">Complemento:</label>
+                <input type="text" id="clientFormComplement" placeholder="Apto, Casa..." />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="clientFormNeighborhood">Bairro:</label>
+                <input type="text" id="clientFormNeighborhood" placeholder="Bairro" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="clientFormCity">Cidade:</label>
+                <input type="text" id="clientFormCity" placeholder="Cidade" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="clientFormState">UF:</label>
+                <input type="text" id="clientFormState" placeholder="SP" maxlength="2" />
+              </div>
+            </div>
+            <div id="clientFormAddressPreview" class="gm-client-address-preview">Sem endereço preenchido.</div>
+          </div>
+
+          <div class="gm-modal-section-card accent-emerald">
+            <div class="gm-modal-section-title"><i class="ph ph-note" style="color:#34d399;"></i> Preferências / Observações</div>
+            <div class="form-group" style="margin:0;">
+              <textarea id="clientFormNotes" rows="2" placeholder="Preferências olfativas, notas favoritas, observações..."></textarea>
+            </div>
+          </div>
+
+          <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.85rem;">
+            <button type="button" id="btnCancelClientFormModal" class="btn-sm">Cancelar</button>
+            <button type="submit" class="btn-primary"><i class="ph ph-check"></i> Salvar Cliente</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const closeFormModal = () => overlay.classList.remove('active');
+    document.getElementById('btnCloseClientFormModal')?.addEventListener('click', closeFormModal);
+    document.getElementById('btnCancelClientFormModal')?.addEventListener('click', closeFormModal);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) closeFormModal();
+    });
+
+    const updateFormPreviews = () => {
+      const dobVal = document.getElementById('clientFormBirthDate')?.value || '';
+      const ageEl = document.getElementById('clientFormAgePreview');
+      if (ageEl) {
+        if (!dobVal) {
+          ageEl.textContent = 'Data de nascimento não informada.';
+        } else {
+          const age = calculateAgeFromBirthDate(dobVal);
+          const bday = isBirthdayToday(dobVal);
+          ageEl.innerHTML = `Nascimento: <strong>${formatDateSafe(dobVal)}</strong>${age !== null ? ` • <strong>${age} anos</strong>` : ''}${bday ? ' • <span class="badge-tag badge-warning">🎂 Aniversariante hoje!</span>' : ''}`;
+        }
+      }
+
+      const addrPreview = document.getElementById('clientFormAddressPreview');
+      if (addrPreview) {
+        const draftObj = {
+          cep: document.getElementById('clientFormCep')?.value.trim(),
+          street: document.getElementById('clientFormStreet')?.value.trim(),
+          number: document.getElementById('clientFormNumber')?.value.trim(),
+          complement: document.getElementById('clientFormComplement')?.value.trim(),
+          neighborhood: document.getElementById('clientFormNeighborhood')?.value.trim(),
+          city: document.getElementById('clientFormCity')?.value.trim(),
+          state: document.getElementById('clientFormState')?.value.trim().toUpperCase()
+        };
+        const formatted = formatFullClientAddress(draftObj);
+        addrPreview.innerHTML = formatted
+          ? `<strong>Prévia do Endereço:</strong> ${formatted}`
+          : 'Sem endereço preenchido.';
+      }
+    };
+
+    ['clientFormBirthDate', 'clientFormCep', 'clientFormStreet', 'clientFormNumber', 'clientFormComplement', 'clientFormNeighborhood', 'clientFormCity', 'clientFormState']
+      .forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateFormPreviews);
+        document.getElementById(id)?.addEventListener('change', updateFormPreviews);
+      });
+
+    const lookupCepFn = async (silent = false) => {
+      const cepInp = document.getElementById('clientFormCep');
+      const digits = normalizeDigits(cepInp?.value || '');
+      if (digits.length !== 8) {
+        if (!silent) showToast('Digite um CEP válido com 8 dígitos.');
+        return;
+      }
+      if (cepInp) cepInp.value = `${digits.slice(0, 5)}-${digits.slice(5)}`;
+      try {
+        const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+        const data = await res.json();
+        if (data && !data.erro) {
+          if (data.logradouro && !document.getElementById('clientFormStreet').value) {
+            document.getElementById('clientFormStreet').value = data.logradouro;
+          }
+          if (data.bairro && !document.getElementById('clientFormNeighborhood').value) {
+            document.getElementById('clientFormNeighborhood').value = data.bairro;
+          }
+          if (data.localidade) {
+            document.getElementById('clientFormCity').value = data.localidade;
+          }
+          if (data.uf) {
+            document.getElementById('clientFormState').value = data.uf.toUpperCase();
+          }
+          updateFormPreviews();
+          if (!silent) showToast('Endereço preenchido via CEP!');
+        } else if (!silent) {
+          showToast('CEP não encontrado. Preencha manualmente.');
+        }
+      } catch (_) {
+        if (!silent) showToast('Não foi possível consultar o CEP agora.');
+      }
+    };
+
+    document.getElementById('btnLookupClientCep')?.addEventListener('click', () => lookupCepFn(false));
+    document.getElementById('clientFormCep')?.addEventListener('blur', () => {
+      if (normalizeDigits(document.getElementById('clientFormCep')?.value || '').length === 8) {
+        lookupCepFn(true);
+      }
+    });
+
+    document.getElementById('formClientFull')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const editCod = document.getElementById('clientEditCod').value;
+      const nameVal = document.getElementById('clientFormName').value.trim().toUpperCase();
+      if (!nameVal) return showToast('Informe o nome do cliente.');
+
+      const payload = {
+        name: nameVal,
+        phone: document.getElementById('clientFormPhone').value.trim(),
+        cpf: document.getElementById('clientFormCpf').value.trim(),
+        birthDate: document.getElementById('clientFormBirthDate').value || '',
+        cep: document.getElementById('clientFormCep').value.trim(),
+        street: document.getElementById('clientFormStreet').value.trim(),
+        number: document.getElementById('clientFormNumber').value.trim(),
+        complement: document.getElementById('clientFormComplement').value.trim(),
+        neighborhood: document.getElementById('clientFormNeighborhood').value.trim(),
+        city: document.getElementById('clientFormCity').value.trim(),
+        state: document.getElementById('clientFormState').value.trim().toUpperCase(),
+        category: document.getElementById('clientFormCategory').value,
+        notes: document.getElementById('clientFormNotes').value.trim()
+      };
+
+      if (editCod) {
+        const existing = clients.find(c => c.cod === editCod);
+        if (existing) {
+          Object.assign(existing, payload);
+        }
+        showToast(`Cliente "${nameVal}" atualizado!`);
+      } else {
+        clients.unshift({
+          cod: 'CLI-' + String(clients.length + 1).padStart(3, '0'),
+          ...payload
+        });
+        showToast(`Cliente "${nameVal}" cadastrado!`);
+      }
+
+      saveAll();
+      renderAll();
+      closeFormModal();
+    });
+  }
+
+  if (!document.getElementById('viewClientModalOverlay')) {
+    const viewOverlay = document.createElement('div');
+    viewOverlay.id = 'viewClientModalOverlay';
+    viewOverlay.className = 'modal-overlay';
+    viewOverlay.innerHTML = `
+      <div class="modal-content gm-view-modal-card">
+        <div class="modal-header">
+          <h3><i class="ph ph-eye"></i> Detalhes do Cliente <span id="viewClientHeaderCod"></span></h3>
+          <button type="button" id="btnCloseViewClientModal" class="btn-close">&times;</button>
+        </div>
+        <div id="viewClientModalBody" class="modal-body"></div>
+        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.85rem; flex-wrap:wrap;">
+          <button type="button" id="btnViewClientSell" class="btn-green"><i class="ph ph-shopping-cart"></i> Vender</button>
+          <button type="button" id="btnViewClientEdit" class="btn-primary"><i class="ph ph-pencil-simple"></i> Editar</button>
+          <button type="button" id="btnCloseViewClientModalFooter" class="btn-sm">Fechar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(viewOverlay);
+
+    const closeView = () => viewOverlay.classList.remove('active');
+    document.getElementById('btnCloseViewClientModal')?.addEventListener('click', closeView);
+    document.getElementById('btnCloseViewClientModalFooter')?.addEventListener('click', closeView);
+    viewOverlay.addEventListener('click', (e) => {
+      if (e.target === viewOverlay) closeView();
+    });
+  }
+}
+
+window.openNewClientModal = function () {
+  ensureClientFormAndViewModals();
+  document.getElementById('clientEditCod').value = '';
+  document.getElementById('clientFormModalTitle').textContent = 'Cadastrar Cliente';
+  document.getElementById('formClientFull')?.reset();
+  document.getElementById('clientFormAgePreview').textContent = 'Data de nascimento não informada.';
+  document.getElementById('clientFormAddressPreview').innerHTML = 'Sem endereço preenchido.';
+  document.getElementById('clientFormModalOverlay')?.classList.add('active');
+};
+
+window.openEditClientModal = function (cod) {
+  ensureClientFormAndViewModals();
+  const c = clients.find(item => item.cod === cod);
+  if (!c) return;
+
+  document.getElementById('clientEditCod').value = c.cod;
+  document.getElementById('clientFormModalTitle').textContent = `Editar Cliente (${c.cod})`;
+  document.getElementById('clientFormName').value = c.name || '';
+  document.getElementById('clientFormPhone').value = c.phone || '';
+  document.getElementById('clientFormCpf').value = c.cpf || '';
+  document.getElementById('clientFormBirthDate').value = c.birthDate || '';
+  document.getElementById('clientFormCategory').value = c.category || 'Cliente Final';
+  document.getElementById('clientFormCep').value = c.cep || '';
+  document.getElementById('clientFormStreet').value = c.street || '';
+  document.getElementById('clientFormNumber').value = c.number || '';
+  document.getElementById('clientFormComplement').value = c.complement || '';
+  document.getElementById('clientFormNeighborhood').value = c.neighborhood || '';
+  document.getElementById('clientFormCity').value = c.city || '';
+  document.getElementById('clientFormState').value = c.state || '';
+  document.getElementById('clientFormNotes').value = c.notes || '';
+
+  document.getElementById('clientFormBirthDate')?.dispatchEvent(new Event('change'));
+  document.getElementById('clientFormCep')?.dispatchEvent(new Event('input'));
+  document.getElementById('clientFormModalOverlay')?.classList.add('active');
+};
+
+window.openViewClientModal = function (cod) {
+  ensureClientFormAndViewModals();
+  const c = clients.find(item => item.cod === cod);
+  if (!c) return;
+
+  const clientSales = getClientSalesHistory(c);
+  const totalSpent = clientSales.reduce((acc, s) => acc + Number(s.total || 0), 0);
+  const age = calculateAgeFromBirthDate(c.birthDate);
+  const bdayBadge = isBirthdayToday(c.birthDate)
+    ? `<span class="badge-tag badge-warning" style="margin-left:0.35rem;">🎂 Hoje!</span>`
+    : '';
+  const birthDisplay = c.birthDate
+    ? `${formatDateSafe(c.birthDate)}${age !== null ? ` (${age} anos)` : ''}${bdayBadge}`
+    : 'Não informado';
+  const fullAddr = formatFullClientAddress(c) || 'Endereço não cadastrado';
+
+  const recentOrdersHtml = clientSales.length > 0
+    ? clientSales.slice(0, 6).map(s => `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; padding:0.42rem 0.55rem; border-radius:6px; background:#141923; border:1px solid #2a3344; margin-bottom:0.35rem;">
+          <div>
+            <strong>Pedido #${s.id}</strong>
+            <small style="color:#9ca3af; margin-left:0.35rem;">${s.date} • ${s.items}</small>
+          </div>
+          <strong style="color:#34d399;">${fmtBRL(s.total)}</strong>
+        </div>
+      `).join('')
+    : `<div style="font-size:0.82rem; color:#9ca3af;">Nenhuma compra vinculada até o momento.</div>`;
+
+  document.getElementById('viewClientHeaderCod').textContent = `(${c.cod})`;
+  document.getElementById('viewClientModalBody').innerHTML = `
+    <div class="gm-view-grid">
+      <div class="gm-view-box"><small>Nome</small><strong>${c.name}</strong></div>
+      <div class="gm-view-box"><small>Número / WhatsApp</small><strong>${c.phone || '-'}</strong></div>
+      <div class="gm-view-box"><small>CPF</small><strong>${c.cpf || '-'}</strong></div>
+      <div class="gm-view-box"><small>Nascimento / Idade</small><strong>${birthDisplay}</strong></div>
+      <div class="gm-view-box"><small>Categoria</small><strong>${c.category || 'Cliente Final'}</strong></div>
+      <div class="gm-view-box"><small>Compras (${clientSales.length})</small><strong style="color:#34d399 !important;">${fmtBRL(totalSpent)}</strong></div>
+    </div>
+    <div class="gm-view-box" style="margin-bottom:0.75rem;">
+      <small>Endereço</small>
+      <strong>${fullAddr}</strong>
+    </div>
+    <div class="gm-view-box" style="margin-bottom:0.75rem;">
+      <small>Observações</small>
+      <strong>${c.notes || 'Nenhuma observação.'}</strong>
+    </div>
+    <div class="gm-view-box">
+      <small>Histórico de Pedidos do Cliente</small>
+      <div style="margin-top:0.35rem;">${recentOrdersHtml}</div>
+    </div>
+  `;
+
+  const btnEdit = document.getElementById('btnViewClientEdit');
+  if (btnEdit) {
+    btnEdit.onclick = () => {
+      document.getElementById('viewClientModalOverlay')?.classList.remove('active');
+      openEditClientModal(c.cod);
+    };
+  }
+
+  const btnSell = document.getElementById('btnViewClientSell');
+  if (btnSell) {
+    btnSell.onclick = () => {
+      document.getElementById('viewClientModalOverlay')?.classList.remove('active');
+      selectClientForSale(c.cod);
+    };
+  }
+
+  document.getElementById('viewClientModalOverlay')?.classList.add('active');
+};
+
+window.deleteClientRecord = function (cod) {
+  const c = clients.find(item => item.cod === cod);
+  if (!c) return;
+  if (!confirm(`Deseja realmente excluir o cliente "${c.name}" (${c.cod})?`)) return;
+  clients = clients.filter(item => item.cod !== cod);
+  saveAll();
+  renderAll();
+  showToast(`Cliente "${c.name}" removido.`);
+};
+
+window.toggleClientActionMenu = function (event, cod) {
+  event.stopPropagation();
+  const menuId = `gmClientMenu_${String(cod).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  let menu = document.getElementById(menuId);
+  const wasOpen = menu?.classList.contains('open');
+  closeAllGithubActionMenus();
+
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'gm-gh-dropdown';
+    menu.innerHTML = `
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewClientModal('${cod}')">
+        <i class="ph ph-eye" style="color:#34d399; font-size:15px;"></i>
+        <span>Visualizar</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditClientModal('${cod}')">
+        <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
+        <span>Editar</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); selectClientForSale('${cod}')">
+        <i class="ph ph-shopping-cart" style="color:#fbbf24; font-size:15px;"></i>
+        <span>Vender</span>
+      </button>
+      <div class="gm-gh-dropdown-divider"></div>
+      <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteClientRecord('${cod}')">
+        <i class="ph ph-trash" style="font-size:15px;"></i>
+        <span>Excluir</span>
+      </button>
+    `;
+    document.body.appendChild(menu);
+  }
+
+  if (!wasOpen) {
+    positionGithubMenu(menu, event.currentTarget);
+  }
+};
+
 function initClientsModule() {
-  const overlay = document.getElementById('clientModalOverlay');
-  document.getElementById('btnOpenClientModal')?.addEventListener('click', () => overlay.classList.add('active'));
-  document.getElementById('btnCloseClientModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnCancelClientModal')?.addEventListener('click', () => overlay.classList.remove('active'));
+  ensureClientSearchCustomBar();
+  ensureClientFormAndViewModals();
+
+  const legacyOverlay = document.getElementById('clientModalOverlay');
+  const openBtn = document.getElementById('btnOpenClientModal');
+
+  if (openBtn) {
+    openBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      openNewClientModal();
+    }, true);
+  }
+
+  document.getElementById('btnCloseClientModal')?.addEventListener('click', () => legacyOverlay?.classList.remove('active'));
+  document.getElementById('btnCancelClientModal')?.addEventListener('click', () => legacyOverlay?.classList.remove('active'));
   document.getElementById('formNewClient')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    clients.unshift({ cod: 'CLI-' + String(clients.length + 1).padStart(3, '0'), name: document.getElementById('newClientName').value.trim().toUpperCase(), cpf: document.getElementById('newClientCpf').value.trim(), phone: document.getElementById('newClientPhone').value.trim(), category: document.getElementById('newClientCategory').value, notes: document.getElementById('newClientNotes').value.trim() });
-    saveAll(); renderAll(); overlay.classList.remove('active'); showToast('Cliente cadastrado!');
+    clients.unshift({
+      cod: 'CLI-' + String(clients.length + 1).padStart(3, '0'),
+      name: document.getElementById('newClientName').value.trim().toUpperCase(),
+      cpf: document.getElementById('newClientCpf').value.trim(),
+      phone: document.getElementById('newClientPhone').value.trim(),
+      category: document.getElementById('newClientCategory').value,
+      notes: document.getElementById('newClientNotes').value.trim()
+    });
+    saveAll();
+    renderAll();
+    legacyOverlay?.classList.remove('active');
+    showToast('Cliente cadastrado!');
   });
+
   document.getElementById('clientSearchInput')?.addEventListener('input', renderClients);
   document.getElementById('clientCategoryFilter')?.addEventListener('change', renderClients);
 }
 
 function renderClients() {
-  const term = (document.getElementById('clientSearchInput')?.value || '').toLowerCase();
+  ensureClientSearchCustomBar();
+  ensureClientFormAndViewModals();
+
+  const rawTerm = (document.getElementById('clientSearchInput')?.value || '').trim();
+  const term = rawTerm.toLowerCase();
+  const termDigits = normalizeDigits(rawTerm);
   const cat = document.getElementById('clientCategoryFilter')?.value || 'todos';
+
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   setTxt('metricTotalPessoas', clients.length);
   setTxt('metricTotalClientes', clients.length);
   setTxt('metricClientesVip', clients.filter(c => c.category === 'VIP / Recorrente').length);
-  const filtered = clients.filter(c => (c.name.toLowerCase().includes(term) || (c.cpf || '').includes(term)) && (cat === 'todos' || c.category === cat));
+
+  // Localiza pedidos que correspondam ao número de pedido digitado
+  const matchingOrdersBySearch = rawTerm
+    ? sales.filter(s => {
+        const orderIdStr = String(s.id || '').toLowerCase();
+        const cleanTerm = term.replace(/^#/, '');
+        return Boolean(cleanTerm && orderIdStr.includes(cleanTerm));
+      })
+    : [];
+
+  const filtered = clients.filter(c => {
+    const matchCat = cat === 'todos' || c.category === cat;
+    if (!matchCat) return false;
+    if (!rawTerm) return true;
+
+    const cName = String(c.name || '').toLowerCase();
+    const cCpf = String(c.cpf || '').toLowerCase();
+    const cCod = String(c.cod || '').toLowerCase();
+    const cPhoneDigits = normalizeDigits(c.phone);
+    const clientOrders = getClientSalesHistory(c);
+    const matchedOrderForClient = clientOrders.some(s =>
+      matchingOrdersBySearch.some(m => String(m.id) === String(s.id))
+    );
+
+    const matchName = cName.includes(term) || cCpf.includes(term) || cCod.includes(term);
+    const matchPhone = Boolean(termDigits && cPhoneDigits.includes(termDigits));
+    const matchOrder = matchedOrderForClient;
+
+    if (clientSearchScope === 'name') return matchName;
+    if (clientSearchScope === 'phone') return matchPhone;
+    if (clientSearchScope === 'order') return matchOrder;
+    return matchName || matchPhone || matchOrder;
+  });
+
   const tbody = document.getElementById('tableClientsDetailed');
-  if (tbody) tbody.innerHTML = filtered.map(c => `<tr><td>${c.cod}</td><td><strong>${c.name}</strong></td><td>${c.cpf}</td><td>${c.phone}</td><td>${c.notes || '-'}</td><td><span class="badge-tag ${c.category === 'VIP / Recorrente' ? 'badge-warning' : 'badge-info'}">${c.category}</span></td><td><button type="button" class="btn-sm btn-blue" onclick="selectClientForSale('${c.cod}')">Vender</button></td></tr>`).join('');
+  if (!tbody) return;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum cliente encontrado para "${rawTerm}".</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(c => {
+    const clientOrders = getClientSalesHistory(c);
+    const totalSpent = clientOrders.reduce((acc, s) => acc + Number(s.total || 0), 0);
+    const age = calculateAgeFromBirthDate(c.birthDate);
+    const bdayToday = isBirthdayToday(c.birthDate);
+    const addrSummary = formatFullClientAddress(c);
+
+    const matchedOrderIds = rawTerm
+      ? clientOrders
+          .filter(s => matchingOrdersBySearch.some(m => String(m.id) === String(s.id)))
+          .map(s => `#${s.id}`)
+      : [];
+
+    const orderBadge = matchedOrderIds.length > 0
+      ? `<div style="margin-top:3px;"><span class="badge-tag badge-info">Pedido ${matchedOrderIds.join(', ')}</span></div>`
+      : '';
+
+    const bdayTag = bdayToday
+      ? `<span class="badge-tag badge-warning" style="margin-left:0.35rem;">🎂 Hoje!</span>`
+      : '';
+
+    const birthSub = c.birthDate
+      ? `<div style="font-size:0.73rem; color:#9ca3af; margin-top:2px;">Nasc.: ${formatDateSafe(c.birthDate)}${age !== null ? ` • ${age} anos` : ''}${bdayTag}</div>`
+      : '';
+
+    const addrSub = addrSummary
+      ? `<div style="font-size:0.73rem; color:#9ca3af; margin-top:2px;">${addrSummary}</div>`
+      : '';
+
+    const ordersSub = clientOrders.length > 0
+      ? `<div style="font-size:0.73rem; color:#34d399; margin-top:2px;">${clientOrders.length} pedido(s) • ${fmtBRL(totalSpent)}</div>`
+      : '';
+
+    return `
+      <tr>
+        <td><strong>${c.cod}</strong></td>
+        <td>
+          <strong>${c.name}</strong>
+          ${orderBadge}
+          ${birthSub}
+          ${addrSub}
+        </td>
+        <td>${c.cpf || '-'}</td>
+        <td>${c.phone || '-'}</td>
+        <td>
+          <div>${c.notes || '-'}</div>
+          ${ordersSub}
+        </td>
+        <td>
+          <span class="badge-tag ${c.category === 'VIP / Recorrente' ? 'badge-warning' : 'badge-info'}">${c.category}</span>
+        </td>
+        <td style="white-space:nowrap;">
+          <div class="gm-gh-action-wrap">
+            <button type="button" class="gm-gh-pencil-btn" onclick="toggleClientActionMenu(event, '${c.cod}')">
+              <span>Ações</span>
+              <i class="ph ph-caret-down" style="font-size:13px; color:#9ca3af;"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 window.selectClientForSale = function (cod) {
@@ -4276,10 +4965,7 @@ function initStockModule() {
         prod.nuvemVarId = document.getElementById('prodNuvemVariantId').value.trim();
         pushStockToNuvemshop(prod);
       }
-      saveAll();
-      renderAll();
-      overlay?.classList.remove('active');
-      showToast('Todas as informações do produto foram atualizadas!');
+      showToast('Produto atualizado!');
     } else {
       const newProd = {
         id: customCode || ('PRD-' + String(products.length + 1).padStart(2, '0')),
@@ -4297,34 +4983,16 @@ function initStockModule() {
       };
       products.unshift(newProd);
       pushStockToNuvemshop(newProd);
-      saveAll();
-      renderAll();
-      overlay?.classList.remove('active');
-      showToast('Fragrância cadastrada!');
+      showToast('Produto salvo!');
     }
+
+    saveAll();
+    renderAll();
+    overlay?.classList.remove('active');
   });
 
-  ['stockSearchInput', 'stockConditionFilter', 'stockAvailabilityFilter'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', renderStock);
-    document.getElementById(id)?.addEventListener('change', renderStock);
-  });
-
-  document.getElementById('btnClearStockFilters')?.addEventListener('click', () => {
-    const sInp = document.getElementById('stockSearchInput');
-    const cSel = document.getElementById('stockConditionFilter');
-    const aSel = document.getElementById('stockAvailabilityFilter');
-    if (sInp) sInp.value = '';
-    if (cSel) cSel.value = 'todos';
-    if (aSel) aSel.value = 'todos';
-    stockOnlyInStockFilter = 'no';
-    stockSupplierFilter = 'all';
-    stockLowStockFilter = 'no';
-    stockFormatFilter = 'all';
-    stockExpiryAlertFilter = 'all';
-    stockHasCostFilter = 'all';
-    syncStockSegmentedButtonsUI();
-    renderStock();
-  });
+  document.getElementById('stockSearchInput')?.addEventListener('input', renderStock);
+  document.getElementById('stockConditionFilter')?.addEventListener('change', renderStock);
 }
 
 function renderStock() {
@@ -4332,479 +5000,187 @@ function renderStock() {
   ensureStockOperationalMetricsCards();
   ensureStockSegmentedFilterControls();
   ensureStockTableHeaderWithoutBatch();
+  syncStockSegmentedButtonsUI();
 
   const canManageStock = hasStockAccess();
-  const stockBar = document.getElementById('gmStockManagerBar');
-  if (stockBar) stockBar.style.display = canManageStock ? 'flex' : 'none';
-
-  const adminGrid = document.getElementById('stockAdminMetricsGrid');
-  const sellerBanner = document.getElementById('stockSellerQuickFilterBanner');
-  if (adminGrid) adminGrid.style.display = 'none';
-  if (sellerBanner) sellerBanner.style.display = 'none';
+  const totalItems = products.reduce((acc, p) => acc + (Number(p.qty) || 0), 0);
+  const lowStockCount = products.filter(p => {
+    const q = Number(p.qty) || 0;
+    return q > 0 && q <= 2;
+  }).length;
+  const outOfStockCount = products.filter(p => (Number(p.qty) || 0) <= 0).length;
+  const totalCost = products.reduce((acc, p) => acc + ((Number(p.cost) || 0) * (Number(p.qty) || 0)), 0);
+  const totalSaleVal = products.reduce((acc, p) => acc + ((Number(p.price) || 0) * (Number(p.qty) || 0)), 0);
 
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  const totalUnits = products.reduce((a, p) => a + (Number(p.qty) || 0), 0);
-  const lowCount = products.filter(p => (Number(p.qty) || 0) <= 2).length;
-  const outCount = products.filter(p => (Number(p.qty) || 0) === 0).length;
-
-  setTxt('gmStockOpTotalUnits', totalUnits);
+  setTxt('stockMetricUnits', `${totalItems} un.`);
+  setTxt('stockMetricSkus', `${products.length} itens`);
+  setTxt('stockMetricCost', canManageStock ? fmtBRL(totalCost) : 'Restrito');
+  setTxt('stockMetricSale', canManageStock ? fmtBRL(totalSaleVal) : 'Restrito');
+  setTxt('stockMetricProfit', canManageStock ? fmtBRL(totalSaleVal - totalCost) : 'Restrito');
+  setTxt('gmStockOpTotalUnits', totalItems);
   setTxt('gmStockOpSkus', products.length);
-  setTxt('gmStockOpLow', lowCount);
-  setTxt('gmStockOpOut', outCount);
+  setTxt('gmStockOpLow', lowStockCount);
+  setTxt('gmStockOpOut', outOfStockCount);
 
-  const term = (document.getElementById('stockSearchInput')?.value || '').toLowerCase();
+  const term = (document.getElementById('stockSearchInput')?.value || '').toLowerCase().trim();
   const cond = document.getElementById('stockConditionFilter')?.value || 'todos';
-  const avail = document.getElementById('stockAvailabilityFilter')?.value || 'todos';
-
-  const filtered = products.filter(p => {
-    const qtyNum = Number(p.qty) || 0;
-    const costNum = Number(p.cost) || 0;
-    const hasSup = Boolean(p.supplier && String(p.supplier).trim() && String(p.supplier).trim().toLowerCase() !== 'sem fornecedor');
-    const isDecant = isDecantProduct(p);
-    const isExpAlert = isExpiringOrExpiredProduct(p);
-
-    const matchTerm =
-      String(p.name || '').toLowerCase().includes(term)
-      || String(p.supplier || '').toLowerCase().includes(term)
-      || String(p.id || '').toLowerCase().includes(term)
-      || String(p.battery || '').toLowerCase().includes(term);
-
-    const matchCond = cond === 'todos' || p.condition === cond;
-    const matchAvail = avail === 'todos' || (avail === 'disponivel' && qtyNum > 0) || (avail === 'esgotado' && qtyNum === 0);
-    const matchOnlyInStock = stockOnlyInStockFilter !== 'yes' || qtyNum > 0;
-    const matchLow = stockLowStockFilter !== 'yes' || qtyNum <= 2;
-    const matchSup = stockSupplierFilter === 'all'
-      || (stockSupplierFilter === 'yes' && hasSup)
-      || (stockSupplierFilter === 'no' && !hasSup);
-    const matchFormat = stockFormatFilter === 'all'
-      || (stockFormatFilter === 'decant' && isDecant)
-      || (stockFormatFilter === 'bottle' && !isDecant);
-    const matchExpiry = stockExpiryAlertFilter !== 'expiring' || isExpAlert;
-    const matchCost = stockHasCostFilter === 'all'
-      || (stockHasCostFilter === 'yes' && costNum > 0)
-      || (stockHasCostFilter === 'no' && costNum <= 0);
-
-    return matchTerm && matchCond && matchAvail && matchOnlyInStock && matchLow && matchSup && matchFormat && matchExpiry && matchCost;
-  });
-
   const tbody = document.getElementById('tableStockDetailed');
   if (!tbody) return;
 
+  const filtered = products.filter(p => {
+    const q = Number(p.qty) || 0;
+    const costVal = Number(p.cost) || 0;
+    const hasSup = Boolean(String(p.supplier || '').trim());
+    const isDecant = isDecantProduct(p);
+    const isExp = isExpiringOrExpiredProduct(p);
+
+    const matchTerm = !term
+      || p.name.toLowerCase().includes(term)
+      || (p.id || '').toLowerCase().includes(term)
+      || (p.supplier || '').toLowerCase().includes(term)
+      || (p.condition || '').toLowerCase().includes(term)
+      || (p.battery || '').toLowerCase().includes(term);
+
+    const matchCond = cond === 'todos' || p.condition === cond;
+    const matchFormat = stockFormatFilter === 'all'
+      || (stockFormatFilter === 'decant' && isDecant)
+      || (stockFormatFilter === 'bottle' && !isDecant);
+    const matchOnlyInStock = stockOnlyInStockFilter === 'no' || q > 0;
+    const matchSupplier = stockSupplierFilter === 'all'
+      || (stockSupplierFilter === 'yes' && hasSup)
+      || (stockSupplierFilter === 'no' && !hasSup);
+    const matchLowStock = stockLowStockFilter === 'no' || (q > 0 && q <= 2);
+    const matchExpiry = stockExpiryAlertFilter === 'all' || isExp;
+    const matchHasCost = stockHasCostFilter === 'all'
+      || (stockHasCostFilter === 'yes' && costVal > 0)
+      || (stockHasCostFilter === 'no' && costVal <= 0);
+
+    return matchTerm && matchCond && matchFormat && matchOnlyInStock && matchSupplier && matchLowStock && matchExpiry && matchHasCost;
+  });
+
   if (filtered.length === 0) {
     const colSpan = canManageStock ? 9 : 7;
-    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum item encontrado para os filtros selecionados.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum item encontrado para os filtros ativos.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = filtered.map(p => {
-    const costVal = Number(p.cost) || 0;
-    const priceVal = Number(p.price) || 0;
-    const qtyVal = Number(p.qty) || 0;
-    const margin = priceVal > 0 ? (((priceVal - costVal) / priceVal) * 100).toFixed(1) : '0.0';
-    const supLabel = p.supplier || 'Sem fornecedor';
-    const qtyBadgeClass = qtyVal === 0 ? 'badge-despesa' : (qtyVal <= 2 ? 'badge-warning' : 'badge-receita');
+    const qtyNum = Number(p.qty) || 0;
+    const costNum = Number(p.cost) || 0;
+    const priceNum = Number(p.price) || 0;
+    const profit = (priceNum - costNum) * qtyNum;
+    const qtyBadgeClass = qtyNum <= 0 ? 'badge-despesa' : (qtyNum <= 2 ? 'badge-warning' : 'badge-receita');
+    const expiryBadge = renderCriticalExpiryBadge(p.expiry);
+
+    const editAttr = canManageStock ? `style="cursor:pointer;" title="Clique para editar"` : '';
+    const onClickFn = (field) => canManageStock ? `onclick="quickEditProductField('${p.id}', '${field}')"` : '';
 
     return `
       <tr>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'id')"><strong>${p.id}</strong></td>
-        <td class="editable-cell">
-          <div>
-            <strong style="cursor:pointer;" onclick="openViewStockProductModal('${p.id}')">${p.name}</strong>
-            <div style="font-size:0.75rem; color:#9ca3af; margin-top:2px; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'supplier')">
-              Fornecedor: <span style="color:#e5e7eb;">${supLabel}</span>
-            </div>
+        <td ${editAttr} ${onClickFn('id')}><strong>${p.id}</strong></td>
+        <td ${editAttr} ${onClickFn('name')}>
+          <strong>${p.name}</strong>
+          <div style="font-size:0.73rem; color:var(--text-muted);">
+            Fornecedor: ${p.supplier ? `<strong>${p.supplier}</strong>` : '<span style="color:#fbbf24;">Sem fornecedor</span>'}
           </div>
         </td>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'battery')">
-          <span class="badge-tag badge-info">${p.condition || 'Produto'}</span>
-          ${p.battery ? `<small style="color:var(--text-muted); margin-left:4px;">${p.battery}</small>` : ''}
+        <td ${editAttr} ${onClickFn('battery')}>
+          <span class="badge-tag badge-info">${p.condition}</span>
+          ${p.battery ? `<small style="color:var(--text-muted); margin-left:4px;">• ${p.battery}</small>` : ''}
         </td>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'expiry')">${formatDateSafe(p.expiry)}</td>
-        ${canManageStock ? `<td class="editable-cell" onclick="quickEditProductField('${p.id}', 'cost')" style="color:#fbbf24;">${fmtBRL(costVal)}</td>` : ''}
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'price')"><strong style="color:#34d399;">${fmtBRL(priceVal)}</strong></td>
-        ${canManageStock ? `<td><span class="badge-tag badge-receita">${margin}%</span></td>` : ''}
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'qty')">
-          <span class="badge-tag ${qtyBadgeClass}">${qtyVal} un.</span>
-        </td>
-        <td style="white-space:nowrap;">
-          ${renderStockActionButton(p.id)}
-        </td>
+        <td ${editAttr} ${onClickFn('expiry')} style="white-space:nowrap;">${formatDateSafe(p.expiry)}${expiryBadge}</td>
+        ${canManageStock ? `<td class="admin-only-col" ${editAttr} ${onClickFn('cost')}>${fmtBRL(costNum)}</td>` : ''}
+        <td ${editAttr} ${onClickFn('price')}><strong style="color:#34d399;">${fmtBRL(priceNum)}</strong></td>
+        ${canManageStock ? `<td class="admin-only-col" style="color:${profit >= 0 ? '#34d399' : '#f87171'}; font-weight:700;">${fmtBRL(profit)}</td>` : ''}
+        <td ${editAttr} ${onClickFn('qty')}><span class="badge-tag ${qtyBadgeClass}">${qtyNum} un.</span></td>
+        <td style="white-space:nowrap;">${renderStockActionButton(p.id)}</td>
       </tr>
     `;
   }).join('');
 }
 
-window.adjustStockQty = function (id, delta) {
-  if (!hasStockAccess()) return showToast('Sem permissão para alterar o estoque.');
-  const prod = products.find(p => p.id === id);
-  if (!prod) return;
-  prod.qty = Math.max(0, prod.qty + delta);
-  pushStockToNuvemshop(prod); saveAll(); renderAll();
-};
-
 // ============================================================================
-// MÓDULO DE TROCAS E DEVOLUÇÕES
+// TROCAS, DEVOLUÇÕES & RMA
 // ============================================================================
 function initRmaModule() {
   const overlay = document.getElementById('rmaModalOverlay');
-  const form = document.getElementById('formNewRma');
-  const saleSel = document.getElementById('rmaSaleSelect');
-
-  document.getElementById('btnOpenNewRmaModal')?.addEventListener('click', () => {
-    form?.reset();
-    overlay.classList.add('active');
-  });
-
+  document.getElementById('btnOpenRmaModal')?.addEventListener('click', () => { document.getElementById('formNewRma')?.reset(); overlay.classList.add('active'); });
   document.getElementById('btnCloseRmaModal')?.addEventListener('click', () => overlay.classList.remove('active'));
   document.getElementById('btnCancelRmaModal')?.addEventListener('click', () => overlay.classList.remove('active'));
 
-  saleSel?.addEventListener('change', () => {
-    const s = sales.find(item => String(item.id) === String(saleSel.value));
-    if (s) {
-      document.getElementById('rmaClientName').value = s.client || '';
-      document.getElementById('rmaDeviceName').value = s.items || '';
-      document.getElementById('rmaAmountInput').value = Number(s.total || 0);
-    }
-  });
-
-  form?.addEventListener('submit', (e) => {
+  document.getElementById('formNewRma')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const itemName = document.getElementById('rmaDeviceName').value.trim();
-    const stockAction = document.getElementById('rmaStockActionSelect').value;
+    const saleId = document.getElementById('rmaSaleSelect').value;
+    const sale = sales.find(s => String(s.id) === String(saleId));
+    const client = document.getElementById('rmaClientName').value.trim().toUpperCase() || (sale ? sale.client : 'CLIENTE');
+    const productText = document.getElementById('rmaProductText').value.trim() || (sale ? sale.items : 'Fragrância');
+    const reason = document.getElementById('rmaReason').value;
+    const action = document.getElementById('rmaAction').value;
+    const returnToStock = document.getElementById('rmaReturnToStock').checked;
 
-    if (stockAction === 'retornar_estoque') {
-      const matchedProd = products.find(p => itemName.toLowerCase().includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(itemName.toLowerCase()));
-      if (matchedProd) {
-        matchedProd.qty += 1;
-        pushStockToNuvemshop(matchedProd);
-      }
+    if (returnToStock && sale && sale.items) {
+      const matchedProd = products.find(p => sale.items.toLowerCase().includes(p.name.toLowerCase()));
+      if (matchedProd) { matchedProd.qty += 1; pushStockToNuvemshop(matchedProd); }
     }
 
-    const newRma = {
-      cod: 'RMA-' + (201 + rmaList.length),
-      date: new Date().toLocaleDateString('pt-BR'),
-      saleId: saleSel.value || 'AVULSO',
-      clientName: document.getElementById('rmaClientName').value.trim().toUpperCase(),
-      deviceName: itemName,
-      type: document.getElementById('rmaTypeSelect').value,
-      stockAction,
-      amount: parseFloat(document.getElementById('rmaAmountInput').value) || 0,
-      reason: document.getElementById('rmaReasonInput').value.trim() || 'Troca solicitada pelo cliente',
-      status: 'Concluído'
-    };
-
-    rmaList.unshift(newRma);
-    saveAll();
-    renderAll();
-    overlay.classList.remove('active');
-    showToast(`Troca / Devolução ${newRma.cod} registrada!`);
+    rmaList.unshift({ id: 'RMA-' + (201 + rmaList.length), date: new Date().toLocaleDateString('pt-BR'), saleId: saleId || 'AVULSO', client, productText, reason, action, returnToStock, status: 'Concluído' });
+    saveAll(); renderRma(); overlay.classList.remove('active'); showToast('Ocorrência de troca/devolução registrada!');
   });
 }
 
 function renderRma() {
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('rmaMetricTotal', rmaList.length);
+  setTxt('rmaMetricRestocked', rmaList.filter(r => r.returnToStock).length);
+  setTxt('rmaMetricExchanges', rmaList.filter(r => r.action.includes('Troca')).length);
   const tbody = document.getElementById('tableRmaList');
-  if (tbody) tbody.innerHTML = rmaList.map(r => `
-    <tr>
-      <td><strong>${r.cod}</strong></td>
-      <td>${r.date}</td>
-      <td>${r.clientName}</td>
-      <td>${r.deviceName}</td>
-      <td>${r.type}</td>
-      <td>${r.stockAction === 'retornar_estoque' ? '<span class="badge-tag badge-info">Retornou +1</span>' : '<span class="badge-tag badge-warning">Avaria</span>'}</td>
-      <td>${fmtBRL(r.amount)}</td>
-      <td><span class="badge-tag badge-receita">${r.status}</span></td>
-      <td><small style="color:var(--text-muted);">${r.reason || '-'}</small></td>
-    </tr>
-  `).join('');
+  if (tbody) tbody.innerHTML = rmaList.map(r => `<tr><td><strong>${r.id}</strong></td><td>${r.date}</td><td>${r.saleId !== 'AVULSO' ? `#${r.saleId}` : 'Avulso'}</td><td><strong>${r.client}</strong></td><td>${r.productText}</td><td><span class="badge-tag badge-warning">${r.reason}</span></td><td><span class="badge-tag badge-info">${r.action}</span></td><td>${r.returnToStock ? '<span class="badge-tag badge-receita">Sim</span>' : '<span class="badge-tag badge-despesa">Não</span>'}</td><td><span class="badge-tag badge-receita">${r.status}</span></td></tr>`).join('');
 }
 
 // ============================================================================
-// MÓDULO FINANCEIRO COMPLETO (CUSTO REAL + CANAIS + FORNECEDORES + COMISSÕES)
+// MÓDULO FINANCEIRO (COM VISÃO GERAL, RESUMO CANAIS, HISTÓRICO DE VENDAS, EDITAR & VISUALIZAR)
 // ============================================================================
-function findProductForSaleItem(item) {
-  if (!item) return null;
-  if (item.productId) {
-    const byId = products.find(p => String(p.id) === String(item.productId));
-    if (byId) return byId;
-  }
-  const cleanName = String(item.name || '').toLowerCase().trim();
-  if (!cleanName) return null;
-  const exact = products.find(p => String(p.name || '').toLowerCase().trim() === cleanName);
-  if (exact) return exact;
-  return products.find(p => {
-    const pName = String(p.name || '').toLowerCase().trim();
-    return pName && (cleanName.includes(pName) || pName.includes(cleanName));
-  }) || null;
-}
-
-function calculateSaleRealCmv(sale) {
-  if (!sale) return 0;
-  const saleTotal = Number(sale.total || 0);
-  if (saleTotal <= 0) return 0;
-
-  const itemsList = Array.isArray(sale.rawItems) && sale.rawItems.length > 0
-    ? sale.rawItems
-    : parseSaleItemsStringToArray(sale.items);
-
-  if (itemsList.length === 0) {
-    return saleTotal * 0.55;
-  }
-
-  let realCostSum = 0;
-  let revenueWithoutCost = 0;
-
-  itemsList.forEach(it => {
-    const qty = Math.max(1, parseInt(it.qty, 10) || 1);
-    const matchedProd = findProductForSaleItem(it);
-    const unitCost = matchedProd ? Number(matchedProd.cost || 0) : 0;
-
-    if (matchedProd && unitCost > 0) {
-      realCostSum += unitCost * qty;
-    } else {
-      const unitPrice = Number(it.price || 0);
-      if (unitPrice > 0) {
-        revenueWithoutCost += unitPrice * qty;
-      } else {
-        revenueWithoutCost += saleTotal / itemsList.length;
-      }
-    }
-  });
-
-  const fallbackCost = revenueWithoutCost * 0.55;
-  return realCostSum + fallbackCost;
-}
-
-function getSaleSupplierSummary(sale) {
-  const itemsList = Array.isArray(sale?.rawItems) && sale.rawItems.length > 0
-    ? sale.rawItems
-    : parseSaleItemsStringToArray(sale?.items);
-
-  const suppliers = new Set();
-  itemsList.forEach(it => {
-    const prod = findProductForSaleItem(it);
-    const sup = String(prod?.supplier || '').trim();
-    if (sup && sup.toLowerCase() !== 'sem fornecedor') {
-      suppliers.add(sup);
-    }
-  });
-  return Array.from(suppliers);
-}
-
 function syncSalesToFinanceEntries() {
   if (!Array.isArray(finEntries)) finEntries = [];
-  if (!Array.isArray(sales)) return;
-
-  const activeSaleIds = new Set(sales.map(s => String(s.id)));
-  finEntries = finEntries.filter(f => !f.autoSaleId || activeSaleIds.has(String(f.autoSaleId)));
 
   sales.forEach(s => {
-    const saleKey = String(s.id);
-    const channelName = s.type || 'Venda Presencial';
-    const sellerName = String(s.seller || 'ADMIN').trim().toUpperCase();
-    const suppliers = getSaleSupplierSummary(s);
-    const supplierLabel = suppliers.length > 0 ? suppliers.join(', ') : 'Sem fornecedor';
-    const realCmv = calculateSaleRealCmv(s);
-    const saleAmount = Number(s.total || 0);
+    const autoId = `FIN-SALE-${s.id}`;
+    const channelLabel = s.type === 'Online / Nuvemshop' ? 'Online / Nuvemshop' : 'Venda Presencial';
+    const existing = finEntries.find(f => String(f.autoSaleId || '') === String(s.id) || f.id === autoId);
 
-    let revEntry = finEntries.find(f => f.autoSaleId === saleKey && f.autoKind === 'receita');
-    if (!revEntry) {
-      revEntry = {
-        cod: `FIN-V${saleKey}`,
-        autoSaleId: saleKey,
-        autoKind: 'receita',
-        date: String(s.date || '').split(' ')[0] || new Date().toLocaleDateString('pt-BR'),
-        desc: `Venda #${saleKey} — ${s.client || 'CONSUMIDOR BALCÃO'} (${s.items || 'Itens'})`,
-        category: `Venda (${channelName})`,
-        type: 'Receita',
-        amount: saleAmount,
-        status: 'Pago',
-        channel: channelName,
-        seller: sellerName,
-        supplier: supplierLabel,
-        notes: `Integração automática da venda #${saleKey}`
-      };
-      finEntries.unshift(revEntry);
+    if (existing) {
+      existing.desc = `Venda #${s.id} — ${s.client} (${s.items || 'Itens'})`;
+      existing.type = 'Receita';
+      existing.category = channelLabel;
+      existing.channel = channelLabel;
+      existing.seller = s.seller || 'ADMIN';
+      existing.payment = s.payment || 'Pix';
+      existing.date = s.isoDate || (s.date ? s.date.split(' ')[0] : new Date().toISOString().split('T')[0]);
+      existing.amount = Number(s.total || 0);
+      existing.status = 'Pago';
     } else {
-      revEntry.desc = `Venda #${saleKey} — ${s.client || 'CONSUMIDOR BALCÃO'} (${s.items || 'Itens'})`;
-      revEntry.category = `Venda (${channelName})`;
-      revEntry.amount = saleAmount;
-      revEntry.channel = channelName;
-      revEntry.seller = sellerName;
-      revEntry.supplier = supplierLabel;
-    }
-
-    let cmvEntry = finEntries.find(f => f.autoSaleId === saleKey && f.autoKind === 'cmv');
-    if (realCmv > 0) {
-      if (!cmvEntry) {
-        cmvEntry = {
-          cod: `FIN-C${saleKey}`,
-          autoSaleId: saleKey,
-          autoKind: 'cmv',
-          date: String(s.date || '').split(' ')[0] || new Date().toLocaleDateString('pt-BR'),
-          desc: `Custo Mercadoria (CMV) — Venda #${saleKey}`,
-          category: 'CMV / Fornecedores',
-          type: 'Despesa',
-          amount: Number(realCmv.toFixed(2)),
-          status: 'Pendente',
-          channel: channelName,
-          seller: sellerName,
-          supplier: supplierLabel,
-          notes: `Custo real puxado do estoque (${supplierLabel})`
-        };
-        finEntries.unshift(cmvEntry);
-      } else {
-        cmvEntry.desc = `Custo Mercadoria (CMV) — Venda #${saleKey}`;
-        cmvEntry.amount = Number(realCmv.toFixed(2));
-        cmvEntry.channel = channelName;
-        cmvEntry.seller = sellerName;
-        cmvEntry.supplier = supplierLabel;
-      }
-    } else if (cmvEntry) {
-      finEntries = finEntries.filter(f => f !== cmvEntry);
+      finEntries.unshift({
+        id: autoId,
+        autoSaleId: String(s.id),
+        desc: `Venda #${s.id} — ${s.client} (${s.items || 'Itens'})`,
+        type: 'Receita',
+        category: channelLabel,
+        channel: channelLabel,
+        seller: s.seller || 'ADMIN',
+        payment: s.payment || 'Pix',
+        date: s.isoDate || (s.date ? s.date.split(' ')[0] : new Date().toISOString().split('T')[0]),
+        amount: Number(s.total || 0),
+        status: 'Pago'
+      });
     }
   });
+
+  const validSaleIds = new Set(sales.map(s => String(s.id)));
+  finEntries = finEntries.filter(f => !f.autoSaleId || validSaleIds.has(String(f.autoSaleId)));
 }
 
-function ensureFinanceSectionUi() {
-  const finSection = document.getElementById('financeiro');
-  if (!finSection) return;
-
-  if (!document.getElementById('gmFinanceToolbarCard')) {
-    const toolbar = document.createElement('div');
-    toolbar.id = 'gmFinanceToolbarCard';
-    toolbar.className = 'card-box';
-    toolbar.style.cssText = 'margin-bottom:0.9rem; display:flex; flex-direction:column; gap:0.75rem;';
-    toolbar.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem;">
-        <div>
-          <strong style="font-size:0.98rem;">Controle Financeiro, Canais, Fornecedores e Comissões</strong>
-          <div style="font-size:0.76rem; color:var(--text-muted);">Custo real dos produtos puxado automaticamente do estoque + lançamentos integrados.</div>
-        </div>
-        <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
-          <button type="button" id="btnOpenNewFinEntryModal" class="btn-primary"><i class="ph ph-plus"></i> Novo Lançamento</button>
-          <button type="button" id="btnResetFinanceFilters" class="btn-sm">Limpar Filtros</button>
-        </div>
-      </div>
-
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(165px, 1fr)); gap:0.6rem;">
-        <div class="form-group" style="margin:0;">
-          <label for="finSearchInput">Buscar lançamento:</label>
-          <input type="text" id="finSearchInput" placeholder="Descrição, código, cliente..." />
-        </div>
-        <div class="form-group" style="margin:0;">
-          <label for="finTypeFilterSelect">Tipo:</label>
-          <select id="finTypeFilterSelect">
-            <option value="todos">Todos</option>
-            <option value="Receita">Receita</option>
-            <option value="Despesa">Despesa</option>
-          </select>
-        </div>
-        <div class="form-group" style="margin:0;">
-          <label for="finStatusFilterSelect">Status:</label>
-          <select id="finStatusFilterSelect">
-            <option value="todos">Todos</option>
-            <option value="Pago">Pago</option>
-            <option value="Pendente">Pendente</option>
-          </select>
-        </div>
-        <div class="form-group" style="margin:0;">
-          <label for="finChannelFilterSelect">Canal de Venda:</label>
-          <select id="finChannelFilterSelect">
-            <option value="todos">Todos os canais</option>
-            <option value="Venda Presencial">Venda Presencial</option>
-            <option value="Online / Nuvemshop">Online / Nuvemshop</option>
-          </select>
-        </div>
-        <div class="form-group" style="margin:0;">
-          <label for="finChannelRankSort">Ranking Canais:</label>
-          <select id="finChannelRankSort">
-            <option value="revenue_desc">Mais venderam (R$)</option>
-            <option value="orders_desc">Mais pedidos (Qtd)</option>
-          </select>
-        </div>
-        <div class="form-group" style="margin:0;">
-          <label for="finSupplierFilterSelect">Fornecedor (A Pagar):</label>
-          <select id="finSupplierFilterSelect">
-            <option value="todos">Todos os fornecedores</option>
-          </select>
-        </div>
-        <div class="form-group" style="margin:0;">
-          <label for="finSellerFilterSelect">Vendedor:</label>
-          <select id="finSellerFilterSelect">
-            <option value="todos">Todos os vendedores</option>
-          </select>
-        </div>
-      </div>
-    `;
-
-    const tableWrap = finSection.querySelector('.table-responsive, .table-wrapper');
-    if (tableWrap) {
-      tableWrap.insertAdjacentElement('beforebegin', toolbar);
-    } else {
-      finSection.appendChild(toolbar);
-    }
-  }
-
-  if (!document.getElementById('gmFinanceInsightsGrid')) {
-    const insights = document.createElement('div');
-    insights.id = 'gmFinanceInsightsGrid';
-    insights.className = 'gm-fin-subgrid';
-    insights.innerHTML = `
-      <div class="card-box">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.55rem; gap:0.5rem; flex-wrap:wrap;">
-          <strong><i class="ph ph-storefront" style="color:#60a5fa;"></i> Canais Que Mais Venderam</strong>
-          <small style="color:var(--text-muted);">Clique para filtrar o canal</small>
-        </div>
-        <div id="finChannelsBreakdownList" style="display:flex; flex-direction:column; gap:0.45rem;"></div>
-      </div>
-
-      <div class="card-box">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.55rem; gap:0.5rem; flex-wrap:wrap;">
-          <strong><i class="ph ph-truck" style="color:#fbbf24;"></i> Quanto Tem a Pagar por Fornecedor</strong>
-          <strong id="finSupplierPayableHighlight" style="color:#fbbf24; font-size:0.9rem;">R$ 0,00</strong>
-        </div>
-        <div id="finSuppliersBreakdownList" style="display:flex; flex-direction:column; gap:0.45rem;"></div>
-      </div>
-
-      <div class="card-box" style="grid-column:1 / -1;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem; gap:0.6rem; flex-wrap:wrap;">
-          <strong><i class="ph ph-user-circle-gear" style="color:#34d399;"></i> Vendas por Vendedor & Comissão</strong>
-          <div style="display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;">
-            <select id="finCommissionSellerSelect" style="width:auto; min-width:165px;"></select>
-            <input type="number" id="finCommissionRateInput" min="0" max="100" step="0.5" placeholder="Comissão %" style="width:120px;" />
-            <button type="button" id="btnSaveSellerCommission" class="btn-sm btn-green"><i class="ph ph-check"></i> Salvar Comissão</button>
-            <button type="button" id="btnPostCommissionToFinance" class="btn-sm btn-blue"><i class="ph ph-receipt"></i> Lançar Despesa</button>
-          </div>
-        </div>
-        <div class="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>VENDEDOR</th>
-                <th>QTD VENDAS</th>
-                <th>TOTAL VENDIDO</th>
-                <th>COMISSÃO (%)</th>
-                <th>VALOR COMISSÃO</th>
-              </tr>
-            </thead>
-            <tbody id="tableFinSellerCommissions"></tbody>
-          </table>
-        </div>
-      </div>
-    `;
-
-    const tableWrap = finSection.querySelector('.table-responsive, .table-wrapper');
-    if (tableWrap) {
-      tableWrap.insertAdjacentElement('beforebegin', insights);
-    } else {
-      finSection.appendChild(insights);
-    }
-  }
-
-  ensureFinanceModals();
-}
-
-function ensureFinanceModals() {
+function ensureFinanceEntryModal() {
   if (!document.getElementById('finEntryModalOverlay')) {
     const overlay = document.createElement('div');
     overlay.id = 'finEntryModalOverlay';
@@ -4812,36 +5188,58 @@ function ensureFinanceModals() {
     overlay.innerHTML = `
       <div class="modal-content gm-view-modal-card">
         <div class="modal-header">
-          <h3><i class="ph ph-currency-circle-dollar" style="color:#34d399;"></i> <span id="finEntryModalTitle">Novo Lançamento Financeiro</span></h3>
+          <h3><i class="ph ph-wallet" style="color:#34d399;"></i> <span id="finEntryModalTitle">Novo Lançamento Financeiro</span></h3>
           <button type="button" id="btnCloseFinEntryModal" class="btn-close">&times;</button>
         </div>
         <form id="formFinEntry" class="modal-body">
-          <input type="hidden" id="finEditCod" />
+          <input type="hidden" id="finEditEntryId" />
           <div class="gm-modal-section-card">
             <div class="gm-modal-section-title">Dados do Lançamento</div>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0.6rem; margin-bottom:0.6rem;">
-              <div class="form-group" style="margin:0;">
-                <label for="finEntryDesc">Descrição:</label>
-                <input type="text" id="finEntryDesc" required placeholder="Ex: Pagamento lote fornecedor X" />
-              </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:0.6rem;">
               <div class="form-group" style="margin:0;">
                 <label for="finEntryType">Tipo:</label>
                 <select id="finEntryType">
-                  <option value="Receita">Receita</option>
-                  <option value="Despesa">Despesa</option>
+                  <option value="Receita">Receita (Entrada)</option>
+                  <option value="Despesa">Despesa (Saída)</option>
                 </select>
               </div>
               <div class="form-group" style="margin:0;">
-                <label for="finEntryCategory">Categoria:</label>
-                <input type="text" id="finEntryCategory" value="Operacional" placeholder="Ex: Fornecedores, Comissão..." />
+                <label for="finEntryDesc">Descrição:</label>
+                <input type="text" id="finEntryDesc" required placeholder="Ex: Reposição frascos / decants..." />
               </div>
               <div class="form-group" style="margin:0;">
-                <label for="finEntryAmount">Valor (R$):</label>
-                <input type="number" id="finEntryAmount" step="0.01" min="0.01" required />
+                <label for="finEntryCategory">Categoria:</label>
+                <input type="text" id="finEntryCategory" placeholder="Ex: Estoque, Marketing, Motoboy..." />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="finEntryChannel">Canal:</label>
+                <select id="finEntryChannel">
+                  <option value="Venda Presencial">Venda Presencial</option>
+                  <option value="Online / Nuvemshop">Online / Nuvemshop</option>
+                  <option value="Operacional">Operacional</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="finEntrySeller">Responsável / Vendedor:</label>
+                <input type="text" id="finEntrySeller" placeholder="ADMIN" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="finEntryPayment">Pagamento:</label>
+                <select id="finEntryPayment">
+                  <option value="Pix">Pix</option>
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Crédito">Crédito</option>
+                  <option value="Débito">Débito</option>
+                  <option value="Boleto / Transferência">Boleto / Transferência</option>
+                </select>
               </div>
               <div class="form-group" style="margin:0;">
                 <label for="finEntryDate">Data:</label>
-                <input type="text" id="finEntryDate" placeholder="DD/MM/AAAA" />
+                <input type="date" id="finEntryDate" required />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label for="finEntryAmount">Valor (R$):</label>
+                <input type="number" id="finEntryAmount" step="0.01" min="0" required />
               </div>
               <div class="form-group" style="margin:0;">
                 <label for="finEntryStatus">Status:</label>
@@ -4850,18 +5248,6 @@ function ensureFinanceModals() {
                   <option value="Pendente">Pendente</option>
                 </select>
               </div>
-              <div class="form-group" style="margin:0;">
-                <label for="finEntrySupplier">Fornecedor (opcional):</label>
-                <input type="text" id="finEntrySupplier" placeholder="Nome do fornecedor" />
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label for="finEntrySeller">Vendedor (opcional):</label>
-                <input type="text" id="finEntrySeller" placeholder="Nome do vendedor" />
-              </div>
-            </div>
-            <div class="form-group" style="margin:0;">
-              <label for="finEntryNotes">Observações:</label>
-              <input type="text" id="finEntryNotes" placeholder="Detalhes adicionais..." />
             </div>
           </div>
           <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.85rem;">
@@ -4882,36 +5268,50 @@ function ensureFinanceModals() {
 
     document.getElementById('formFinEntry')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      const editCod = document.getElementById('finEditCod').value;
-      const payload = {
-        desc: document.getElementById('finEntryDesc').value.trim(),
-        type: document.getElementById('finEntryType').value,
-        category: document.getElementById('finEntryCategory').value.trim() || 'Operacional',
-        amount: Math.max(0, parseFloat(document.getElementById('finEntryAmount').value) || 0),
-        date: document.getElementById('finEntryDate').value.trim() || new Date().toLocaleDateString('pt-BR'),
-        status: document.getElementById('finEntryStatus').value,
-        supplier: document.getElementById('finEntrySupplier').value.trim(),
-        seller: document.getElementById('finEntrySeller').value.trim().toUpperCase(),
-        notes: document.getElementById('finEntryNotes').value.trim()
-      };
+      const editId = document.getElementById('finEditEntryId').value;
+      const desc = document.getElementById('finEntryDesc').value.trim();
+      const type = document.getElementById('finEntryType').value;
+      const category = document.getElementById('finEntryCategory').value.trim() || 'Geral';
+      const channel = document.getElementById('finEntryChannel').value;
+      const seller = document.getElementById('finEntrySeller').value.trim().toUpperCase() || 'ADMIN';
+      const payment = document.getElementById('finEntryPayment').value;
+      const date = document.getElementById('finEntryDate').value;
+      const amount = parseFloat(document.getElementById('finEntryAmount').value) || 0;
+      const status = document.getElementById('finEntryStatus').value;
 
-      if (editCod) {
-        const existing = finEntries.find(f => f.cod === editCod);
-        if (existing) {
-          Object.assign(existing, payload);
+      if (editId) {
+        const entry = finEntries.find(item => item.id === editId);
+        if (entry) {
+          Object.assign(entry, { desc, type, category, channel, seller, payment, date, amount, status });
+          if (entry.autoSaleId) {
+            const linkedSale = sales.find(s => String(s.id) === String(entry.autoSaleId));
+            if (linkedSale) {
+              linkedSale.total = amount;
+              linkedSale.payment = payment;
+              linkedSale.seller = seller;
+              linkedSale.type = channel === 'Online / Nuvemshop' ? 'Online / Nuvemshop' : 'Venda Presencial';
+            }
+          }
         }
         showToast('Lançamento financeiro atualizado!');
       } else {
         finEntries.unshift({
-          cod: 'FIN-' + String(finEntries.length + 1).padStart(3, '0'),
-          ...payload
+          id: 'FIN-' + Date.now().toString().slice(-6),
+          desc,
+          type,
+          category,
+          channel,
+          seller,
+          payment,
+          date,
+          amount,
+          status
         });
-        showToast('Lançamento financeiro adicionado!');
+        showToast('Lançamento financeiro salvo!');
       }
 
       persistLocalOnly();
-      CloudSyncEngine.pushState({ products, clients, sales, warranties, quotes, finEntries });
-      renderFinance();
+      renderAll();
       closeFn();
     });
   }
@@ -4923,566 +5323,386 @@ function ensureFinanceModals() {
     viewOverlay.innerHTML = `
       <div class="modal-content gm-view-modal-card">
         <div class="modal-header">
-          <h3><i class="ph ph-eye"></i> Detalhes do Lançamento <span id="viewFinHeaderCod"></span></h3>
-          <button type="button" id="btnCloseViewFinModal" class="btn-close">&times;</button>
+          <h3><i class="ph ph-eye"></i> Detalhes do Lançamento <span id="viewFinEntryHeaderId"></span></h3>
+          <button type="button" id="btnCloseViewFinEntryModal" class="btn-close">&times;</button>
         </div>
-        <div id="viewFinModalBody" class="modal-body"></div>
+        <div id="viewFinEntryModalBody" class="modal-body"></div>
         <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.85rem;">
-          <button type="button" id="btnCloseViewFinModalFooter" class="btn-sm">Fechar</button>
+          <button type="button" id="btnViewFinEntrySwitchToEdit" class="btn-primary"><i class="ph ph-pencil-simple"></i> Editar</button>
+          <button type="button" id="btnCloseViewFinEntryModalFooter" class="btn-sm">Fechar</button>
         </div>
       </div>
     `;
     document.body.appendChild(viewOverlay);
+
     const closeView = () => viewOverlay.classList.remove('active');
-    document.getElementById('btnCloseViewFinModal')?.addEventListener('click', closeView);
-    document.getElementById('btnCloseViewFinModalFooter')?.addEventListener('click', closeView);
+    document.getElementById('btnCloseViewFinEntryModal')?.addEventListener('click', closeView);
+    document.getElementById('btnCloseViewFinEntryModalFooter')?.addEventListener('click', closeView);
     viewOverlay.addEventListener('click', (e) => {
       if (e.target === viewOverlay) closeView();
     });
   }
 }
 
-function initFinanceModule() {
-  ensureFinanceSectionUi();
-
-  document.getElementById('btnOpenNewFinEntryModal')?.addEventListener('click', () => {
-    document.getElementById('finEditCod').value = '';
-    document.getElementById('finEntryModalTitle').textContent = 'Novo Lançamento Financeiro';
-    document.getElementById('formFinEntry')?.reset();
-    document.getElementById('finEntryDate').value = new Date().toLocaleDateString('pt-BR');
-    document.getElementById('finEntryStatus').value = 'Pago';
-    document.getElementById('finEntryModalOverlay')?.classList.add('active');
-  });
-
-  document.getElementById('finSearchInput')?.addEventListener('input', renderFinance);
-
-  document.getElementById('finTypeFilterSelect')?.addEventListener('change', (e) => {
-    finTypeFilter = e.target.value || 'todos';
-    renderFinance();
-  });
-
-  document.getElementById('finStatusFilterSelect')?.addEventListener('change', (e) => {
-    finStatusFilter = e.target.value || 'todos';
-    renderFinance();
-  });
-
-  document.getElementById('finChannelFilterSelect')?.addEventListener('change', (e) => {
-    finChannelFilter = e.target.value || 'todos';
-    renderFinance();
-  });
-
-  document.getElementById('finChannelRankSort')?.addEventListener('change', (e) => {
-    finChannelSort = e.target.value || 'revenue_desc';
-    renderFinance();
-  });
-
-  document.getElementById('finSupplierFilterSelect')?.addEventListener('change', (e) => {
-    finSupplierFilter = e.target.value || 'todos';
-    renderFinance();
-  });
-
-  document.getElementById('finSellerFilterSelect')?.addEventListener('change', (e) => {
-    finSellerFilter = e.target.value || 'todos';
-    renderFinance();
-  });
-
-  document.getElementById('btnResetFinanceFilters')?.addEventListener('click', () => {
-    finTypeFilter = 'todos';
-    finStatusFilter = 'todos';
-    finChannelFilter = 'todos';
-    finChannelSort = 'revenue_desc';
-    finSupplierFilter = 'todos';
-    finSellerFilter = 'todos';
-
-    const sInp = document.getElementById('finSearchInput');
-    if (sInp) sInp.value = '';
-    const tSel = document.getElementById('finTypeFilterSelect');
-    if (tSel) tSel.value = 'todos';
-    const stSel = document.getElementById('finStatusFilterSelect');
-    if (stSel) stSel.value = 'todos';
-    const chSel = document.getElementById('finChannelFilterSelect');
-    if (chSel) chSel.value = 'todos';
-    const rkSel = document.getElementById('finChannelRankSort');
-    if (rkSel) rkSel.value = 'revenue_desc';
-    const supSel = document.getElementById('finSupplierFilterSelect');
-    if (supSel) supSel.value = 'todos';
-    const selSel = document.getElementById('finSellerFilterSelect');
-    if (selSel) selSel.value = 'todos';
-
-    renderFinance();
-  });
-
-  document.getElementById('finCommissionSellerSelect')?.addEventListener('change', (e) => {
-    const sellerKey = e.target.value;
-    const rateInput = document.getElementById('finCommissionRateInput');
-    if (rateInput && sellerKey) {
-      rateInput.value = sellerCommissionRates[sellerKey] ?? '';
-    }
-  });
-
-  document.getElementById('btnSaveSellerCommission')?.addEventListener('click', () => {
-    const sellerKey = document.getElementById('finCommissionSellerSelect')?.value || '';
-    const rateVal = parseFloat(document.getElementById('finCommissionRateInput')?.value);
-    if (!sellerKey) return showToast('Selecione um vendedor.');
-    if (Number.isNaN(rateVal) || rateVal < 0 || rateVal > 100) {
-      return showToast('Informe uma comissão válida entre 0% e 100%.');
-    }
-    sellerCommissionRates[sellerKey] = rateVal;
-    persistLocalOnly();
-    renderFinance();
-    showToast(`Comissão de ${rateVal}% salva para ${sellerKey}!`);
-  });
-
-  document.getElementById('btnPostCommissionToFinance')?.addEventListener('click', () => {
-    const sellerKey = document.getElementById('finCommissionSellerSelect')?.value || '';
-    if (!sellerKey) return showToast('Selecione um vendedor.');
-    const rate = Number(sellerCommissionRates[sellerKey] ?? parseFloat(document.getElementById('finCommissionRateInput')?.value) ?? 0);
-    if (rate <= 0) return showToast('Defina uma comissão maior que 0% antes de lançar.');
-
-    const sellerSalesTotal = sales
-      .filter(s => String(s.seller || 'ADMIN').trim().toUpperCase() === sellerKey)
-      .reduce((acc, s) => acc + Number(s.total || 0), 0);
-
-    const commissionAmount = Number(((sellerSalesTotal * rate) / 100).toFixed(2));
-    if (commissionAmount <= 0) return showToast('Vendedor sem vendas para gerar comissão.');
-
-    finEntries.unshift({
-      cod: 'FIN-COM-' + String(finEntries.length + 1).padStart(3, '0'),
-      date: new Date().toLocaleDateString('pt-BR'),
-      desc: `Comissão (${rate}%) — ${sellerKey}`,
-      category: 'Comissões',
-      type: 'Despesa',
-      amount: commissionAmount,
-      status: 'Pendente',
-      seller: sellerKey,
-      notes: `Calculada sobre ${fmtBRL(sellerSalesTotal)} em vendas`
-    });
-
-    persistLocalOnly();
-    CloudSyncEngine.pushState({ products, clients, sales, warranties, quotes, finEntries });
-    renderFinance();
-    showToast(`Despesa de comissão (${fmtBRL(commissionAmount)}) lançada para ${sellerKey}!`);
-  });
-}
-
-window.applyFinanceChannelQuickFilter = function (channelName) {
-  finChannelFilter = finChannelFilter === channelName ? 'todos' : channelName;
-  const sel = document.getElementById('finChannelFilterSelect');
-  if (sel) sel.value = finChannelFilter;
-  renderFinance();
+window.openNewFinEntryModal = function (defaultType = 'Despesa') {
+  ensureFinanceEntryModal();
+  document.getElementById('finEditEntryId').value = '';
+  document.getElementById('finEntryModalTitle').textContent = defaultType === 'Receita' ? 'Nova Receita' : 'Nova Despesa';
+  document.getElementById('formFinEntry')?.reset();
+  document.getElementById('finEntryType').value = defaultType;
+  document.getElementById('finEntryDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('finEntrySeller').value = (activeAccount?.displayName || activeAccount?.username || 'ADMIN').toUpperCase();
+  document.getElementById('finEntryStatus').value = 'Pago';
+  document.getElementById('finEntryModalOverlay')?.classList.add('active');
 };
 
-window.applyFinanceSupplierQuickFilter = function (supplierName) {
-  finSupplierFilter = finSupplierFilter === supplierName ? 'todos' : supplierName;
-  const sel = document.getElementById('finSupplierFilterSelect');
-  if (sel) sel.value = finSupplierFilter;
-  renderFinance();
+window.openEditFinEntryModal = function (entryId) {
+  ensureFinanceEntryModal();
+  const entry = finEntries.find(item => item.id === entryId);
+  if (!entry) return;
+
+  document.getElementById('finEditEntryId').value = entry.id;
+  document.getElementById('finEntryModalTitle').textContent = `Editar Lançamento (${entry.id})`;
+  document.getElementById('finEntryType').value = entry.type || 'Receita';
+  document.getElementById('finEntryDesc').value = entry.desc || '';
+  document.getElementById('finEntryCategory').value = entry.category || 'Geral';
+  document.getElementById('finEntryChannel').value = entry.channel || 'Venda Presencial';
+  document.getElementById('finEntrySeller').value = entry.seller || 'ADMIN';
+  document.getElementById('finEntryPayment').value = entry.payment || 'Pix';
+  document.getElementById('finEntryDate').value = entry.date || new Date().toISOString().split('T')[0];
+  document.getElementById('finEntryAmount').value = Number(entry.amount || 0);
+  document.getElementById('finEntryStatus').value = entry.status || 'Pago';
+  document.getElementById('finEntryModalOverlay')?.classList.add('active');
 };
 
-window.toggleFinanceEntryMenu = function (event, cod) {
+window.openViewFinEntryModal = function (entryId) {
+  ensureFinanceEntryModal();
+  const entry = finEntries.find(item => item.id === entryId);
+  if (!entry) return;
+
+  document.getElementById('viewFinEntryHeaderId').textContent = `(${entry.id})`;
+  document.getElementById('viewFinEntryModalBody').innerHTML = `
+    <div class="gm-view-grid">
+      <div class="gm-view-box"><small>Descrição</small><strong>${entry.desc}</strong></div>
+      <div class="gm-view-box"><small>Tipo</small><strong>${entry.type}</strong></div>
+      <div class="gm-view-box"><small>Categoria / Canal</small><strong>${entry.category || '-'} • ${entry.channel || '-'}</strong></div>
+      <div class="gm-view-box"><small>Data / Pagamento</small><strong>${formatDateSafe(entry.date)} • ${entry.payment || '-'}</strong></div>
+      <div class="gm-view-box"><small>Status</small><strong>${entry.status || 'Pago'}</strong></div>
+      <div class="gm-view-box"><small>Valor</small><strong style="color:${entry.type === 'Receita' ? '#34d399' : '#f87171'} !important;">${fmtBRL(entry.amount)}</strong></div>
+    </div>
+  `;
+
+  const btnEdit = document.getElementById('btnViewFinEntrySwitchToEdit');
+  if (btnEdit) {
+    btnEdit.onclick = () => {
+      document.getElementById('viewFinEntryModalOverlay')?.classList.remove('active');
+      openEditFinEntryModal(entry.id);
+    };
+  }
+
+  document.getElementById('viewFinEntryModalOverlay')?.classList.add('active');
+};
+
+window.deleteFinEntryRecord = function (entryId) {
+  const entry = finEntries.find(item => item.id === entryId);
+  if (!entry) return;
+  if (!confirm(`Deseja realmente excluir o lançamento "${entry.desc}"?`)) return;
+  if (entry.autoSaleId) {
+    sales = sales.filter(s => String(s.id) !== String(entry.autoSaleId));
+  }
+  finEntries = finEntries.filter(item => item.id !== entryId);
+  saveAll();
+  renderAll();
+  showToast('Lançamento excluído.');
+};
+
+window.toggleFinEntryActionMenu = function (event, entryId) {
   event.stopPropagation();
-  const menuId = `gmFinMenu_${String(cod).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  const menuId = `gmFinMenu_${String(entryId).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
   let menu = document.getElementById(menuId);
   const wasOpen = menu?.classList.contains('open');
   closeAllGithubActionMenus();
-
-  const entry = finEntries.find(f => f.cod === cod);
-  const nextStatusLabel = entry?.status === 'Pago' ? 'Marcar Pendente' : 'Marcar Pago';
 
   if (!menu) {
     menu = document.createElement('div');
     menu.id = menuId;
     menu.className = 'gm-gh-dropdown';
+    menu.innerHTML = `
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewFinEntryModal('${entryId}')">
+        <i class="ph ph-eye" style="color:#34d399; font-size:15px;"></i>
+        <span>Visualizar</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditFinEntryModal('${entryId}')">
+        <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
+        <span>Editar</span>
+      </button>
+      <div class="gm-gh-dropdown-divider"></div>
+      <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteFinEntryRecord('${entryId}')">
+        <i class="ph ph-trash" style="font-size:15px;"></i>
+        <span>Apagar</span>
+      </button>
+    `;
     document.body.appendChild(menu);
   }
-
-  menu.innerHTML = `
-    <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewFinEntryModal('${cod}')">
-      <i class="ph ph-eye" style="color:#34d399; font-size:15px;"></i>
-      <span>Visualizar</span>
-    </button>
-    <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditFinEntryModal('${cod}')">
-      <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
-      <span>Editar</span>
-    </button>
-    <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); toggleFinEntryStatus('${cod}')">
-      <i class="ph ph-check-circle" style="color:#fbbf24; font-size:15px;"></i>
-      <span>${nextStatusLabel}</span>
-    </button>
-    <div class="gm-gh-dropdown-divider"></div>
-    <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteFinEntry('${cod}')">
-      <i class="ph ph-trash" style="font-size:15px;"></i>
-      <span>Apagar</span>
-    </button>
-  `;
 
   if (!wasOpen) {
     positionGithubMenu(menu, event.currentTarget);
   }
 };
 
-window.openViewFinEntryModal = function (cod) {
-  ensureFinanceModals();
-  const f = finEntries.find(item => item.cod === cod);
-  if (!f) return;
-  document.getElementById('viewFinHeaderCod').textContent = `(${f.cod})`;
-  document.getElementById('viewFinModalBody').innerHTML = `
-    <div class="gm-view-grid">
-      <div class="gm-view-box"><small>Código</small><strong>${f.cod}</strong></div>
-      <div class="gm-view-box"><small>Data</small><strong>${f.date || '-'}</strong></div>
-      <div class="gm-view-box"><small>Tipo</small><strong>${f.type}</strong></div>
-      <div class="gm-view-box"><small>Categoria</small><strong>${f.category || '-'}</strong></div>
-      <div class="gm-view-box"><small>Status</small><strong>${f.status || '-'}</strong></div>
-      <div class="gm-view-box"><small>Valor</small><strong style="color:${f.type === 'Receita' ? '#34d399' : '#f87171'} !important;">${fmtBRL(f.amount || 0)}</strong></div>
-      <div class="gm-view-box"><small>Fornecedor</small><strong>${f.supplier || '-'}</strong></div>
-      <div class="gm-view-box"><small>Vendedor</small><strong>${f.seller || '-'}</strong></div>
+function ensureFinanceOperationalSummaryPanels() {
+  const finSection = document.getElementById('financeiro');
+  if (!finSection || document.getElementById('gmFinanceOperationalPanels')) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'gmFinanceOperationalPanels';
+  panel.className = 'gm-fin-subgrid';
+  panel.innerHTML = `
+    <div class="card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #60a5fa; border-radius:10px; padding:0.85rem 1rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
+        <div>
+          <h4 style="margin:0; font-size:0.95rem;"><i class="ph ph-storefront" style="color:#60a5fa;"></i> Resumo por Canal de Venda</h4>
+          <small style="color:var(--text-muted);">Compare receita e pedidos entre Loja Física e Online / Nuvemshop</small>
+        </div>
+        <select id="gmFinChannelSortSelect" style="width:auto; padding:0.32rem 0.55rem; font-size:0.78rem;">
+          <option value="revenue_desc">Ordenar: Maior Receita</option>
+          <option value="orders_desc">Ordenar: Maior Nº Pedidos</option>
+        </select>
+      </div>
+      <div id="gmFinChannelBreakdownList"></div>
     </div>
-    <div class="gm-view-box">
-      <small>Descrição / Observações</small>
-      <strong>${f.desc || '-'}</strong>
-      <div style="font-size:0.8rem; color:#9ca3af; margin-top:0.35rem;">${f.notes || ''}</div>
+
+    <div class="card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #34d399; border-radius:10px; padding:0.85rem 1rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
+        <div>
+          <h4 style="margin:0; font-size:0.95rem;"><i class="ph ph-receipt" style="color:#34d399;"></i> Histórico de Vendas no Financeiro</h4>
+          <small style="color:var(--text-muted);">Acesso direto para visualizar, editar ou apagar vendas lançadas</small>
+        </div>
+        <span class="badge-tag badge-receita" id="gmFinSalesCountBadge">0 vendas</span>
+      </div>
+      <div id="gmFinRecentSalesList" style="max-height:230px; overflow-y:auto;"></div>
     </div>
   `;
-  document.getElementById('viewFinEntryModalOverlay')?.classList.add('active');
-};
 
-window.openEditFinEntryModal = function (cod) {
-  ensureFinanceModals();
-  const f = finEntries.find(item => item.cod === cod);
-  if (!f) return;
-  document.getElementById('finEditCod').value = f.cod;
-  document.getElementById('finEntryModalTitle').textContent = `Editar Lançamento (${f.cod})`;
-  document.getElementById('finEntryDesc').value = f.desc || '';
-  document.getElementById('finEntryType').value = f.type || 'Despesa';
-  document.getElementById('finEntryCategory').value = f.category || 'Operacional';
-  document.getElementById('finEntryAmount').value = Number(f.amount || 0);
-  document.getElementById('finEntryDate').value = f.date || '';
-  document.getElementById('finEntryStatus').value = f.status || 'Pendente';
-  document.getElementById('finEntrySupplier').value = f.supplier || '';
-  document.getElementById('finEntrySeller').value = f.seller || '';
-  document.getElementById('finEntryNotes').value = f.notes || '';
-  document.getElementById('finEntryModalOverlay')?.classList.add('active');
-};
+  const tableEl = document.getElementById('tableFinanceEntries')?.closest('.table-responsive, table');
+  if (tableEl) {
+    tableEl.parentNode.insertBefore(panel, tableEl);
+  } else {
+    finSection.appendChild(panel);
+  }
 
-window.toggleFinEntryStatus = function (cod) {
-  const f = finEntries.find(item => item.cod === cod);
-  if (!f) return;
-  f.status = f.status === 'Pago' ? 'Pendente' : 'Pago';
-  persistLocalOnly();
-  CloudSyncEngine.pushState({ products, clients, sales, warranties, quotes, finEntries });
-  renderFinance();
-  showToast(`Status de ${f.cod} alterado para ${f.status}.`);
-};
+  document.getElementById('gmFinChannelSortSelect')?.addEventListener('change', (e) => {
+    finChannelSort = e.target.value || 'revenue_desc';
+    renderFinance();
+  });
+}
 
-window.deleteFinEntry = function (cod) {
-  const f = finEntries.find(item => item.cod === cod);
-  if (!f) return;
-  if (!confirm(`Deseja remover o lançamento ${f.cod}?`)) return;
-  finEntries = finEntries.filter(item => item.cod !== cod);
-  persistLocalOnly();
-  CloudSyncEngine.pushState({ products, clients, sales, warranties, quotes, finEntries });
-  renderFinance();
-  showToast(`Lançamento ${cod} removido.`);
-};
+function initFinanceModule() {
+  ensureFinanceEntryModal();
+  ensureFinanceOperationalSummaryPanels();
+
+  const openBtn = document.getElementById('btnOpenFinEntryModal');
+  if (openBtn) {
+    openBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      openNewFinEntryModal('Despesa');
+    }, true);
+  }
+
+  document.getElementById('finSearchInput')?.addEventListener('input', renderFinance);
+  document.getElementById('finTypeFilter')?.addEventListener('change', (e) => {
+    finTypeFilter = e.target.value || 'todos';
+    renderFinance();
+  });
+  document.getElementById('finStatusFilter')?.addEventListener('change', (e) => {
+    finStatusFilter = e.target.value || 'todos';
+    renderFinance();
+  });
+}
 
 function renderFinance() {
-  ensureFinanceSectionUi();
   syncSalesToFinanceEntries();
+  ensureFinanceEntryModal();
+  ensureFinanceOperationalSummaryPanels();
+
+  const totalReceitas = finEntries.filter(f => f.type === 'Receita').reduce((acc, f) => acc + Number(f.amount || 0), 0);
+  const totalDespesas = finEntries.filter(f => f.type === 'Despesa').reduce((acc, f) => acc + Number(f.amount || 0), 0);
+  const pendentesVal = finEntries.filter(f => f.status === 'Pendente').reduce((acc, f) => acc + Number(f.amount || 0), 0);
+  const saldoLiquido = totalReceitas - totalDespesas;
 
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('finMetricReceitas', fmtBRL(totalReceitas));
+  setTxt('finMetricDespesas', fmtBRL(totalDespesas));
+  setTxt('finMetricSaldo', fmtBRL(saldoLiquido));
+  setTxt('finMetricPendentes', fmtBRL(pendentesVal));
 
-  // Atualiza selects de Fornecedor e Vendedor dinamicamente
-  const supplierSet = new Set();
-  products.forEach(p => {
-    const s = String(p.supplier || '').trim();
-    if (s && s.toLowerCase() !== 'sem fornecedor') supplierSet.add(s);
-  });
-  finEntries.forEach(f => {
-    if (f.supplier) {
-      String(f.supplier).split(',').map(x => x.trim()).filter(Boolean).forEach(s => {
-        if (s.toLowerCase() !== 'sem fornecedor') supplierSet.add(s);
-      });
-    }
-  });
-  const supplierOptions = Array.from(supplierSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-
-  const supSelect = document.getElementById('finSupplierFilterSelect');
-  if (supSelect) {
-    supSelect.innerHTML = `<option value="todos">Todos os fornecedores</option>` +
-      supplierOptions.map(s => `<option value="${s}" ${finSupplierFilter === s ? 'selected' : ''}>${s}</option>`).join('');
-  }
-
-  const sellerSet = new Set(['ADMIN']);
-  sales.forEach(s => {
-    const vk = String(s.seller || 'ADMIN').trim().toUpperCase();
-    if (vk) sellerSet.add(vk);
-  });
-  finEntries.forEach(f => {
-    if (f.seller) sellerSet.add(String(f.seller).trim().toUpperCase());
-  });
-  const sellerOptions = Array.from(sellerSet).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-
-  const selFilterSelect = document.getElementById('finSellerFilterSelect');
-  if (selFilterSelect) {
-    selFilterSelect.innerHTML = `<option value="todos">Todos os vendedores</option>` +
-      sellerOptions.map(vk => `<option value="${vk}" ${finSellerFilter === vk ? 'selected' : ''}>${vk}</option>`).join('');
-  }
-
-  const commSellerSelect = document.getElementById('finCommissionSellerSelect');
-  const commRateInput = document.getElementById('finCommissionRateInput');
-  if (commSellerSelect) {
-    const currentSelected = finSellerFilter !== 'todos'
-      ? finSellerFilter
-      : (commSellerSelect.value || sellerOptions[0] || 'ADMIN');
-    commSellerSelect.innerHTML = sellerOptions.map(vk => `<option value="${vk}" ${vk === currentSelected ? 'selected' : ''}>${vk}</option>`).join('');
-    if (commRateInput && document.activeElement !== commRateInput) {
-      commRateInput.value = sellerCommissionRates[currentSelected] ?? '';
-    }
-  }
-
-  // Filtragem das vendas para métricas, canais e vendedores
-  const filteredSales = sales.filter(s => {
-    const ch = s.type || 'Venda Presencial';
-    const vk = String(s.seller || 'ADMIN').trim().toUpperCase();
-    const sups = getSaleSupplierSummary(s);
-
-    const matchChannel = finChannelFilter === 'todos' || ch === finChannelFilter;
-    const matchSeller = finSellerFilter === 'todos' || vk === finSellerFilter;
-    const matchSupplier = finSupplierFilter === 'todos' || sups.includes(finSupplierFilter);
-    return matchChannel && matchSeller && matchSupplier;
-  });
-
-  const grossRevenue = filteredSales.reduce((a, s) => a + Number(s.total || 0), 0);
-  const realCmvTotal = filteredSales.reduce((a, s) => a + calculateSaleRealCmv(s), 0);
-
-  // Filtragem dos lançamentos financeiros
-  const searchTerm = (document.getElementById('finSearchInput')?.value || '').toLowerCase().trim();
-  const filteredEntries = finEntries.filter(f => {
-    const matchType = finTypeFilter === 'todos' || f.type === finTypeFilter;
-    const matchStatus = finStatusFilter === 'todos' || f.status === finStatusFilter;
-    const matchChannel = finChannelFilter === 'todos' || !f.channel || f.channel === finChannelFilter;
-    const matchSeller = finSellerFilter === 'todos' || !f.seller || String(f.seller).toUpperCase() === finSellerFilter;
-    const matchSupplier = finSupplierFilter === 'todos' || (f.supplier && String(f.supplier).includes(finSupplierFilter));
-    const matchSearch = !searchTerm
-      || String(f.desc || '').toLowerCase().includes(searchTerm)
-      || String(f.cod || '').toLowerCase().includes(searchTerm)
-      || String(f.category || '').toLowerCase().includes(searchTerm)
-      || String(f.supplier || '').toLowerCase().includes(searchTerm);
-    return matchType && matchStatus && matchChannel && matchSeller && matchSupplier && matchSearch;
-  });
-
-  const extraExpenses = filteredEntries
-    .filter(f => f.type === 'Despesa' && f.autoKind !== 'cmv')
-    .reduce((a, f) => a + Number(f.amount || 0), 0);
-
-  const extraRevenues = filteredEntries
-    .filter(f => f.type === 'Receita' && f.autoKind !== 'receita')
-    .reduce((a, f) => a + Number(f.amount || 0), 0);
-
-  const totalGross = grossRevenue + extraRevenues;
-  const totalExpenses = realCmvTotal + extraExpenses;
-  const netProfit = totalGross - totalExpenses;
-
-  setTxt('finMetricGross', fmtBRL(totalGross));
-  setTxt('finMetricCmv', fmtBRL(realCmvTotal));
-  setTxt('finMetricExpenses', fmtBRL(extraExpenses));
-  setTxt('finMetricNetProfit', fmtBRL(netProfit));
-
-  // 1. Canais que mais venderam
-  const channelStats = new Map();
-  ['Venda Presencial', 'Online / Nuvemshop'].forEach(chName => {
-    channelStats.set(chName, { channel: chName, orders: 0, revenue: 0 });
-  });
-  sales.forEach(s => {
-    const chName = s.type || 'Venda Presencial';
-    const cur = channelStats.get(chName) || { channel: chName, orders: 0, revenue: 0 };
-    cur.orders += 1;
-    cur.revenue += Number(s.total || 0);
-    channelStats.set(chName, cur);
-  });
-
-  const rankedChannels = Array.from(channelStats.values()).sort((a, b) => {
-    if (finChannelSort === 'orders_desc') return b.orders - a.orders || b.revenue - a.revenue;
-    return b.revenue - a.revenue || b.orders - a.orders;
-  });
-
-  const channelsBox = document.getElementById('finChannelsBreakdownList');
-  if (channelsBox) {
-    channelsBox.innerHTML = rankedChannels.map((ch, idx) => {
-      const active = finChannelFilter === ch.channel;
-      return `
-        <div onclick="applyFinanceChannelQuickFilter('${ch.channel}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; padding:0.55rem 0.7rem; border-radius:8px; background:${active ? 'rgba(59,130,246,0.16)' : 'rgba(255,255,255,0.025)'}; border:1px solid ${active ? '#60a5fa' : '#252a34'};">
-          <div>
-            <span class="badge-tag ${idx === 0 ? 'badge-receita' : 'badge-info'}" style="margin-right:0.35rem;">#${idx + 1}</span>
-            <strong>${ch.channel}</strong>
-            <small style="color:var(--text-muted); margin-left:0.35rem;">(${ch.orders} pedido(s))</small>
-          </div>
-          <strong style="color:#34d399;">${fmtBRL(ch.revenue)}</strong>
-        </div>
-      `;
-    }).join('');
-  }
-
-  // 2. Quanto tem a pagar por Fornecedor
-  const supplierPayableMap = new Map();
-  supplierOptions.forEach(sup => {
-    supplierPayableMap.set(sup, { supplier: sup, stockCost: 0, pendingPayable: 0, paidTotal: 0 });
-  });
-
-  products.forEach(p => {
-    const sup = String(p.supplier || '').trim();
-    if (!sup || sup.toLowerCase() === 'sem fornecedor') return;
-    const cur = supplierPayableMap.get(sup) || { supplier: sup, stockCost: 0, pendingPayable: 0, paidTotal: 0 };
-    cur.stockCost += (Number(p.cost || 0) * Number(p.qty || 0));
-    supplierPayableMap.set(sup, cur);
-  });
-
-  finEntries.forEach(f => {
-    if (f.type !== 'Despesa' || !f.supplier) return;
-    const parts = String(f.supplier).split(',').map(x => x.trim()).filter(Boolean);
-    const share = parts.length > 0 ? Number(f.amount || 0) / parts.length : 0;
-    parts.forEach(sup => {
-      const cur = supplierPayableMap.get(sup) || { supplier: sup, stockCost: 0, pendingPayable: 0, paidTotal: 0 };
-      if (f.status === 'Pago') cur.paidTotal += share;
-      else cur.pendingPayable += share;
-      supplierPayableMap.set(sup, cur);
+  // Resumo por canal de venda
+  const channelBox = document.getElementById('gmFinChannelBreakdownList');
+  if (channelBox) {
+    const channelNames = ['Venda Presencial', 'Online / Nuvemshop'];
+    const stats = channelNames.map(chName => {
+      const chSales = sales.filter(s =>
+        chName === 'Online / Nuvemshop'
+          ? s.type === 'Online / Nuvemshop'
+          : s.type !== 'Online / Nuvemshop'
+      );
+      const rev = chSales.reduce((acc, s) => acc + Number(s.total || 0), 0);
+      const share = totalReceitas > 0 ? ((rev / totalReceitas) * 100).toFixed(1) : '0.0';
+      return { chName, count: chSales.length, rev, share };
     });
-  });
 
-  const supplierListArr = Array.from(supplierPayableMap.values())
-    .sort((a, b) => (b.pendingPayable + b.stockCost) - (a.pendingPayable + a.stockCost));
-
-  const totalPendingSuppliers = supplierListArr.reduce((a, s) => a + s.pendingPayable, 0);
-  setTxt('finSupplierPayableHighlight', `Pendente: ${fmtBRL(totalPendingSuppliers)}`);
-
-  const suppliersBox = document.getElementById('finSuppliersBreakdownList');
-  if (suppliersBox) {
-    if (supplierListArr.length === 0) {
-      suppliersBox.innerHTML = `<div style="font-size:0.8rem; color:var(--text-muted);">Nenhum fornecedor informado nos produtos ou despesas.</div>`;
+    if (finChannelSort === 'orders_desc') {
+      stats.sort((a, b) => b.count - a.count);
     } else {
-      suppliersBox.innerHTML = supplierListArr.map(s => {
-        const active = finSupplierFilter === s.supplier;
-        return `
-          <div onclick="applyFinanceSupplierQuickFilter('${s.supplier.replace(/'/g, "\\'")}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; padding:0.55rem 0.7rem; border-radius:8px; background:${active ? 'rgba(245,158,11,0.16)' : 'rgba(255,255,255,0.025)'}; border:1px solid ${active ? '#fbbf24' : '#252a34'};">
-            <div>
-              <strong>${s.supplier}</strong>
-              <div style="font-size:0.74rem; color:var(--text-muted);">Estoque vinculado: ${fmtBRL(s.stockCost)} • Pago: ${fmtBRL(s.paidTotal)}</div>
-            </div>
-            <strong style="color:#fbbf24;">A pagar: ${fmtBRL(s.pendingPayable)}</strong>
+      stats.sort((a, b) => b.rev - a.rev);
+    }
+
+    channelBox.innerHTML = stats.map(st => `
+      <div style="margin-bottom:0.65rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.84rem; margin-bottom:0.25rem;">
+          <strong>${st.chName} <small style="color:var(--text-muted);">(${st.count} pedidos)</small></strong>
+          <span style="color:#34d399; font-weight:700;">${fmtBRL(st.rev)} (${st.share}%)</span>
+        </div>
+        <div style="height:7px; background:rgba(255,255,255,0.07); border-radius:999px; overflow:hidden;">
+          <div style="height:100%; width:${Math.min(100, parseFloat(st.share) || 0)}%; background:${st.chName === 'Online / Nuvemshop' ? '#a5b4fc' : '#60a5fa'};"></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Histórico de vendas integrado ao Financeiro
+  const recentSalesBox = document.getElementById('gmFinRecentSalesList');
+  setTxt('gmFinSalesCountBadge', `${sales.length} venda(s)`);
+  if (recentSalesBox) {
+    if (sales.length === 0) {
+      recentSalesBox.innerHTML = `<div style="font-size:0.82rem; color:var(--text-muted);">Nenhuma venda lançada ainda.</div>`;
+    } else {
+      recentSalesBox.innerHTML = sales.slice(0, 8).map(s => `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; padding:0.5rem 0.6rem; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); margin-bottom:0.4rem;">
+          <div style="min-width:0;">
+            <div><strong>#${s.id}</strong> • <strong>${s.client}</strong></div>
+            <div style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.date} • ${s.items}</div>
           </div>
-        `;
-      }).join('');
+          <div style="display:flex; align-items:center; gap:0.45rem; flex-shrink:0;">
+            <strong style="color:#34d399; font-size:0.86rem;">${fmtBRL(s.total)}</strong>
+            ${renderGithubPencilActionButton(s.id)}
+          </div>
+        </div>
+      `).join('');
     }
   }
 
-  // 3. Vendas por Vendedor & Comissão
-  const sellerSalesMap = new Map();
-  sellerOptions.forEach(vk => {
-    sellerSalesMap.set(vk, { seller: vk, count: 0, totalSold: 0 });
-  });
-  sales.forEach(s => {
-    const vk = String(s.seller || 'ADMIN').trim().toUpperCase();
-    const cur = sellerSalesMap.get(vk) || { seller: vk, count: 0, totalSold: 0 };
-    cur.count += 1;
-    cur.totalSold += Number(s.total || 0);
-    sellerSalesMap.set(vk, cur);
+  const term = (document.getElementById('finSearchInput')?.value || '').toLowerCase().trim();
+  const typeSel = document.getElementById('finTypeFilter')?.value || finTypeFilter || 'todos';
+  const statusSel = document.getElementById('finStatusFilter')?.value || finStatusFilter || 'todos';
+
+  const filtered = finEntries.filter(f => {
+    const matchTerm = !term
+      || (f.desc || '').toLowerCase().includes(term)
+      || (f.category || '').toLowerCase().includes(term)
+      || (f.payment || '').toLowerCase().includes(term)
+      || (f.id || '').toLowerCase().includes(term);
+    const matchType = typeSel === 'todos' || f.type === typeSel;
+    const matchStatus = statusSel === 'todos' || f.status === statusSel;
+    const matchChannel = finChannelFilter === 'todos' || f.channel === finChannelFilter;
+    return matchTerm && matchType && matchStatus && matchChannel;
   });
 
-  const sellerRowsArr = Array.from(sellerSalesMap.values())
-    .filter(row => finSellerFilter === 'todos' || row.seller === finSellerFilter)
-    .sort((a, b) => b.totalSold - a.totalSold);
+  const tbody = document.getElementById('tableFinanceEntries');
+  if (!tbody) return;
 
-  const commTbody = document.getElementById('tableFinSellerCommissions');
-  if (commTbody) {
-    commTbody.innerHTML = sellerRowsArr.map(row => {
-      const rate = Number(sellerCommissionRates[row.seller] || 0);
-      const commVal = (row.totalSold * rate) / 100;
-      return `
-        <tr>
-          <td><strong>${row.seller}</strong></td>
-          <td>${row.count} pedido(s)</td>
-          <td><strong style="color:#34d399;">${fmtBRL(row.totalSold)}</strong></td>
-          <td><span class="badge-tag badge-info">${rate.toFixed(1)}%</span></td>
-          <td><strong style="color:#fbbf24;">${fmtBRL(commVal)}</strong></td>
-        </tr>
-      `;
-    }).join('');
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.2rem;">Nenhum lançamento financeiro encontrado.</td></tr>`;
+    return;
   }
 
-  // 4. Tabela principal de lançamentos financeiros
-  const tbody = document.getElementById('tableFinEntries');
-  if (tbody) {
-    if (filteredEntries.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum lançamento encontrado para os filtros atuais.</td></tr>`;
-    } else {
-      tbody.innerHTML = filteredEntries.map(f => {
-        const isRev = f.type === 'Receita';
-        const typeBadge = isRev
-          ? `<span class="badge-tag badge-receita">Receita</span>`
-          : `<span class="badge-tag badge-despesa">Despesa</span>`;
-        const statusBadge = f.status === 'Pago'
-          ? `<span class="badge-tag badge-receita">Pago</span>`
-          : `<span class="badge-tag badge-warning">Pendente</span>`;
-        const metaExtra = [f.channel, f.supplier, f.seller].filter(Boolean).join(' • ');
+  tbody.innerHTML = filtered.map(f => {
+    const typeBadge = f.type === 'Receita'
+      ? `<span class="badge-tag badge-receita">Receita</span>`
+      : `<span class="badge-tag badge-despesa">Despesa</span>`;
+    const statusBadge = f.status === 'Pago'
+      ? `<span class="badge-tag badge-receita">Pago</span>`
+      : `<span class="badge-tag badge-warning">Pendente</span>`;
+    const amountColor = f.type === 'Receita' ? '#34d399' : '#f87171';
 
-        return `
-          <tr>
-            <td>${f.date || '-'}</td>
-            <td>
-              <strong>${f.desc}</strong>
-              ${metaExtra ? `<div style="font-size:0.73rem; color:var(--text-muted);">${metaExtra}</div>` : ''}
-            </td>
-            <td><span class="badge-tag badge-info">${f.category || 'Geral'}</span></td>
-            <td>${typeBadge}</td>
-            <td><strong style="color:${isRev ? '#34d399' : '#f87171'};">${fmtBRL(f.amount || 0)}</strong></td>
-            <td>${statusBadge}</td>
-            <td style="white-space:nowrap;">
-              <div class="gm-gh-action-wrap">
-                <button type="button" class="gm-gh-pencil-btn" onclick="toggleFinanceEntryMenu(event, '${f.cod}')">
-                  <span>Ações</span>
-                  <i class="ph ph-caret-down" style="font-size:13px; color:#9ca3af;"></i>
-                </button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-  }
+    return `
+      <tr>
+        <td>${formatDateSafe(f.date)}</td>
+        <td>
+          <strong>${f.desc}</strong>
+          <div style="font-size:0.74rem; color:var(--text-muted);">${f.category || 'Geral'} • ${f.payment || 'Pix'}</div>
+        </td>
+        <td>${typeBadge}</td>
+        <td><span class="badge-tag badge-info">${f.channel || 'Geral'}</span></td>
+        <td>${statusBadge}</td>
+        <td><strong style="color:${amountColor};">${f.type === 'Despesa' ? '-' : ''}${fmtBRL(f.amount)}</strong></td>
+        <td style="white-space:nowrap;">
+          <div class="gm-gh-action-wrap">
+            <button type="button" class="gm-gh-pencil-btn" onclick="toggleFinEntryActionMenu(event, '${f.id}')">
+              <span>Ações</span>
+              <i class="ph ph-caret-down" style="font-size:13px; color:#9ca3af;"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
-function initCashAndTools() {
-  document.getElementById('btnOpenReceiptModal')?.addEventListener('click', () => {
-    const last = sales[0];
-    if (!last) return showToast('Nenhuma venda para recibo!');
-    openReceiptModal(last.id);
-  });
-  document.getElementById('btnCloseReceiptModal')?.addEventListener('click', () => document.getElementById('receiptModalOverlay').classList.remove('active'));
-  document.getElementById('btnPrintReceipt')?.addEventListener('click', () => window.print());
-
-  document.getElementById('btnTogglePdvTools')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    document.getElementById('pdvToolsDropdown')?.classList.toggle('open');
-  });
-  document.addEventListener('click', () => document.getElementById('pdvToolsDropdown')?.classList.remove('open'));
-}
-
+// ============================================================================
+// RECIBO TÉRMICO & FERRAMENTAS
+// ============================================================================
 window.openReceiptModal = function (saleId) {
   const s = sales.find(item => String(item.id) === String(saleId));
   if (!s) return;
   document.getElementById('receiptBodyContent').innerHTML = `
-    <div style="text-align:center; border-bottom:1px dashed #333; padding-bottom:0.75rem; margin-bottom:0.75rem;">
-      <h3 style="margin:0;">GRUPO MISTER</h3>
-      <small>Perfumaria & Decants — Comprovante #${s.id}</small>
+    <div style="text-align:center; border-bottom:1px dashed #666; padding-bottom:8px; margin-bottom:8px;">
+      <strong>GRUPO MISTER PERFUMARIA</strong><br>
+      <small>Pedido #${s.id} • ${s.date}</small>
     </div>
-    <p><strong>Data:</strong> ${s.date}<br><strong>Cliente:</strong> ${s.client}<br><strong>Vendedor:</strong> ${s.seller}<br><strong>Canal:</strong> ${s.type}<br><strong>Envio:</strong> ${s.shippingMethod || 'Retirada na Loja'}<br><strong>Status:</strong> ${s.orderStatus || 'Em Separação'}</p>
+    <p><strong>Cliente:</strong> ${s.client}</p>
+    <p><strong>Itens:</strong> ${s.items}</p>
+    <p><strong>Envio:</strong> ${s.shippingMethod || 'Retirada na Loja'} (${s.orderStatus || 'Em Separação'})</p>
     ${s.trackingCode ? `<p><strong>Rastreio:</strong> <code>${s.trackingCode}</code></p>` : ''}
-    ${s.shippingNotes ? `<p><strong>Detalhes de Envio:</strong> ${s.shippingNotes}</p>` : ''}
-    ${s.observation ? `<p><strong>Observação:</strong> ${s.observation}</p>` : ''}
-    <p><strong>Itens:</strong><br>${s.items}</p>
-    ${Number(s.discount || 0) > 0 ? `<p><strong>Desconto:</strong> -${fmtBRL(s.discount)}</p>` : ''}
-    <hr style="border-color:#252a34;">
-    <p style="font-size:1.1rem; display:flex; justify-content:space-between;"><strong>TOTAL:</strong><strong style="color:#34d399;">${fmtBRL(s.total)}</strong></p>
+    ${s.observation ? `<p><strong>Obs.:</strong> ${s.observation}</p>` : ''}
+    <p><strong>Pagamento:</strong> ${s.payment}</p>
+    <hr style="border:0; border-top:1px dashed #666; margin:8px 0;">
+    <p style="font-size:1.1rem; text-align:right;"><strong>Total: ${fmtBRL(s.total)}</strong></p>
   `;
   document.getElementById('receiptModalOverlay').classList.add('active');
 };
+
+function initCashAndTools() {
+  document.getElementById('btnCloseReceiptModal')?.addEventListener('click', () => document.getElementById('receiptModalOverlay').classList.remove('active'));
+  document.getElementById('btnPrintReceipt')?.addEventListener('click', () => window.print());
+
+  document.getElementById('btnExportBackup')?.addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify({ products, clients, sales, warranties, quotes, finEntries }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup_grupo_mister_${new Date().toISOString().slice(0, 10)}.json`; a.click();
+  });
+
+  document.getElementById('importBackupInput')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if (Array.isArray(d.products)) products = d.products;
+        if (Array.isArray(d.clients)) clients = d.clients;
+        if (Array.isArray(d.sales)) sales = d.sales;
+        if (Array.isArray(d.warranties)) warranties = d.warranties;
+        if (Array.isArray(d.quotes)) quotes = d.quotes;
+        if (Array.isArray(d.finEntries)) finEntries = d.finEntries;
+        normalizeSalesArray(); saveAll(); renderAll(); showToast('Backup restaurado!');
+      } catch (_) { showToast('Arquivo inválido!'); }
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('btnResetDemoData')?.addEventListener('click', () => {
+    if (!confirm('Resetar todos os dados locais?')) return;
+    localStorage.clear();
+    location.reload();
+  });
+}
