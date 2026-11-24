@@ -789,7 +789,7 @@ function persistLocalOnly() {
   localStorage.setItem(STORAGE_KEYS.FINANCE, JSON.stringify(finEntries));
   localStorage.setItem(STORAGE_KEYS.COMMISSIONS, JSON.stringify(sellerCommissionRates));
 }
-const BRAND_LOGO_PATH = 'logo-grupo-mister.png_2.jpg'; // Altera se renomeares o ficheiro na pasta
+const BRAND_LOGO_PATH = 'logo-grupo-mister.png'; // Altera se renomeares o ficheiro na pasta
 
 function applyBrandLogoEverywhere() {
   // 1. Ícone da aba ("globinho" do navegador)
