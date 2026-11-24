@@ -278,7 +278,7 @@ function injectLayoutAndActionStyles() {
       flex-shrink: 0;
     }
 
-    /* Botão "Ações ▾" limpo (sem ícone antes) e texto proporcional */
+    /* Botão "Ações ▾" e caixa seletora proporcional alinhada à esquerda */
     .gm-gh-action-wrap {
       position: relative;
       display: inline-flex;
@@ -288,10 +288,10 @@ function injectLayoutAndActionStyles() {
     .gm-gh-pencil-btn {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      gap: 0.48rem;
+      justify-content: flex-start;
+      gap: 0.45rem;
       height: 36px;
-      padding: 0 0.95rem;
+      padding: 0 0.85rem;
       border-radius: 8px;
       border: 1px solid #30363d;
       background: #181d26;
@@ -312,13 +312,16 @@ function injectLayoutAndActionStyles() {
     .gm-gh-dropdown {
       display: none;
       position: fixed;
-      min-width: 195px;
+      width: max-content;
+      min-width: 158px;
+      max-width: 220px;
       background: #161b22;
       border: 1px solid #30363d;
       border-radius: 10px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65);
-      padding: 6px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.78);
+      padding: 5px;
       z-index: 99999;
+      text-align: left;
     }
 
     .gm-gh-dropdown.open {
@@ -329,8 +332,9 @@ function injectLayoutAndActionStyles() {
       width: 100%;
       display: flex;
       align-items: center;
-      gap: 9px;
-      padding: 9px 12px;
+      justify-content: flex-start;
+      gap: 8px;
+      padding: 8px 11px;
       border: none;
       background: transparent;
       color: #e6edf3;
@@ -416,10 +420,11 @@ function injectLayoutAndActionStyles() {
       overflow-y: auto;
     }
 
-    .gm-edit-sale-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 0.65rem;
+    /* Opacidade / fundo sólido no modal Visualizar para máxima leitura */
+    #viewSaleModalOverlay.modal-overlay {
+      background: rgba(7, 10, 16, 0.9) !important;
+      backdrop-filter: blur(4px);
+      z-index: 100000 !important;
     }
 
     .gm-view-modal-card {
@@ -427,6 +432,10 @@ function injectLayoutAndActionStyles() {
       width: 95% !important;
       max-height: 90vh;
       overflow-y: auto;
+      background: #141923 !important;
+      border: 1px solid #2d3545 !important;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.88) !important;
+      opacity: 1 !important;
     }
 
     .gm-view-grid {
@@ -437,22 +446,24 @@ function injectLayoutAndActionStyles() {
     }
 
     .gm-view-box {
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border, #252a34);
-      border-left: 3px solid rgba(96, 165, 250, 0.65);
+      background: #1b2230 !important;
+      border: 1px solid #2a3344 !important;
+      border-left: 3px solid #60a5fa !important;
       border-radius: 8px;
-      padding: 0.6rem 0.75rem;
+      padding: 0.65rem 0.8rem;
+      opacity: 1 !important;
     }
 
     .gm-view-box small {
       display: block;
-      color: var(--text-muted, #9ca3af);
+      color: #9ca3af !important;
       font-size: 0.74rem;
-      margin-bottom: 0.2rem;
+      margin-bottom: 0.22rem;
     }
 
     .gm-view-box strong {
-      font-size: 0.9rem;
+      font-size: 0.92rem;
+      color: #f3f4f6 !important;
       word-break: break-word;
     }
   `;
@@ -2479,7 +2490,7 @@ function initSalesAndPdv() {
 }
 
 // ============================================================================
-// MENU SUSPENSO "AÇÕES ▾" COM TODOS OS ITENS DA VENDA
+// MENU SUSPENSO "AÇÕES ▾" ALINHADO À ESQUERDA E PROPORCIONAL
 // ============================================================================
 function closeAllGithubActionMenus() {
   document.querySelectorAll('.gm-gh-dropdown.open').forEach(el => el.classList.remove('open'));
@@ -2504,28 +2515,28 @@ window.toggleSaleGithubMenu = function (event, saleId) {
     menu.className = 'gm-gh-dropdown';
     menu.innerHTML = `
       <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditSaleModal('${saleId}')">
-        <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:16px;"></i>
+        <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
         <span>Editar</span>
       </button>
       <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewSaleModal('${saleId}')">
-        <i class="ph ph-eye" style="color:#34d399; font-size:16px;"></i>
+        <i class="ph ph-eye" style="color:#34d399; font-size:15px;"></i>
         <span>Visualizar</span>
       </button>
       <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openOrderTrackingModal('${saleId}')">
-        <i class="ph ph-barcode" style="color:#38bdf8; font-size:16px;"></i>
+        <i class="ph ph-barcode" style="color:#38bdf8; font-size:15px;"></i>
         <span>Rastreio</span>
       </button>
       <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openOrderObsModal('${saleId}')">
-        <i class="ph ph-note-pencil" style="color:#fbbf24; font-size:16px;"></i>
+        <i class="ph ph-note-pencil" style="color:#fbbf24; font-size:15px;"></i>
         <span>Obs.</span>
       </button>
       <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openReceiptModal('${saleId}')">
-        <i class="ph ph-printer" style="color:#c084fc; font-size:16px;"></i>
+        <i class="ph ph-printer" style="color:#c084fc; font-size:15px;"></i>
         <span>Recibo</span>
       </button>
       <div class="gm-gh-dropdown-divider"></div>
       <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteSaleRecord('${saleId}')">
-        <i class="ph ph-trash" style="font-size:16px;"></i>
+        <i class="ph ph-trash" style="font-size:15px;"></i>
         <span>Apagar</span>
       </button>
     `;
@@ -2535,9 +2546,9 @@ window.toggleSaleGithubMenu = function (event, saleId) {
   if (!wasOpen) {
     const rect = event.currentTarget.getBoundingClientRect();
     menu.classList.add('open');
-    const menuWidth = menu.offsetWidth || 195;
-    const menuHeight = menu.offsetHeight || 250;
-    const leftPos = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.right - menuWidth));
+    const menuWidth = menu.offsetWidth || 162;
+    const menuHeight = menu.offsetHeight || 242;
+    const leftPos = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.left));
     const topPos = (rect.bottom + menuHeight + 8 > window.innerHeight)
       ? Math.max(8, rect.top - menuHeight - 4)
       : rect.bottom + 4;
@@ -2562,7 +2573,7 @@ function renderGithubPencilActionButton(saleId) {
 }
 
 // ============================================================================
-// MODAL DE VISUALIZAÇÃO AMPLA DA VENDA
+// MODAL DE VISUALIZAÇÃO AMPLA DA VENDA (COM FUNDO OPACO PARA ALTA LEITURA)
 // ============================================================================
 function ensureViewSaleModal() {
   if (document.getElementById('viewSaleModalOverlay')) return;
@@ -2603,13 +2614,13 @@ window.openViewSaleModal = function (saleId) {
 
   const itemsHtml = itemsList.length > 0
     ? `
-      <table style="width:100%; border-collapse:collapse; margin-top:0.4rem;">
+      <table style="width:100%; border-collapse:collapse; margin-top:0.4rem; background:#141923; border-radius:6px; overflow:hidden;">
         <thead>
-          <tr>
-            <th style="text-align:left; padding:0.4rem; border-bottom:1px solid var(--border,#252a34);">Item / Fragrância</th>
-            <th style="text-align:center; padding:0.4rem; border-bottom:1px solid var(--border,#252a34);">Qtd</th>
-            <th style="text-align:right; padding:0.4rem; border-bottom:1px solid var(--border,#252a34);">Unitário</th>
-            <th style="text-align:right; padding:0.4rem; border-bottom:1px solid var(--border,#252a34);">Subtotal</th>
+          <tr style="background:#10141c;">
+            <th style="text-align:left; padding:0.45rem 0.5rem; border-bottom:1px solid #2a3344; color:#cbd5e1;">Item / Fragrância</th>
+            <th style="text-align:center; padding:0.45rem 0.5rem; border-bottom:1px solid #2a3344; color:#cbd5e1;">Qtd</th>
+            <th style="text-align:right; padding:0.45rem 0.5rem; border-bottom:1px solid #2a3344; color:#cbd5e1;">Unitário</th>
+            <th style="text-align:right; padding:0.45rem 0.5rem; border-bottom:1px solid #2a3344; color:#cbd5e1;">Subtotal</th>
           </tr>
         </thead>
         <tbody>
@@ -2618,17 +2629,17 @@ window.openViewSaleModal = function (saleId) {
             const pr = Number(it.price || 0);
             return `
               <tr>
-                <td style="padding:0.4rem; border-bottom:1px solid rgba(255,255,255,0.05);"><strong>${it.name}</strong></td>
-                <td style="text-align:center; padding:0.4rem; border-bottom:1px solid rgba(255,255,255,0.05);">${q}x</td>
-                <td style="text-align:right; padding:0.4rem; border-bottom:1px solid rgba(255,255,255,0.05);">${pr > 0 ? fmtBRL(pr) : '-'}</td>
-                <td style="text-align:right; padding:0.4rem; border-bottom:1px solid rgba(255,255,255,0.05);"><strong>${pr > 0 ? fmtBRL(q * pr) : '-'}</strong></td>
+                <td style="padding:0.45rem 0.5rem; border-bottom:1px solid rgba(255,255,255,0.06); color:#f3f4f6;"><strong>${it.name}</strong></td>
+                <td style="text-align:center; padding:0.45rem 0.5rem; border-bottom:1px solid rgba(255,255,255,0.06); color:#e5e7eb;">${q}x</td>
+                <td style="text-align:right; padding:0.45rem 0.5rem; border-bottom:1px solid rgba(255,255,255,0.06); color:#e5e7eb;">${pr > 0 ? fmtBRL(pr) : '-'}</td>
+                <td style="text-align:right; padding:0.45rem 0.5rem; border-bottom:1px solid rgba(255,255,255,0.06); color:#34d399;"><strong>${pr > 0 ? fmtBRL(q * pr) : '-'}</strong></td>
               </tr>
             `;
           }).join('')}
         </tbody>
       </table>
     `
-    : `<p style="margin:0.35rem 0 0;">${s.items || '-'}</p>`;
+    : `<p style="margin:0.35rem 0 0; color:#f3f4f6;">${s.items || '-'}</p>`;
 
   document.getElementById('viewSaleHeaderId').textContent = `#${s.id}`;
   document.getElementById('viewSaleModalBody').innerHTML = `
@@ -2639,8 +2650,8 @@ window.openViewSaleModal = function (saleId) {
       <div class="gm-view-box"><small>Pagamento</small><strong>${s.payment || '-'}</strong></div>
       <div class="gm-view-box"><small>Entrega / Status</small><strong>${s.shippingMethod || 'Retirada na Loja'} • <span class="badge-tag ${getOrderStatusBadgeClass(s.orderStatus)}">${s.orderStatus || 'Em Separação'}</span></strong></div>
       <div class="gm-view-box"><small>Código de Rastreio</small><strong>${s.trackingCode || 'Não informado'}</strong></div>
-      <div class="gm-view-box"><small>Desconto</small><strong style="color:#fbbf24;">${fmtBRL(s.discount || 0)}</strong></div>
-      <div class="gm-view-box"><small>Total da Venda</small><strong style="color:#34d399; font-size:1.05rem;">${fmtBRL(s.total || 0)}</strong></div>
+      <div class="gm-view-box"><small>Desconto</small><strong style="color:#fbbf24 !important;">${fmtBRL(s.discount || 0)}</strong></div>
+      <div class="gm-view-box"><small>Total da Venda</small><strong style="color:#34d399 !important; font-size:1.05rem;">${fmtBRL(s.total || 0)}</strong></div>
     </div>
     <div class="gm-view-box" style="margin-bottom:0.75rem;">
       <small>Itens da Venda</small>
