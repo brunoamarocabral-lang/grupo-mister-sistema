@@ -363,6 +363,69 @@ function injectLayoutAndActionStyles() {
       margin: 4px 2px;
     }
 
+    /* Segmented filter toggles (estilo referência sem IMEI) */
+    .gm-stock-filters-panel {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border, #252a34);
+      border-radius: 10px;
+      padding: 0.85rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .gm-seg-filters-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.1rem;
+      align-items: flex-end;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .gm-seg-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .gm-seg-group label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin: 0;
+    }
+
+    .gm-seg-pills {
+      display: inline-flex;
+      background: #10151f;
+      border: 1px solid #283142;
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .gm-seg-btn {
+      border: none;
+      background: transparent;
+      color: #9ca3af;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.34rem 0.68rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+
+    .gm-seg-btn:hover {
+      color: #f3f4f6;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .gm-seg-btn.active {
+      background: #3b82f6;
+      color: #ffffff;
+    }
+
     /* Identidade unificada dos modais e blocos do modal de edição */
     .gm-modal-section-card {
       background: rgba(255, 255, 255, 0.025);
@@ -421,7 +484,8 @@ function injectLayoutAndActionStyles() {
     }
 
     /* Opacidade / fundo sólido no modal Visualizar para máxima leitura */
-    #viewSaleModalOverlay.modal-overlay {
+    #viewSaleModalOverlay.modal-overlay,
+    #viewStockProductModalOverlay.modal-overlay {
       background: rgba(7, 10, 16, 0.9) !important;
       backdrop-filter: blur(4px);
       z-index: 100000 !important;
@@ -506,6 +570,11 @@ let cashMoves = loadJsonKey(STORAGE_KEYS.CASH_MOVES, []);
 let cardRates = loadJsonKey(STORAGE_KEYS.RATES, DEFAULT_RATES);
 let rmaList = loadJsonKey(STORAGE_KEYS.RMA, DEFAULT_RMA);
 let finEntries = loadJsonKey(STORAGE_KEYS.FINANCE, DEFAULT_FINANCE);
+
+// Estado dos filtros segmentados do Estoque (estilo referência sem IMEI)
+let stockOnlyInStockFilter = 'no';      // 'no' | 'yes'
+let stockSupplierFilter = 'all';        // 'all' | 'yes' | 'no'
+let stockLowStockFilter = 'no';         // 'no' | 'yes'
 
 function parseSaleItemsStringToArray(itemsStr = '') {
   const clean = String(itemsStr || '').trim();
@@ -1315,6 +1384,7 @@ function startApp() {
   initSalesAndPdv();
   initEditSaleModule();
   initViewSaleModule();
+  initViewStockProductModule();
   initOrderObsModule();
   initOrderTrackingModule();
   initShipmentsModule();
@@ -2047,6 +2117,35 @@ async function parseNuvemshopPdf(file) {
 // ============================================================================
 // 6. ETIQUETAS TÉRMICAS 50x30mm
 // ============================================================================
+function addProductToLabelQueue(prod, qty = 1) {
+  if (!prod) return;
+  const expInput = document.getElementById('labelExpiryDate');
+  const expiryVal = prod.expiry || expInput?.value || '';
+  const vol = prod.battery || (prod.condition === 'Decant' ? 'Decant 10ml' : 'Frasco Original');
+  const note = prod.condition || 'Perfumaria';
+  const count = Math.min(100, Math.max(1, parseInt(qty, 10) || 1));
+
+  for (let i = 0; i < count; i++) {
+    thermalLabelQueue.push({
+      code: prod.imei || prod.id,
+      name: prod.name,
+      volume: vol,
+      note,
+      expiry: expiryVal ? formatDateSafe(expiryVal, '12 meses') : '12 meses',
+      price: fmtBRL(prod.price)
+    });
+  }
+  renderThermalLabelQueue();
+}
+
+window.generateLabelForStockProduct = function (prodId) {
+  const prod = products.find(p => p.id === prodId);
+  if (!prod) return;
+  addProductToLabelQueue(prod, 1);
+  navigateToSection('etiquetas', 'Etiquetas 50×30mm');
+  showToast(`Etiqueta 50×30mm gerada na fila para "${prod.name}"!`);
+};
+
 function initThermalLabelsModule() {
   const expInput = document.getElementById('labelExpiryDate');
   if (expInput) {
@@ -2476,7 +2575,6 @@ function initSalesAndPdv() {
     triggerNewShippingNotification(newSale);
   });
 
-  // Histórico de vendas permanece sempre apenas em cards
   salesViewMode = 'cards';
   const tableViewEl = document.getElementById('salesTableView');
   const cardsViewEl = document.getElementById('salesCardsView');
@@ -2490,7 +2588,7 @@ function initSalesAndPdv() {
 }
 
 // ============================================================================
-// MENU SUSPENSO "AÇÕES ▾" ALINHADO À ESQUERDA E PROPORCIONAL
+// MENU SUSPENSO "AÇÕES ▾" (VENDAS E ESTOQUE)
 // ============================================================================
 function closeAllGithubActionMenus() {
   document.querySelectorAll('.gm-gh-dropdown.open').forEach(el => el.classList.remove('open'));
@@ -2501,6 +2599,19 @@ document.addEventListener('click', (e) => {
     closeAllGithubActionMenus();
   }
 });
+
+function positionGithubMenu(menu, triggerEl) {
+  menu.classList.add('open');
+  const rect = triggerEl.getBoundingClientRect();
+  const menuWidth = menu.offsetWidth || 168;
+  const menuHeight = menu.offsetHeight || 200;
+  const leftPos = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.left));
+  const topPos = (rect.bottom + menuHeight + 8 > window.innerHeight)
+    ? Math.max(8, rect.top - menuHeight - 4)
+    : rect.bottom + 4;
+  menu.style.left = `${leftPos}px`;
+  menu.style.top = `${topPos}px`;
+}
 
 window.toggleSaleGithubMenu = function (event, saleId) {
   event.stopPropagation();
@@ -2544,16 +2655,7 @@ window.toggleSaleGithubMenu = function (event, saleId) {
   }
 
   if (!wasOpen) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    menu.classList.add('open');
-    const menuWidth = menu.offsetWidth || 162;
-    const menuHeight = menu.offsetHeight || 242;
-    const leftPos = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.left));
-    const topPos = (rect.bottom + menuHeight + 8 > window.innerHeight)
-      ? Math.max(8, rect.top - menuHeight - 4)
-      : rect.bottom + 4;
-    menu.style.left = `${leftPos}px`;
-    menu.style.top = `${topPos}px`;
+    positionGithubMenu(menu, event.currentTarget);
   }
 };
 
@@ -2571,6 +2673,147 @@ function renderGithubPencilActionButton(saleId) {
     </div>
   `;
 }
+
+// Menu "Ações ▾" específico do Estoque: Visualizar, Editar, Gerar Etiqueta e Apagar
+window.toggleStockProductMenu = function (event, prodId) {
+  event.stopPropagation();
+  const menuId = `gmStockMenu_${String(prodId).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  let menu = document.getElementById(menuId);
+  const wasOpen = menu?.classList.contains('open');
+  closeAllGithubActionMenus();
+
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'gm-gh-dropdown';
+    menu.innerHTML = `
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewStockProductModal('${prodId}')">
+        <i class="ph ph-eye" style="color:#34d399; font-size:15px;"></i>
+        <span>Visualizar</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditProductModal('${prodId}')">
+        <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
+        <span>Editar</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); generateLabelForStockProduct('${prodId}')">
+        <i class="ph ph-barcode" style="color:#fbbf24; font-size:15px;"></i>
+        <span>Gerar Etiqueta</span>
+      </button>
+      <div class="gm-gh-dropdown-divider"></div>
+      <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteStockProductDirect('${prodId}')">
+        <i class="ph ph-trash" style="font-size:15px;"></i>
+        <span>Apagar</span>
+      </button>
+    `;
+    document.body.appendChild(menu);
+  }
+
+  if (!wasOpen) {
+    positionGithubMenu(menu, event.currentTarget);
+  }
+};
+
+function renderStockActionButton(prodId) {
+  return `
+    <div class="gm-gh-action-wrap">
+      <button type="button"
+        class="gm-gh-pencil-btn"
+        title="Ações do item"
+        aria-label="Ações do item"
+        onclick="toggleStockProductMenu(event, '${prodId}')">
+        <span>Ações</span>
+        <i class="ph ph-caret-down" style="font-size:13px; color:#9ca3af;"></i>
+      </button>
+    </div>
+  `;
+}
+
+window.deleteStockProductDirect = function (prodId) {
+  if (!hasStockAccess()) return showToast('Você não tem permissão para apagar itens do estoque.');
+  const prod = products.find(p => p.id === prodId);
+  if (!prod) return;
+  if (!confirm(`Deseja realmente apagar "${prod.name}" (${prod.id}) do estoque?`)) return;
+  products = products.filter(p => p.id !== prodId);
+  saveAll();
+  renderAll();
+  showToast(`Item "${prod.name}" removido do estoque.`);
+};
+
+// ============================================================================
+// MODAL DE VISUALIZAÇÃO DO ITEM DE ESTOQUE
+// ============================================================================
+function ensureViewStockProductModal() {
+  if (document.getElementById('viewStockProductModalOverlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'viewStockProductModalOverlay';
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content gm-view-modal-card">
+      <div class="modal-header">
+        <h3><i class="ph ph-eye"></i> Detalhes do Produto <span id="viewStockProdHeaderId"></span></h3>
+        <button type="button" id="btnCloseViewStockProdModal" class="btn-close">&times;</button>
+      </div>
+      <div id="viewStockProdModalBody" class="modal-body"></div>
+      <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem; flex-wrap:wrap;">
+        <button type="button" id="btnViewStockProdLabel" class="btn-sm"><i class="ph ph-barcode"></i> Gerar Etiqueta</button>
+        <button type="button" id="btnViewStockProdEdit" class="btn-primary"><i class="ph ph-pencil-simple"></i> Editar</button>
+        <button type="button" id="btnCloseViewStockProdModalFooter" class="btn-sm">Fechar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const closeFn = () => overlay.classList.remove('active');
+  document.getElementById('btnCloseViewStockProdModal')?.addEventListener('click', closeFn);
+  document.getElementById('btnCloseViewStockProdModalFooter')?.addEventListener('click', closeFn);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeFn();
+  });
+}
+
+function initViewStockProductModule() {
+  ensureViewStockProductModal();
+}
+
+window.openViewStockProductModal = function (prodId) {
+  ensureViewStockProductModal();
+  const p = products.find(item => item.id === prodId);
+  if (!p) return;
+  const canManage = hasStockAccess();
+
+  document.getElementById('viewStockProdHeaderId').textContent = `(${p.id})`;
+  document.getElementById('viewStockProdModalBody').innerHTML = `
+    <div class="gm-view-grid">
+      <div class="gm-view-box"><small>Código</small><strong>${p.id}</strong></div>
+      <div class="gm-view-box"><small>Fragrância / Decant</small><strong>${p.name}</strong></div>
+      <div class="gm-view-box"><small>Fornecedor</small><strong>${p.supplier || 'Sem fornecedor'}</strong></div>
+      <div class="gm-view-box"><small>Categoria / Volume</small><strong>${p.condition || '-'} ${p.battery ? '• ' + p.battery : ''}</strong></div>
+      <div class="gm-view-box"><small>Validade</small><strong>${formatDateSafe(p.expiry)}</strong></div>
+      <div class="gm-view-box"><small>Quantidade em Estoque</small><strong>${p.qty} un.</strong></div>
+      ${canManage ? `<div class="gm-view-box"><small>Custo Unitário</small><strong style="color:#fbbf24 !important;">${fmtBRL(p.cost || 0)}</strong></div>` : ''}
+      <div class="gm-view-box"><small>Preço de Venda</small><strong style="color:#34d399 !important;">${fmtBRL(p.price || 0)}</strong></div>
+    </div>
+  `;
+
+  const btnEdit = document.getElementById('btnViewStockProdEdit');
+  if (btnEdit) {
+    btnEdit.style.display = canManage ? 'inline-flex' : 'none';
+    btnEdit.onclick = () => {
+      document.getElementById('viewStockProductModalOverlay')?.classList.remove('active');
+      openEditProductModal(p.id);
+    };
+  }
+
+  const btnLbl = document.getElementById('btnViewStockProdLabel');
+  if (btnLbl) {
+    btnLbl.onclick = () => {
+      document.getElementById('viewStockProductModalOverlay')?.classList.remove('active');
+      generateLabelForStockProduct(p.id);
+    };
+  }
+
+  document.getElementById('viewStockProductModalOverlay')?.classList.add('active');
+};
 
 // ============================================================================
 // MODAL DE VISUALIZAÇÃO AMPLA DA VENDA (COM FUNDO OPACO PARA ALTA LEITURA)
@@ -3278,7 +3521,7 @@ window.selectClientForSale = function (cod) {
 };
 
 // ============================================================================
-// MÓDULO DE ESTOQUE (EDIÇÃO COMPLETA COM FORNECEDOR, CUSTO, VENDA E QTD)
+// MÓDULO DE ESTOQUE (REPAGINADO: MÉTRICAS OPERACIONAIS + FILTROS SEM IMEI + AÇÕES)
 // ============================================================================
 function ensureSupplierFieldInProductModal() {
   const modalForm = document.getElementById('formNewProduct');
@@ -3295,6 +3538,131 @@ function ensureSupplierFieldInProductModal() {
   } else {
     modalForm.prepend(supGroup);
   }
+}
+
+function ensureStockOperationalMetricsCards() {
+  const stockSection = document.getElementById('estoque');
+  if (!stockSection || document.getElementById('gmStockOperationalGrid')) return;
+
+  const grid = document.createElement('div');
+  grid.id = 'gmStockOperationalGrid';
+  grid.className = 'grid-4';
+  grid.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:0.75rem; margin-bottom:0.9rem;';
+  grid.innerHTML = `
+    <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #60a5fa; border-radius:10px; padding:0.8rem 0.95rem;">
+      <small style="color:var(--text-muted); display:block; font-size:0.76rem;">Unidades Totais</small>
+      <strong id="gmStockOpTotalUnits" style="font-size:1.35rem; color:#f3f4f6;">0</strong>
+    </div>
+    <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #34d399; border-radius:10px; padding:0.8rem 0.95rem;">
+      <small style="color:var(--text-muted); display:block; font-size:0.76rem;">Itens / SKUs Cadastrados</small>
+      <strong id="gmStockOpSkus" style="font-size:1.35rem; color:#34d399;">0</strong>
+    </div>
+    <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #fbbf24; border-radius:10px; padding:0.8rem 0.95rem;">
+      <small style="color:var(--text-muted); display:block; font-size:0.76rem;">Estoque Baixo (≤ 2)</small>
+      <strong id="gmStockOpLow" style="font-size:1.35rem; color:#fbbf24;">0</strong>
+    </div>
+    <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #f87171; border-radius:10px; padding:0.8rem 0.95rem;">
+      <small style="color:var(--text-muted); display:block; font-size:0.76rem;">Esgotados (0 un.)</small>
+      <strong id="gmStockOpOut" style="font-size:1.35rem; color:#f87171;">0</strong>
+    </div>
+  `;
+
+  const bar = document.getElementById('gmStockManagerBar');
+  if (bar) {
+    bar.insertAdjacentElement('afterend', grid);
+  } else {
+    stockSection.prepend(grid);
+  }
+}
+
+function ensureStockSegmentedFilterControls() {
+  const searchInput = document.getElementById('stockSearchInput');
+  if (!searchInput || document.getElementById('gmStockSegmentedBar')) return;
+
+  const parentBox = searchInput.closest('.filters-bar, .filter-row, .card, .section-card') || searchInput.parentElement;
+  if (!parentBox) return;
+
+  const segBar = document.createElement('div');
+  segBar.id = 'gmStockSegmentedBar';
+  segBar.className = 'gm-seg-filters-row';
+  segBar.innerHTML = `
+    <div class="gm-seg-group">
+      <label>Apenas estoque atual (&gt; 0)?</label>
+      <div class="gm-seg-pills" data-filter-key="onlyInStock">
+        <button type="button" class="gm-seg-btn ${stockOnlyInStockFilter === 'no' ? 'active' : ''}" data-val="no">Não</button>
+        <button type="button" class="gm-seg-btn ${stockOnlyInStockFilter === 'yes' ? 'active' : ''}" data-val="yes">Sim</button>
+      </div>
+    </div>
+
+    <div class="gm-seg-group">
+      <label>Com fornecedor informado?</label>
+      <div class="gm-seg-pills" data-filter-key="supplier">
+        <button type="button" class="gm-seg-btn ${stockSupplierFilter === 'all' ? 'active' : ''}" data-val="all">Todos</button>
+        <button type="button" class="gm-seg-btn ${stockSupplierFilter === 'no' ? 'active' : ''}" data-val="no">Não</button>
+        <button type="button" class="gm-seg-btn ${stockSupplierFilter === 'yes' ? 'active' : ''}" data-val="yes">Sim</button>
+      </div>
+    </div>
+
+    <div class="gm-seg-group">
+      <label>Apenas estoque baixo (≤ 2)?</label>
+      <div class="gm-seg-pills" data-filter-key="lowStock">
+        <button type="button" class="gm-seg-btn ${stockLowStockFilter === 'no' ? 'active' : ''}" data-val="no">Não</button>
+        <button type="button" class="gm-seg-btn ${stockLowStockFilter === 'yes' ? 'active' : ''}" data-val="yes">Sim</button>
+      </div>
+    </div>
+  `;
+
+  parentBox.appendChild(segBar);
+
+  segBar.querySelectorAll('.gm-seg-pills').forEach(pillGroup => {
+    const key = pillGroup.getAttribute('data-filter-key');
+    pillGroup.querySelectorAll('.gm-seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.getAttribute('data-val');
+        if (key === 'onlyInStock') stockOnlyInStockFilter = val;
+        if (key === 'supplier') stockSupplierFilter = val;
+        if (key === 'lowStock') stockLowStockFilter = val;
+        syncStockSegmentedButtonsUI();
+        renderStock();
+      });
+    });
+  });
+}
+
+function syncStockSegmentedButtonsUI() {
+  const segBar = document.getElementById('gmStockSegmentedBar');
+  if (!segBar) return;
+  segBar.querySelectorAll('.gm-seg-pills').forEach(pillGroup => {
+    const key = pillGroup.getAttribute('data-filter-key');
+    const current = key === 'onlyInStock'
+      ? stockOnlyInStockFilter
+      : (key === 'supplier' ? stockSupplierFilter : stockLowStockFilter);
+    pillGroup.querySelectorAll('.gm-seg-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-val') === current);
+    });
+  });
+}
+
+function ensureStockTableHeaderWithoutBatch() {
+  const tbody = document.getElementById('tableStockDetailed');
+  const table = tbody?.closest('table');
+  if (!table) return;
+
+  const thead = table.querySelector('thead tr');
+  if (!thead) return;
+
+  const canManageStock = hasStockAccess();
+  thead.innerHTML = `
+    <th>CÓD.</th>
+    <th>FRAGRÂNCIA / DECANT</th>
+    <th>CATEGORIA / VOL.</th>
+    <th>VALIDADE</th>
+    ${canManageStock ? '<th class="admin-only-col">CUSTO</th>' : ''}
+    <th>VENDA</th>
+    ${canManageStock ? '<th class="admin-only-col">MARGEM</th>' : ''}
+    <th>QTD</th>
+    <th>AÇÕES</th>
+  `;
 }
 
 function ensureStockToolbarActions() {
@@ -3417,7 +3785,6 @@ window.quickEditProductField = function (prodId, fieldKey) {
     id: 'Código do Produto',
     name: 'Nome da Fragrância / Decant',
     supplier: 'Fornecedor',
-    imei: 'Batch / Lote',
     battery: 'Volume / Concentração',
     expiry: 'Validade (AAAA-MM-DD)',
     cost: 'Preço de Custo (R$)',
@@ -3459,6 +3826,10 @@ window.quickFilterStockChip = function (category) {
 
 function initStockModule() {
   ensureStockToolbarActions();
+  ensureStockOperationalMetricsCards();
+  ensureStockSegmentedFilterControls();
+  ensureStockTableHeaderWithoutBatch();
+
   const overlay = document.getElementById('productModalOverlay');
   document.getElementById('btnCloseProductModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
   document.getElementById('btnCancelProductModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
@@ -3533,94 +3904,112 @@ function initStockModule() {
   });
 
   document.getElementById('btnClearStockFilters')?.addEventListener('click', () => {
-    document.getElementById('stockSearchInput').value = '';
-    document.getElementById('stockConditionFilter').value = 'todos';
-    document.getElementById('stockAvailabilityFilter').value = 'todos';
+    const sInp = document.getElementById('stockSearchInput');
+    const cSel = document.getElementById('stockConditionFilter');
+    const aSel = document.getElementById('stockAvailabilityFilter');
+    if (sInp) sInp.value = '';
+    if (cSel) cSel.value = 'todos';
+    if (aSel) aSel.value = 'todos';
+    stockOnlyInStockFilter = 'no';
+    stockSupplierFilter = 'all';
+    stockLowStockFilter = 'no';
+    syncStockSegmentedButtonsUI();
     renderStock();
   });
 }
 
 function renderStock() {
   ensureStockToolbarActions();
+  ensureStockOperationalMetricsCards();
+  ensureStockSegmentedFilterControls();
+  ensureStockTableHeaderWithoutBatch();
+
   const canManageStock = hasStockAccess();
   const stockBar = document.getElementById('gmStockManagerBar');
   if (stockBar) stockBar.style.display = canManageStock ? 'flex' : 'none';
 
+  // Oculta cards financeiros antigos da aba estoque; mantém apenas métricas operacionais
   const adminGrid = document.getElementById('stockAdminMetricsGrid');
   const sellerBanner = document.getElementById('stockSellerQuickFilterBanner');
-  if (adminGrid) adminGrid.style.display = canManageStock ? 'grid' : 'none';
-  if (sellerBanner) sellerBanner.style.display = canManageStock ? 'none' : 'block';
+  if (adminGrid) adminGrid.style.display = 'none';
+  if (sellerBanner) sellerBanner.style.display = 'none';
 
-  document.querySelectorAll('#estoque .admin-only-col, #estoque .admin-only-metric').forEach(el => {
-    el.style.display = canManageStock ? '' : 'none';
-  });
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const totalUnits = products.reduce((a, p) => a + (Number(p.qty) || 0), 0);
+  const lowCount = products.filter(p => (Number(p.qty) || 0) <= 2).length;
+  const outCount = products.filter(p => (Number(p.qty) || 0) === 0).length;
+
+  setTxt('gmStockOpTotalUnits', totalUnits);
+  setTxt('gmStockOpSkus', products.length);
+  setTxt('gmStockOpLow', lowCount);
+  setTxt('gmStockOpOut', outCount);
 
   const term = (document.getElementById('stockSearchInput')?.value || '').toLowerCase();
   const cond = document.getElementById('stockConditionFilter')?.value || 'todos';
   const avail = document.getElementById('stockAvailabilityFilter')?.value || 'todos';
 
-  if (canManageStock) {
-    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    setTxt('stockMetricUnits', products.reduce((a, p) => a + (Number(p.qty) || 0), 0));
-    setTxt('stockMetricCost', fmtBRL(products.reduce((a, p) => a + (Number(p.cost) || 0) * (Number(p.qty) || 0), 0)));
-    setTxt('stockMetricSale', fmtBRL(products.reduce((a, p) => a + (Number(p.price) || 0) * (Number(p.qty) || 0), 0)));
-    setTxt('stockMetricLow', products.filter(p => (Number(p.qty) || 0) <= 2).length);
-  }
+  const filtered = products.filter(p => {
+    const qtyNum = Number(p.qty) || 0;
+    const hasSup = Boolean(p.supplier && String(p.supplier).trim() && String(p.supplier).trim().toLowerCase() !== 'sem fornecedor');
 
-  const filtered = products.filter(p =>
-    (String(p.name || '').toLowerCase().includes(term)
+    const matchTerm =
+      String(p.name || '').toLowerCase().includes(term)
       || String(p.supplier || '').toLowerCase().includes(term)
-      || String(p.imei || '').toLowerCase().includes(term)
       || String(p.id || '').toLowerCase().includes(term)
-      || String(p.battery || '').toLowerCase().includes(term))
-    && (cond === 'todos' || p.condition === cond)
-    && (avail === 'todos' || (avail === 'disponivel' && p.qty > 0) || (avail === 'esgotado' && p.qty === 0))
-  );
+      || String(p.battery || '').toLowerCase().includes(term);
 
-  const editIconBtn = (prodId, titleText = 'Editar item completo (Nome, Fornecedor, Custo, Venda, Qtd)') => `
-    <button type="button"
-      title="${titleText}"
-      aria-label="${titleText}"
-      onclick="openEditProductModal('${prodId}')"
-      style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:6px; border:1px solid #30363d; background:#21262d; color:#60a5fa; cursor:pointer; flex-shrink:0;">
-      <i class="ph ph-pencil-simple" style="font-size:16px;"></i>
-    </button>
-  `;
+    const matchCond = cond === 'todos' || p.condition === cond;
+    const matchAvail = avail === 'todos' || (avail === 'disponivel' && qtyNum > 0) || (avail === 'esgotado' && qtyNum === 0);
+    const matchOnlyInStock = stockOnlyInStockFilter !== 'yes' || qtyNum > 0;
+    const matchLow = stockLowStockFilter !== 'yes' || qtyNum <= 2;
+    const matchSup = stockSupplierFilter === 'all'
+      || (stockSupplierFilter === 'yes' && hasSup)
+      || (stockSupplierFilter === 'no' && !hasSup);
+
+    return matchTerm && matchCond && matchAvail && matchOnlyInStock && matchLow && matchSup;
+  });
 
   const tbody = document.getElementById('tableStockDetailed');
-  if (tbody) tbody.innerHTML = filtered.map(p => {
-    const margin = p.price > 0 ? (((p.price - p.cost) / p.price) * 100).toFixed(1) : '0.0';
+  if (!tbody) return;
+
+  if (filtered.length === 0) {
+    const colSpan = canManageStock ? 9 : 7;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum item encontrado para os filtros selecionados.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(p => {
+    const costVal = Number(p.cost) || 0;
+    const priceVal = Number(p.price) || 0;
+    const qtyVal = Number(p.qty) || 0;
+    const margin = priceVal > 0 ? (((priceVal - costVal) / priceVal) * 100).toFixed(1) : '0.0';
     const supLabel = p.supplier || 'Sem fornecedor';
-    const qtyBadgeClass = p.qty === 0 ? 'badge-despesa' : (p.qty <= 2 ? 'badge-warning' : 'badge-receita');
+    const qtyBadgeClass = qtyVal === 0 ? 'badge-despesa' : (qtyVal <= 2 ? 'badge-warning' : 'badge-receita');
+
     return `
       <tr>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'id')">${p.id}</td>
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'id')"><strong>${p.id}</strong></td>
         <td class="editable-cell">
-          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:8px;">
-            <div>
-              <strong style="cursor:pointer;" onclick="openEditProductModal('${p.id}')">${p.name}</strong>
-              <div style="font-size:0.76rem; color:#9ca3af; margin-top:2px; cursor:pointer;" onclick="openEditProductModal('${p.id}')">
-                Fornecedor: <span style="color:#e5e7eb;">${supLabel}</span>
-              </div>
+          <div>
+            <strong style="cursor:pointer;" onclick="openViewStockProductModal('${p.id}')">${p.name}</strong>
+            <div style="font-size:0.75rem; color:#9ca3af; margin-top:2px; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'supplier')">
+              Fornecedor: <span style="color:#e5e7eb;">${supLabel}</span>
             </div>
-            ${canManageStock ? editIconBtn(p.id, 'Editar nome, fornecedor, custo, venda e estoque') : ''}
           </div>
         </td>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'imei')"><code>${p.imei || '-'}</code></td>
         <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'battery')">
-          <span class="badge-tag badge-info">${p.condition}</span> <small style="color:var(--text-muted);">${p.battery || ''}</small>
+          <span class="badge-tag badge-info">${p.condition || 'Produto'}</span>
+          ${p.battery ? `<small style="color:var(--text-muted); margin-left:4px;">${p.battery}</small>` : ''}
         </td>
         <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'expiry')">${formatDateSafe(p.expiry)}</td>
-        ${canManageStock ? `<td class="editable-cell" onclick="quickEditProductField('${p.id}', 'cost')" style="color:#fbbf24;">${fmtBRL(p.cost)}</td>` : ''}
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'price')"><strong style="color:#34d399;">${fmtBRL(p.price)}</strong></td>
+        ${canManageStock ? `<td class="editable-cell" onclick="quickEditProductField('${p.id}', 'cost')" style="color:#fbbf24;">${fmtBRL(costVal)}</td>` : ''}
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'price')"><strong style="color:#34d399;">${fmtBRL(priceVal)}</strong></td>
         ${canManageStock ? `<td><span class="badge-tag badge-receita">${margin}%</span></td>` : ''}
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'qty')"><span class="badge-tag ${qtyBadgeClass}">${p.qty} un.</span></td>
+        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'qty')">
+          <span class="badge-tag ${qtyBadgeClass}">${qtyVal} un.</span>
+        </td>
         <td style="white-space:nowrap;">
-          <div style="display:inline-flex; align-items:center; gap:0.3rem;">
-            ${canManageStock ? editIconBtn(p.id, 'Editar todos os campos do item') : ''}
-            <button type="button" class="btn-sm" onclick="adjustStockQty('${p.id}', 1)">+1</button>
-            <button type="button" class="btn-sm" onclick="adjustStockQty('${p.id}', -1)">-1</button>
-          </div>
+          ${renderStockActionButton(p.id)}
         </td>
       </tr>
     `;
