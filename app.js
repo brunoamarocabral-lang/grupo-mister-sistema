@@ -364,18 +364,10 @@ function injectLayoutAndActionStyles() {
     }
 
     /* Segmented filter toggles (estilo referência sem IMEI) */
-    .gm-stock-filters-panel {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--border, #252a34);
-      border-radius: 10px;
-      padding: 0.85rem;
-      margin-bottom: 0.9rem;
-    }
-
     .gm-seg-filters-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 1.1rem;
+      gap: 1rem 1.25rem;
       align-items: flex-end;
       margin-top: 0.75rem;
       padding-top: 0.75rem;
@@ -397,6 +389,7 @@ function injectLayoutAndActionStyles() {
 
     .gm-seg-pills {
       display: inline-flex;
+      flex-wrap: wrap;
       background: #10151f;
       border: 1px solid #283142;
       border-radius: 8px;
@@ -408,11 +401,12 @@ function injectLayoutAndActionStyles() {
       border: none;
       background: transparent;
       color: #9ca3af;
-      font-size: 0.8rem;
+      font-size: 0.79rem;
       font-weight: 600;
-      padding: 0.34rem 0.68rem;
+      padding: 0.34rem 0.64rem;
       border-radius: 6px;
       cursor: pointer;
+      white-space: nowrap;
       transition: all 0.14s ease;
     }
 
@@ -575,6 +569,30 @@ let finEntries = loadJsonKey(STORAGE_KEYS.FINANCE, DEFAULT_FINANCE);
 let stockOnlyInStockFilter = 'no';      // 'no' | 'yes'
 let stockSupplierFilter = 'all';        // 'all' | 'yes' | 'no'
 let stockLowStockFilter = 'no';         // 'no' | 'yes'
+let stockFormatFilter = 'all';          // 'all' | 'decant' | 'bottle'
+let stockExpiryAlertFilter = 'all';     // 'all' | 'expiring'
+let stockHasCostFilter = 'all';         // 'all' | 'yes' | 'no'
+
+function isDecantProduct(prod) {
+  if (!prod) return false;
+  const cat = String(prod.condition || '').toLowerCase();
+  const name = String(prod.name || '').toLowerCase();
+  const vol = String(prod.battery || '').toLowerCase();
+  if (cat.includes('decant') || name.includes('decant') || vol.includes('decant')) return true;
+  if (/\b(2ml|5ml|10ml)\b/.test(name) || /\b(2ml|5ml|10ml)\b/.test(vol)) return true;
+  return false;
+}
+
+function isExpiringOrExpiredProduct(prod) {
+  if (!prod || !prod.expiry) return false;
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(prod.expiry).trim())
+    ? `${String(prod.expiry).trim()}T00:00:00`
+    : String(prod.expiry).trim();
+  const expDate = new Date(iso);
+  if (Number.isNaN(expDate.getTime())) return false;
+  const diffDays = Math.ceil((expDate - new Date()) / (1000 * 60 * 60 * 24));
+  return diffDays <= 60;
+}
 
 function parseSaleItemsStringToArray(itemsStr = '') {
   const clean = String(itemsStr || '').trim();
@@ -2787,6 +2805,7 @@ window.openViewStockProductModal = function (prodId) {
       <div class="gm-view-box"><small>Código</small><strong>${p.id}</strong></div>
       <div class="gm-view-box"><small>Fragrância / Decant</small><strong>${p.name}</strong></div>
       <div class="gm-view-box"><small>Fornecedor</small><strong>${p.supplier || 'Sem fornecedor'}</strong></div>
+      <div class="gm-view-box"><small>Formato</small><strong>${isDecantProduct(p) ? 'Decant' : 'Frasco Completo'}</strong></div>
       <div class="gm-view-box"><small>Categoria / Volume</small><strong>${p.condition || '-'} ${p.battery ? '• ' + p.battery : ''}</strong></div>
       <div class="gm-view-box"><small>Validade</small><strong>${formatDateSafe(p.expiry)}</strong></div>
       <div class="gm-view-box"><small>Quantidade em Estoque</small><strong>${p.qty} un.</strong></div>
@@ -3587,6 +3606,15 @@ function ensureStockSegmentedFilterControls() {
   segBar.className = 'gm-seg-filters-row';
   segBar.innerHTML = `
     <div class="gm-seg-group">
+      <label>Tipo de Produto</label>
+      <div class="gm-seg-pills" data-filter-key="format">
+        <button type="button" class="gm-seg-btn ${stockFormatFilter === 'all' ? 'active' : ''}" data-val="all">Todos</button>
+        <button type="button" class="gm-seg-btn ${stockFormatFilter === 'decant' ? 'active' : ''}" data-val="decant">Decantes</button>
+        <button type="button" class="gm-seg-btn ${stockFormatFilter === 'bottle' ? 'active' : ''}" data-val="bottle">Frascos Completos</button>
+      </div>
+    </div>
+
+    <div class="gm-seg-group">
       <label>Apenas estoque atual (&gt; 0)?</label>
       <div class="gm-seg-pills" data-filter-key="onlyInStock">
         <button type="button" class="gm-seg-btn ${stockOnlyInStockFilter === 'no' ? 'active' : ''}" data-val="no">Não</button>
@@ -3610,6 +3638,23 @@ function ensureStockSegmentedFilterControls() {
         <button type="button" class="gm-seg-btn ${stockLowStockFilter === 'yes' ? 'active' : ''}" data-val="yes">Sim</button>
       </div>
     </div>
+
+    <div class="gm-seg-group">
+      <label>Validade próxima (≤ 60d / vencidos)?</label>
+      <div class="gm-seg-pills" data-filter-key="expiry">
+        <button type="button" class="gm-seg-btn ${stockExpiryAlertFilter === 'all' ? 'active' : ''}" data-val="all">Todos</button>
+        <button type="button" class="gm-seg-btn ${stockExpiryAlertFilter === 'expiring' ? 'active' : ''}" data-val="expiring">Alerta / Vencidos</button>
+      </div>
+    </div>
+
+    <div class="gm-seg-group">
+      <label>Custo cadastrado?</label>
+      <div class="gm-seg-pills" data-filter-key="hasCost">
+        <button type="button" class="gm-seg-btn ${stockHasCostFilter === 'all' ? 'active' : ''}" data-val="all">Todos</button>
+        <button type="button" class="gm-seg-btn ${stockHasCostFilter === 'yes' ? 'active' : ''}" data-val="yes">Sim</button>
+        <button type="button" class="gm-seg-btn ${stockHasCostFilter === 'no' ? 'active' : ''}" data-val="no">Não</button>
+      </div>
+    </div>
   `;
 
   parentBox.appendChild(segBar);
@@ -3622,6 +3667,9 @@ function ensureStockSegmentedFilterControls() {
         if (key === 'onlyInStock') stockOnlyInStockFilter = val;
         if (key === 'supplier') stockSupplierFilter = val;
         if (key === 'lowStock') stockLowStockFilter = val;
+        if (key === 'format') stockFormatFilter = val;
+        if (key === 'expiry') stockExpiryAlertFilter = val;
+        if (key === 'hasCost') stockHasCostFilter = val;
         syncStockSegmentedButtonsUI();
         renderStock();
       });
@@ -3634,9 +3682,15 @@ function syncStockSegmentedButtonsUI() {
   if (!segBar) return;
   segBar.querySelectorAll('.gm-seg-pills').forEach(pillGroup => {
     const key = pillGroup.getAttribute('data-filter-key');
-    const current = key === 'onlyInStock'
-      ? stockOnlyInStockFilter
-      : (key === 'supplier' ? stockSupplierFilter : stockLowStockFilter);
+    const map = {
+      onlyInStock: stockOnlyInStockFilter,
+      supplier: stockSupplierFilter,
+      lowStock: stockLowStockFilter,
+      format: stockFormatFilter,
+      expiry: stockExpiryAlertFilter,
+      hasCost: stockHasCostFilter
+    };
+    const current = map[key];
     pillGroup.querySelectorAll('.gm-seg-btn').forEach(btn => {
       btn.classList.toggle('active', btn.getAttribute('data-val') === current);
     });
@@ -3913,6 +3967,9 @@ function initStockModule() {
     stockOnlyInStockFilter = 'no';
     stockSupplierFilter = 'all';
     stockLowStockFilter = 'no';
+    stockFormatFilter = 'all';
+    stockExpiryAlertFilter = 'all';
+    stockHasCostFilter = 'all';
     syncStockSegmentedButtonsUI();
     renderStock();
   });
@@ -3950,7 +4007,10 @@ function renderStock() {
 
   const filtered = products.filter(p => {
     const qtyNum = Number(p.qty) || 0;
+    const costNum = Number(p.cost) || 0;
     const hasSup = Boolean(p.supplier && String(p.supplier).trim() && String(p.supplier).trim().toLowerCase() !== 'sem fornecedor');
+    const isDecant = isDecantProduct(p);
+    const isExpAlert = isExpiringOrExpiredProduct(p);
 
     const matchTerm =
       String(p.name || '').toLowerCase().includes(term)
@@ -3965,8 +4025,15 @@ function renderStock() {
     const matchSup = stockSupplierFilter === 'all'
       || (stockSupplierFilter === 'yes' && hasSup)
       || (stockSupplierFilter === 'no' && !hasSup);
+    const matchFormat = stockFormatFilter === 'all'
+      || (stockFormatFilter === 'decant' && isDecant)
+      || (stockFormatFilter === 'bottle' && !isDecant);
+    const matchExpiry = stockExpiryAlertFilter !== 'expiring' || isExpAlert;
+    const matchCost = stockHasCostFilter === 'all'
+      || (stockHasCostFilter === 'yes' && costNum > 0)
+      || (stockHasCostFilter === 'no' && costNum <= 0);
 
-    return matchTerm && matchCond && matchAvail && matchOnlyInStock && matchLow && matchSup;
+    return matchTerm && matchCond && matchAvail && matchOnlyInStock && matchLow && matchSup && matchFormat && matchExpiry && matchCost;
   });
 
   const tbody = document.getElementById('tableStockDetailed');
