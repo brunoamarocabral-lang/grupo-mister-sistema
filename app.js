@@ -450,6 +450,22 @@ function injectLayoutAndActionStyles() {
       gap: 0.35rem;
     }
 
+    .gm-client-form-grid,
+    .gm-edit-sale-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+      gap: 0.55rem;
+    }
+
+    .gm-cep-preview-box {
+      margin-top: 0.55rem;
+      padding: 0.5rem 0.65rem;
+      border-radius: 7px;
+      background: rgba(16, 24, 39, 0.72);
+      border: 1px solid rgba(96, 165, 250, 0.25);
+      font-size: 0.8rem;
+    }
+
     .gm-sale-item-row {
       display: grid;
       grid-template-columns: minmax(140px, 1.8fr) 74px 105px 95px 34px;
@@ -479,7 +495,9 @@ function injectLayoutAndActionStyles() {
 
     /* Opacidade / fundo sólido no modal Visualizar para máxima leitura */
     #viewSaleModalOverlay.modal-overlay,
-    #viewStockProductModalOverlay.modal-overlay {
+    #viewStockProductModalOverlay.modal-overlay,
+    #editClientModalOverlay.modal-overlay,
+    #viewClientModalOverlay.modal-overlay {
       background: rgba(7, 10, 16, 0.9) !important;
       backdrop-filter: blur(4px);
       z-index: 100000 !important;
@@ -534,9 +552,9 @@ function injectLayoutAndActionStyles() {
 const DEFAULT_PRODUCTS = [];
 
 const DEFAULT_CLIENTS = [
-  { cod: 'CLI-001', name: 'MARCELO SOUZA', cpf: '384.910.228-40', phone: '(11) 98765-4321', category: 'VIP / Recorrente', notes: 'Colecionador de árabes e nichos' },
-  { cod: 'CLI-002', name: 'JULIANA ALMEIDA', cpf: '291.445.882-19', phone: '(11) 99412-3308', category: 'Cliente Final', notes: 'Ama decants 10ml e gourmands' },
-  { cod: 'CLI-003', name: 'RODRIGO CASTRO', cpf: '412.889.104-55', phone: '(11) 99123-7744', category: 'VIP / Recorrente', notes: 'Comprador de Creed e Tom Ford' }
+  { cod: 'CLI-001', name: 'MARCELO SOUZA', cpf: '384.910.228-40', phone: '(11) 98765-4321', birthDate: '', cep: '', street: '', number: '', complement: '', neighborhood: '', city: '', category: 'VIP / Recorrente', notes: 'Colecionador de árabes e nichos' },
+  { cod: 'CLI-002', name: 'JULIANA ALMEIDA', cpf: '291.445.882-19', phone: '(11) 99412-3308', birthDate: '', cep: '', street: '', number: '', complement: '', neighborhood: '', city: '', category: 'Cliente Final', notes: 'Ama decants 10ml e gourmands' },
+  { cod: 'CLI-003', name: 'RODRIGO CASTRO', cpf: '412.889.104-55', phone: '(11) 99123-7744', birthDate: '', cep: '', street: '', number: '', complement: '', neighborhood: '', city: '', category: 'VIP / Recorrente', notes: 'Comprador de Creed e Tom Ford' }
 ];
 
 const DEFAULT_SALES = [];
@@ -564,6 +582,10 @@ let cashMoves = loadJsonKey(STORAGE_KEYS.CASH_MOVES, []);
 let cardRates = loadJsonKey(STORAGE_KEYS.RATES, DEFAULT_RATES);
 let rmaList = loadJsonKey(STORAGE_KEYS.RMA, DEFAULT_RMA);
 let finEntries = loadJsonKey(STORAGE_KEYS.FINANCE, DEFAULT_FINANCE);
+
+// Estado dos filtros de Clientes
+let clientBirthdayFilter = 'all';     // 'all' | 'today' | 'month'
+let clientAgeRangeFilter = 'all';     // 'all' | '18_24' | '25_34' | '35_44' | '45_plus'
 
 // Estado dos filtros segmentados do Estoque (estilo referência sem IMEI)
 let stockOnlyInStockFilter = 'no';      // 'no' | 'yes'
@@ -1725,7 +1747,6 @@ function renderCommercialStockCatalog() {
     return;
   }
 
-  // Sem colunas/valores de custo ou margem e sem edição inline
   tbody.innerHTML = filtered.map(p => {
     const qtyNum = Number(p.qty) || 0;
     const isDecant = isDecantProduct(p);
@@ -1786,6 +1807,7 @@ window.navigateToSection = function (targetId, labelText) {
 
   if (targetId === 'estoque') renderStock();
   if (targetId === 'consulta_estoque') renderCommercialStockCatalog();
+  if (targetId === 'clientes') renderClients();
 };
 
 function initNavigation() {
@@ -2720,7 +2742,7 @@ async function pushStockToNuvemshop(product) {
 }
 
 function populateSelectDropdowns() {
-  const clientOptions = `<option value="">Consumidor Balcão / Avulso</option>` + clients.map(c => `<option value="${c.cod}">${c.name} (${c.cpf})</option>`).join('');
+  const clientOptions = `<option value="">Consumidor Balcão / Avulso</option>` + clients.map(c => `<option value="${c.cod}">${c.name} (${c.cpf || 'Sem CPF'})</option>`).join('');
   const modalClientSel = document.getElementById('modalClientSelect');
   if (modalClientSel) modalClientSel.innerHTML = clientOptions;
 
@@ -3828,30 +3850,702 @@ function updateUpgradeSimulator() {
   if (prev) prev.textContent = `*COMBO GRUPO MISTER*\n• ${m1} (${fmtBRL(p1)})\n• ${m2} (${fmtBRL(p2)})\n• Desconto Combo: -${fmtBRL(disc)}\n*Total no Pix: ${fmtBRL(rem)}*`;
 }
 
+// ============================================================================
+// HELPERS DE DATA, IDADE, ENDEREÇO E VIACEP (CLIENTES)
+// ============================================================================
+function calculateClientAge(birthDateStr) {
+  if (!birthDateStr) return null;
+  const parts = String(birthDateStr).split('-');
+  if (parts.length !== 3) return null;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - year;
+  const mDiff = today.getMonth() - month;
+  if (mDiff < 0 || (mDiff === 0 && today.getDate() < day)) {
+    age--;
+  }
+  return age >= 0 ? age : null;
+}
+
+function isBirthdayToday(birthDateStr) {
+  if (!birthDateStr) return false;
+  const parts = String(birthDateStr).split('-');
+  if (parts.length !== 3) return false;
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  const today = new Date();
+  return (today.getMonth() + 1) === month && today.getDate() === day;
+}
+
+function isBirthdayThisMonth(birthDateStr) {
+  if (!birthDateStr) return false;
+  const parts = String(birthDateStr).split('-');
+  if (parts.length !== 3) return false;
+  const month = parseInt(parts[1], 10);
+  const today = new Date();
+  return (today.getMonth() + 1) === month;
+}
+
+function matchesClientAgeRange(birthDateStr, rangeKey) {
+  if (!rangeKey || rangeKey === 'all') return true;
+  const age = calculateClientAge(birthDateStr);
+  if (age === null) return false;
+  if (rangeKey === '18_24') return age >= 18 && age <= 24;
+  if (rangeKey === '25_34') return age >= 25 && age <= 34;
+  if (rangeKey === '35_44') return age >= 35 && age <= 44;
+  if (rangeKey === '45_plus') return age >= 45;
+  return true;
+}
+
+function formatClientFullAddress(c) {
+  if (!c) return '';
+  const line1Parts = [];
+  if (c.street) line1Parts.push(c.street);
+  if (c.number) line1Parts.push(`nº ${c.number}`);
+  if (c.complement) line1Parts.push(`(${c.complement})`);
+  const line1 = line1Parts.join(', ');
+
+  const line2Parts = [];
+  if (c.neighborhood) line2Parts.push(c.neighborhood);
+  if (c.city) line2Parts.push(c.city);
+  const line2 = line2Parts.join(' - ');
+
+  const cepPart = c.cep ? `CEP: ${c.cep}` : '';
+  return [line1, line2, cepPart].filter(Boolean).join(' • ');
+}
+
+async function lookupCepAddressViaCep(rawCep, targets = {}) {
+  const digits = String(rawCep || '').replace(/\D/g, '');
+  const { streetEl, neighborhoodEl, cityEl, previewEl } = targets;
+
+  if (digits.length !== 8) {
+    if (previewEl) {
+      previewEl.style.display = 'none';
+      previewEl.innerHTML = '';
+    }
+    return;
+  }
+
+  if (previewEl) {
+    previewEl.style.display = 'block';
+    previewEl.innerHTML = `<span style="color:#93c5fd;">Buscando CEP ${digits.replace(/(\d{5})(\d{3})/, '$1-$2')}...</span>`;
+  }
+
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+    const data = await res.json();
+    if (data?.erro) {
+      if (previewEl) {
+        previewEl.style.display = 'block';
+        previewEl.innerHTML = `<span style="color:#f87171;">CEP não encontrado. Você pode preencher o endereço manualmente.</span>`;
+      }
+      return;
+    }
+
+    const cityUf = [data.localidade, data.uf].filter(Boolean).join(' - ');
+    if (streetEl && data.logradouro) streetEl.value = data.logradouro;
+    if (neighborhoodEl && data.bairro) neighborhoodEl.value = data.bairro;
+    if (cityEl && cityUf) cityEl.value = cityUf;
+
+    if (previewEl) {
+      previewEl.style.display = 'block';
+      previewEl.innerHTML = `
+        <div style="color:#34d399; font-weight:600; margin-bottom:2px;">Endereço localizado:</div>
+        <div style="color:#e5e7eb;">
+          ${data.logradouro || 'Logradouro não informado'}${data.bairro ? ` • ${data.bairro}` : ''}${cityUf ? ` • ${cityUf}` : ''}
+        </div>
+      `;
+    }
+  } catch (_) {
+    if (previewEl) {
+      previewEl.style.display = 'block';
+      previewEl.innerHTML = `<span style="color:#fbbf24;">Não foi possível consultar o CEP agora. Preencha os campos manualmente.</span>`;
+    }
+  }
+}
+
+// ============================================================================
+// MENU "AÇÕES ▾" DO CLIENTE
+// ============================================================================
+window.toggleClientActionMenu = function (event, clientCod) {
+  event.stopPropagation();
+  const menuId = `gmClientMenu_${String(clientCod).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  let menu = document.getElementById(menuId);
+  const wasOpen = menu?.classList.contains('open');
+  if (typeof closeAllGithubActionMenus === 'function') closeAllGithubActionMenus();
+
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'gm-gh-dropdown';
+    menu.innerHTML = `
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewClientModal('${clientCod}')">
+        <i class="ph ph-eye" style="color:#34d399; font-size:15px;"></i>
+        <span>Visualizar</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditClientModal('${clientCod}')">
+        <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
+        <span>Editar</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openClientWhatsapp('${clientCod}')">
+        <i class="ph ph-whatsapp-logo" style="color:#34d399; font-size:15px;"></i>
+        <span>WhatsApp</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); selectClientForSale('${clientCod}')">
+        <i class="ph ph-shopping-cart" style="color:#fbbf24; font-size:15px;"></i>
+        <span>Nova Venda</span>
+      </button>
+      <div class="gm-gh-dropdown-divider"></div>
+      <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteClientRecord('${clientCod}')">
+        <i class="ph ph-trash" style="font-size:15px;"></i>
+        <span>Apagar</span>
+      </button>
+    `;
+    document.body.appendChild(menu);
+  }
+
+  if (!wasOpen && typeof positionGithubMenu === 'function') {
+    positionGithubMenu(menu, event.currentTarget);
+  }
+};
+
+function renderClientActionButton(clientCod) {
+  return `
+    <div class="gm-gh-action-wrap">
+      <button type="button"
+        class="gm-gh-pencil-btn"
+        title="Ações do cliente"
+        aria-label="Ações do cliente"
+        onclick="toggleClientActionMenu(event, '${clientCod}')">
+        <span>Ações</span>
+        <i class="ph ph-caret-down" style="font-size:13px; color:#9ca3af;"></i>
+      </button>
+    </div>
+  `;
+}
+
+// ============================================================================
+// MÓDULO DE CLIENTES (DATA NASCIMENTO + ENDEREÇO CEP VIA-CEP + AÇÕES ▾ + MODAIS)
+// ============================================================================
+function ensureClientExtraFieldsInNewModal() {
+  const form = document.getElementById('formNewClient');
+  if (!form || document.getElementById('newClientBirthDate')) return;
+
+  const block = document.createElement('div');
+  block.id = 'newClientExtraFieldsBlock';
+  block.className = 'gm-modal-section-card';
+  block.style.marginTop = '0.6rem';
+  block.innerHTML = `
+    <div class="gm-modal-section-title"><i class="ph ph-cake" style="color:#fbbf24;"></i> Nascimento e Qualificação</div>
+    <div class="gm-client-form-grid">
+      <div class="form-group">
+        <label for="newClientBirthDate">Data de Nascimento:</label>
+        <input type="date" id="newClientBirthDate" />
+      </div>
+    </div>
+    <div class="gm-modal-section-title" style="margin-top:0.65rem;"><i class="ph ph-map-pin" style="color:#60a5fa;"></i> Endereço Completo (Busca Automática por CEP)</div>
+    <div class="gm-client-form-grid">
+      <div class="form-group">
+        <label for="newClientCep">CEP:</label>
+        <input type="text" id="newClientCep" placeholder="00000-000" maxlength="9" />
+      </div>
+      <div class="form-group">
+        <label for="newClientStreet">Rua / Logradouro:</label>
+        <input type="text" id="newClientStreet" placeholder="Rua / Avenida" />
+      </div>
+      <div class="form-group">
+        <label for="newClientNumber">Número:</label>
+        <input type="text" id="newClientNumber" placeholder="Ex: 120" />
+      </div>
+      <div class="form-group">
+        <label for="newClientComplement">Complemento:</label>
+        <input type="text" id="newClientComplement" placeholder="Apto, bloco, casa..." />
+      </div>
+      <div class="form-group">
+        <label for="newClientNeighborhood">Bairro:</label>
+        <input type="text" id="newClientNeighborhood" placeholder="Bairro" />
+      </div>
+      <div class="form-group">
+        <label for="newClientCity">Cidade / UF:</label>
+        <input type="text" id="newClientCity" placeholder="Ex: Jundiaí - SP" />
+      </div>
+    </div>
+    <div id="newClientCepPreview" class="gm-cep-preview-box" style="display:none;"></div>
+  `;
+
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.parentElement.insertAdjacentElement('beforebegin', block);
+  } else {
+    form.appendChild(block);
+  }
+
+  const cepInp = document.getElementById('newClientCep');
+  const triggerNewCep = () => lookupCepAddressViaCep(cepInp.value, {
+    streetEl: document.getElementById('newClientStreet'),
+    neighborhoodEl: document.getElementById('newClientNeighborhood'),
+    cityEl: document.getElementById('newClientCity'),
+    previewEl: document.getElementById('newClientCepPreview')
+  });
+  cepInp?.addEventListener('blur', triggerNewCep);
+  cepInp?.addEventListener('input', () => {
+    const digits = cepInp.value.replace(/\D/g, '');
+    if (digits.length === 8) triggerNewCep();
+  });
+}
+
+function ensureClientEditAndViewModals() {
+  if (!document.getElementById('editClientModalOverlay')) {
+    const editOverlay = document.createElement('div');
+    editOverlay.id = 'editClientModalOverlay';
+    editOverlay.className = 'modal-overlay';
+    editOverlay.innerHTML = `
+      <div class="modal-content gm-view-modal-card">
+        <div class="modal-header">
+          <h3><i class="ph ph-pencil-simple" style="color:#60a5fa;"></i> Editar Cliente <span id="editClientHeaderCod" style="color:#fbbf24;"></span></h3>
+          <button type="button" id="btnCloseEditClientModal" class="btn-close">&times;</button>
+        </div>
+        <form id="formEditClient" class="modal-body">
+          <input type="hidden" id="editClientOriginalCod" />
+
+          <div class="gm-modal-section-card">
+            <div class="gm-modal-section-title"><i class="ph ph-user" style="color:#60a5fa;"></i> Dados Pessoais e Aniversário</div>
+            <div class="gm-client-form-grid">
+              <div class="form-group">
+                <label for="editClientName">Nome Completo:</label>
+                <input type="text" id="editClientName" required />
+              </div>
+              <div class="form-group">
+                <label for="editClientCpf">CPF:</label>
+                <input type="text" id="editClientCpf" />
+              </div>
+              <div class="form-group">
+                <label for="editClientPhone">Telefone / WhatsApp:</label>
+                <input type="text" id="editClientPhone" />
+              </div>
+              <div class="form-group">
+                <label for="editClientBirthDate">Data de Nascimento:</label>
+                <input type="date" id="editClientBirthDate" />
+              </div>
+              <div class="form-group">
+                <label for="editClientCategory">Categoria:</label>
+                <select id="editClientCategory">
+                  <option value="Cliente Final">Cliente Final</option>
+                  <option value="VIP / Recorrente">VIP / Recorrente</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="gm-modal-section-card accent-amber">
+            <div class="gm-modal-section-title"><i class="ph ph-map-pin" style="color:#fbbf24;"></i> Endereço Completo (Digite o CEP para preencher)</div>
+            <div class="gm-client-form-grid">
+              <div class="form-group">
+                <label for="editClientCep">CEP:</label>
+                <input type="text" id="editClientCep" placeholder="00000-000" maxlength="9" />
+              </div>
+              <div class="form-group">
+                <label for="editClientStreet">Rua:</label>
+                <input type="text" id="editClientStreet" placeholder="Rua / Logradouro" />
+              </div>
+              <div class="form-group">
+                <label for="editClientNumber">Número:</label>
+                <input type="text" id="editClientNumber" placeholder="Número" />
+              </div>
+              <div class="form-group">
+                <label for="editClientComplement">Complemento:</label>
+                <input type="text" id="editClientComplement" placeholder="Apto, bloco, ref..." />
+              </div>
+              <div class="form-group">
+                <label for="editClientNeighborhood">Bairro:</label>
+                <input type="text" id="editClientNeighborhood" placeholder="Bairro" />
+              </div>
+              <div class="form-group">
+                <label for="editClientCity">Cidade:</label>
+                <input type="text" id="editClientCity" placeholder="Cidade - UF" />
+              </div>
+            </div>
+            <div id="editClientCepPreview" class="gm-cep-preview-box" style="display:none;"></div>
+          </div>
+
+          <div class="gm-modal-section-card accent-emerald">
+            <div class="gm-modal-section-title"><i class="ph ph-note" style="color:#34d399;"></i> Preferências e Observações</div>
+            <div class="form-group" style="margin:0;">
+              <label for="editClientNotes">Observações (perfumes preferidos, estilo, etc.):</label>
+              <input type="text" id="editClientNotes" placeholder="Ex: Prefere amadeirados e decants 10ml" />
+            </div>
+          </div>
+
+          <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+            <button type="button" id="btnCancelEditClientModal" class="btn-sm">Cancelar</button>
+            <button type="submit" class="btn-primary"><i class="ph ph-check"></i> Salvar Alterações</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(editOverlay);
+
+    const closeEdit = () => editOverlay.classList.remove('active');
+    document.getElementById('btnCloseEditClientModal')?.addEventListener('click', closeEdit);
+    document.getElementById('btnCancelEditClientModal')?.addEventListener('click', closeEdit);
+    editOverlay.addEventListener('click', (e) => {
+      if (e.target === editOverlay) closeEdit();
+    });
+
+    const editCepInp = document.getElementById('editClientCep');
+    const triggerEditCep = () => lookupCepAddressViaCep(editCepInp.value, {
+      streetEl: document.getElementById('editClientStreet'),
+      neighborhoodEl: document.getElementById('editClientNeighborhood'),
+      cityEl: document.getElementById('editClientCity'),
+      previewEl: document.getElementById('editClientCepPreview')
+    });
+    editCepInp?.addEventListener('blur', triggerEditCep);
+    editCepInp?.addEventListener('input', () => {
+      const digits = editCepInp.value.replace(/\D/g, '');
+      if (digits.length === 8) triggerEditCep();
+    });
+
+    document.getElementById('formEditClient')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const cod = document.getElementById('editClientOriginalCod').value;
+      const cli = clients.find(c => c.cod === cod);
+      if (!cli) return;
+
+      cli.name = document.getElementById('editClientName').value.trim().toUpperCase() || cli.name;
+      cli.cpf = document.getElementById('editClientCpf').value.trim();
+      cli.phone = document.getElementById('editClientPhone').value.trim();
+      cli.birthDate = document.getElementById('editClientBirthDate').value || '';
+      cli.category = document.getElementById('editClientCategory').value || 'Cliente Final';
+      cli.cep = document.getElementById('editClientCep').value.trim();
+      cli.street = document.getElementById('editClientStreet').value.trim();
+      cli.number = document.getElementById('editClientNumber').value.trim();
+      cli.complement = document.getElementById('editClientComplement').value.trim();
+      cli.neighborhood = document.getElementById('editClientNeighborhood').value.trim();
+      cli.city = document.getElementById('editClientCity').value.trim();
+      cli.notes = document.getElementById('editClientNotes').value.trim();
+
+      saveAll();
+      renderAll();
+      closeEdit();
+      showToast(`Cliente "${cli.name}" atualizado!`);
+    });
+  }
+
+  if (!document.getElementById('viewClientModalOverlay')) {
+    const viewOverlay = document.createElement('div');
+    viewOverlay.id = 'viewClientModalOverlay';
+    viewOverlay.className = 'modal-overlay';
+    viewOverlay.innerHTML = `
+      <div class="modal-content gm-view-modal-card">
+        <div class="modal-header">
+          <h3><i class="ph ph-eye" style="color:#34d399;"></i> Ficha do Cliente <span id="viewClientHeaderCod" style="color:#fbbf24;"></span></h3>
+          <button type="button" id="btnCloseViewClientModal" class="btn-close">&times;</button>
+        </div>
+        <div id="viewClientModalBody" class="modal-body"></div>
+        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem; flex-wrap:wrap;">
+          <button type="button" id="btnViewClientWhatsapp" class="btn-sm btn-green"><i class="ph ph-whatsapp-logo"></i> WhatsApp</button>
+          <button type="button" id="btnViewClientEdit" class="btn-primary"><i class="ph ph-pencil-simple"></i> Editar</button>
+          <button type="button" id="btnCloseViewClientModalFooter" class="btn-sm">Fechar</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(viewOverlay);
+
+    const closeView = () => viewOverlay.classList.remove('active');
+    document.getElementById('btnCloseViewClientModal')?.addEventListener('click', closeView);
+    document.getElementById('btnCloseViewClientModalFooter')?.addEventListener('click', closeView);
+    viewOverlay.addEventListener('click', (e) => {
+      if (e.target === viewOverlay) closeView();
+    });
+  }
+}
+
+window.openEditClientModal = function (clientCod) {
+  ensureClientEditAndViewModals();
+  const cli = clients.find(c => c.cod === clientCod);
+  if (!cli) return;
+
+  document.getElementById('editClientHeaderCod').textContent = `(${cli.cod})`;
+  document.getElementById('editClientOriginalCod').value = cli.cod;
+  document.getElementById('editClientName').value = cli.name || '';
+  document.getElementById('editClientCpf').value = cli.cpf || '';
+  document.getElementById('editClientPhone').value = cli.phone || '';
+  document.getElementById('editClientBirthDate').value = cli.birthDate || '';
+  document.getElementById('editClientCategory').value = cli.category || 'Cliente Final';
+  document.getElementById('editClientCep').value = cli.cep || '';
+  document.getElementById('editClientStreet').value = cli.street || '';
+  document.getElementById('editClientNumber').value = cli.number || '';
+  document.getElementById('editClientComplement').value = cli.complement || '';
+  document.getElementById('editClientNeighborhood').value = cli.neighborhood || '';
+  document.getElementById('editClientCity').value = cli.city || '';
+  document.getElementById('editClientNotes').value = cli.notes || '';
+
+  const previewEl = document.getElementById('editClientCepPreview');
+  const fullAddr = formatClientFullAddress(cli);
+  if (previewEl) {
+    if (fullAddr) {
+      previewEl.style.display = 'block';
+      previewEl.innerHTML = `<strong>Endereço cadastrado:</strong> ${fullAddr}`;
+    } else {
+      previewEl.style.display = 'none';
+      previewEl.innerHTML = '';
+    }
+  }
+
+  document.getElementById('editClientModalOverlay')?.classList.add('active');
+};
+
+window.openViewClientModal = function (clientCod) {
+  ensureClientEditAndViewModals();
+  const cli = clients.find(c => c.cod === clientCod);
+  if (!cli) return;
+
+  const age = calculateClientAge(cli.birthDate);
+  const bdayToday = isBirthdayToday(cli.birthDate);
+  const ageText = age !== null ? `${age} anos` : 'Não informada';
+  const dobText = cli.birthDate
+    ? `${formatDateSafe(cli.birthDate)} (${ageText})${bdayToday ? ' • 🎂 Aniversariante hoje!' : ''}`
+    : 'Não informada';
+  const addrText = formatClientFullAddress(cli) || 'Endereço não cadastrado';
+
+  document.getElementById('viewClientHeaderCod').textContent = `(${cli.cod})`;
+  document.getElementById('viewClientModalBody').innerHTML = `
+    <div class="gm-view-grid">
+      <div class="gm-view-box"><small>Código</small><strong>${cli.cod}</strong></div>
+      <div class="gm-view-box"><small>Nome</small><strong>${cli.name || '-'}</strong></div>
+      <div class="gm-view-box"><small>CPF</small><strong>${cli.cpf || '-'}</strong></div>
+      <div class="gm-view-box"><small>Telefone / WhatsApp</small><strong>${cli.phone || '-'}</strong></div>
+      <div class="gm-view-box"><small>Data de Nascimento / Idade</small><strong>${dobText}</strong></div>
+      <div class="gm-view-box"><small>Categoria</small><strong>${cli.category || 'Cliente Final'}</strong></div>
+    </div>
+    <div class="gm-view-box" style="margin-bottom:0.75rem;">
+      <small>Endereço Completo</small>
+      <strong>${addrText}</strong>
+    </div>
+    <div class="gm-view-box">
+      <small>Observações</small>
+      <strong>${cli.notes || 'Nenhuma observação'}</strong>
+    </div>
+  `;
+
+  const btnEdit = document.getElementById('btnViewClientEdit');
+  if (btnEdit) {
+    btnEdit.onclick = () => {
+      document.getElementById('viewClientModalOverlay')?.classList.remove('active');
+      openEditClientModal(cli.cod);
+    };
+  }
+
+  const btnWa = document.getElementById('btnViewClientWhatsapp');
+  if (btnWa) {
+    btnWa.onclick = () => openClientWhatsapp(cli.cod);
+  }
+
+  document.getElementById('viewClientModalOverlay')?.classList.add('active');
+};
+
+window.openClientWhatsapp = function (clientCod) {
+  const cli = clients.find(c => c.cod === clientCod);
+  if (!cli) return;
+  const digits = String(cli.phone || '').replace(/\D/g, '');
+  if (!digits) return showToast('Cliente sem telefone/WhatsApp cadastrado.');
+
+  const text = isBirthdayToday(cli.birthDate)
+    ? `Feliz aniversário, *${cli.name}*! 🎂 A *GRUPO MISTER Perfumaria* preparou um presente especial para comemorar o seu dia!`
+    : `Olá *${cli.name}*! Como podemos te ajudar hoje?`;
+  const fullPhone = digits.startsWith('55') ? digits : `55${digits}`;
+  window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`, '_blank');
+};
+
+window.deleteClientRecord = function (clientCod) {
+  const cli = clients.find(c => c.cod === clientCod);
+  if (!cli) return;
+  if (!confirm(`Deseja realmente excluir o cliente "${cli.name}" (${cli.cod})?`)) return;
+  clients = clients.filter(c => c.cod !== clientCod);
+  saveAll();
+  renderAll();
+  showToast(`Cliente "${cli.name}" removido.`);
+};
+
+function ensureClientsTableHeaderWithActions() {
+  const tbody = document.getElementById('tableClientsDetailed');
+  const table = tbody?.closest('table');
+  if (!table) return;
+  const thead = table.querySelector('thead tr');
+  if (!thead) return;
+
+  thead.innerHTML = `
+    <th>CÓD.</th>
+    <th>NOME</th>
+    <th>CPF</th>
+    <th>TELEFONE</th>
+    <th>NASCIMENTO / IDADE</th>
+    <th>ENDEREÇO</th>
+    <th>CATEGORIA</th>
+    <th>AÇÕES</th>
+  `;
+}
+
+function ensureClientsQualificationFiltersBar() {
+  const searchInput = document.getElementById('clientSearchInput');
+  if (!searchInput || document.getElementById('gmClientQualificationFilters')) return;
+
+  const parentBox = searchInput.closest('.filters-bar, .filter-row, .card, .section-card') || searchInput.parentElement;
+  if (!parentBox) return;
+
+  const bar = document.createElement('div');
+  bar.id = 'gmClientQualificationFilters';
+  bar.className = 'gm-seg-filters-row';
+  bar.innerHTML = `
+    <div class="gm-seg-group">
+      <label>Aniversariantes</label>
+      <div class="gm-seg-pills" id="clientBirthdayPills">
+        <button type="button" class="gm-seg-btn ${clientBirthdayFilter === 'all' ? 'active' : ''}" data-val="all">Todos</button>
+        <button type="button" class="gm-seg-btn ${clientBirthdayFilter === 'today' ? 'active' : ''}" data-val="today">🎂 Hoje</button>
+        <button type="button" class="gm-seg-btn ${clientBirthdayFilter === 'month' ? 'active' : ''}" data-val="month">📅 Deste Mês</button>
+      </div>
+    </div>
+
+    <div class="gm-seg-group">
+      <label for="clientAgeRangeFilter">Faixa Etária:</label>
+      <select id="clientAgeRangeFilter" style="min-width:155px;">
+        <option value="all" ${clientAgeRangeFilter === 'all' ? 'selected' : ''}>Todas as idades</option>
+        <option value="18_24" ${clientAgeRangeFilter === '18_24' ? 'selected' : ''}>18 a 24 anos</option>
+        <option value="25_34" ${clientAgeRangeFilter === '25_34' ? 'selected' : ''}>25 a 34 anos</option>
+        <option value="35_44" ${clientAgeRangeFilter === '35_44' ? 'selected' : ''}>35 a 44 anos</option>
+        <option value="45_plus" ${clientAgeRangeFilter === '45_plus' ? 'selected' : ''}>45+ anos</option>
+      </select>
+    </div>
+  `;
+  parentBox.appendChild(bar);
+
+  bar.querySelectorAll('#clientBirthdayPills .gm-seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      clientBirthdayFilter = btn.getAttribute('data-val') || 'all';
+      bar.querySelectorAll('#clientBirthdayPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+      renderClients();
+    });
+  });
+
+  document.getElementById('clientAgeRangeFilter')?.addEventListener('change', (e) => {
+    clientAgeRangeFilter = e.target.value || 'all';
+    renderClients();
+  });
+}
+
 function initClientsModule() {
+  ensureClientExtraFieldsInNewModal();
+  ensureClientEditAndViewModals();
+  ensureClientsQualificationFiltersBar();
+  ensureClientsTableHeaderWithActions();
+
   const overlay = document.getElementById('clientModalOverlay');
-  document.getElementById('btnOpenClientModal')?.addEventListener('click', () => overlay.classList.add('active'));
-  document.getElementById('btnCloseClientModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-  document.getElementById('btnCancelClientModal')?.addEventListener('click', () => overlay.classList.remove('active'));
+  document.getElementById('btnOpenClientModal')?.addEventListener('click', () => {
+    ensureClientExtraFieldsInNewModal();
+    const prev = document.getElementById('newClientCepPreview');
+    if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
+    overlay?.classList.add('active');
+  });
+  document.getElementById('btnCloseClientModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
+  document.getElementById('btnCancelClientModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
+
   document.getElementById('formNewClient')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    clients.unshift({ cod: 'CLI-' + String(clients.length + 1).padStart(3, '0'), name: document.getElementById('newClientName').value.trim().toUpperCase(), cpf: document.getElementById('newClientCpf').value.trim(), phone: document.getElementById('newClientPhone').value.trim(), category: document.getElementById('newClientCategory').value, notes: document.getElementById('newClientNotes').value.trim() });
-    saveAll(); renderAll(); overlay.classList.remove('active'); showToast('Cliente cadastrado!');
+    ensureClientExtraFieldsInNewModal();
+    const newClient = {
+      cod: 'CLI-' + String(clients.length + 1).padStart(3, '0'),
+      name: document.getElementById('newClientName').value.trim().toUpperCase(),
+      cpf: document.getElementById('newClientCpf').value.trim(),
+      phone: document.getElementById('newClientPhone').value.trim(),
+      birthDate: document.getElementById('newClientBirthDate')?.value || '',
+      cep: document.getElementById('newClientCep')?.value.trim() || '',
+      street: document.getElementById('newClientStreet')?.value.trim() || '',
+      number: document.getElementById('newClientNumber')?.value.trim() || '',
+      complement: document.getElementById('newClientComplement')?.value.trim() || '',
+      neighborhood: document.getElementById('newClientNeighborhood')?.value.trim() || '',
+      city: document.getElementById('newClientCity')?.value.trim() || '',
+      category: document.getElementById('newClientCategory').value,
+      notes: document.getElementById('newClientNotes').value.trim()
+    };
+    clients.unshift(newClient);
+    e.target.reset();
+    const prev = document.getElementById('newClientCepPreview');
+    if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
+    saveAll();
+    renderAll();
+    overlay?.classList.remove('active');
+    showToast('Cliente cadastrado!');
   });
+
   document.getElementById('clientSearchInput')?.addEventListener('input', renderClients);
   document.getElementById('clientCategoryFilter')?.addEventListener('change', renderClients);
 }
 
 function renderClients() {
+  ensureClientsQualificationFiltersBar();
+  ensureClientsTableHeaderWithActions();
+
   const term = (document.getElementById('clientSearchInput')?.value || '').toLowerCase();
   const cat = document.getElementById('clientCategoryFilter')?.value || 'todos';
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   setTxt('metricTotalPessoas', clients.length);
   setTxt('metricTotalClientes', clients.length);
   setTxt('metricClientesVip', clients.filter(c => c.category === 'VIP / Recorrente').length);
-  const filtered = clients.filter(c => (c.name.toLowerCase().includes(term) || (c.cpf || '').includes(term)) && (cat === 'todos' || c.category === cat));
+
+  const filtered = clients.filter(c => {
+    const addrStr = formatClientFullAddress(c).toLowerCase();
+    const matchTerm = !term
+      || String(c.name || '').toLowerCase().includes(term)
+      || String(c.cpf || '').includes(term)
+      || String(c.phone || '').toLowerCase().includes(term)
+      || addrStr.includes(term);
+
+    const matchCat = cat === 'todos' || c.category === cat;
+    const matchBday = clientBirthdayFilter === 'all'
+      || (clientBirthdayFilter === 'today' && isBirthdayToday(c.birthDate))
+      || (clientBirthdayFilter === 'month' && isBirthdayThisMonth(c.birthDate));
+    const matchAge = matchesClientAgeRange(c.birthDate, clientAgeRangeFilter);
+
+    return matchTerm && matchCat && matchBday && matchAge;
+  });
+
   const tbody = document.getElementById('tableClientsDetailed');
-  if (tbody) tbody.innerHTML = filtered.map(c => `<tr><td>${c.cod}</td><td><strong>${c.name}</strong></td><td>${c.cpf}</td><td>${c.phone}</td><td>${c.notes || '-'}</td><td><span class="badge-tag ${c.category === 'VIP / Recorrente' ? 'badge-warning' : 'badge-info'}">${c.category}</span></td><td><button type="button" class="btn-sm btn-blue" onclick="selectClientForSale('${c.cod}')">Vender</button></td></tr>`).join('');
+  if (!tbody) return;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.2rem;">Nenhum cliente encontrado para os filtros selecionados.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(c => {
+    const age = calculateClientAge(c.birthDate);
+    const bdayToday = isBirthdayToday(c.birthDate);
+    const dobDisplay = c.birthDate
+      ? `<div>${formatDateSafe(c.birthDate)} ${age !== null ? `<small style="color:var(--text-muted);">(${age}a)</small>` : ''}</div>${bdayToday ? `<span class="badge-tag badge-warning" style="margin-top:2px;">🎂 Hoje</span>` : ''}`
+      : `<span style="color:var(--text-muted);">-</span>`;
+
+    const addrDisplay = formatClientFullAddress(c) || `<span style="color:var(--text-muted);">-</span>`;
+
+    return `
+      <tr>
+        <td><strong>${c.cod}</strong></td>
+        <td>
+          <strong>${c.name}</strong>
+          ${c.notes ? `<div style="font-size:0.74rem; color:var(--text-muted);">${c.notes}</div>` : ''}
+        </td>
+        <td style="white-space:nowrap;">${c.cpf || '-'}</td>
+        <td style="white-space:nowrap;">${c.phone || '-'}</td>
+        <td>${dobDisplay}</td>
+        <td style="max-width:240px;">${addrDisplay}</td>
+        <td style="white-space:nowrap;"><span class="badge-tag ${c.category === 'VIP / Recorrente' ? 'badge-warning' : 'badge-info'}">${c.category}</span></td>
+        <td style="white-space:nowrap;">${renderClientActionButton(c.cod)}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
 window.selectClientForSale = function (cod) {
@@ -4272,31 +4966,35 @@ function initStockModule() {
       saveAll();
       renderAll();
       overlay?.classList.remove('active');
-      showToast('Fragrância cadastrada!');
+      showToast('Produto cadastrado no estoque!');
     }
   });
 
-  ['stockSearchInput', 'stockConditionFilter', 'stockAvailabilityFilter'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', renderStock);
-    document.getElementById(id)?.addEventListener('change', renderStock);
-  });
+  document.getElementById('stockSearchInput')?.addEventListener('input', renderStock);
+  document.getElementById('stockConditionFilter')?.addEventListener('change', renderStock);
 
-  document.getElementById('btnClearStockFilters')?.addEventListener('click', () => {
-    const sInp = document.getElementById('stockSearchInput');
-    const cSel = document.getElementById('stockConditionFilter');
-    const aSel = document.getElementById('stockAvailabilityFilter');
-    if (sInp) sInp.value = '';
-    if (cSel) cSel.value = 'todos';
-    if (aSel) aSel.value = 'todos';
-    stockOnlyInStockFilter = 'no';
-    stockSupplierFilter = 'all';
-    stockLowStockFilter = 'no';
-    stockFormatFilter = 'all';
-    stockExpiryAlertFilter = 'all';
-    stockHasCostFilter = 'all';
-    syncStockSegmentedButtonsUI();
-    renderStock();
-  });
+  const searchInp = document.getElementById('stockSearchInput');
+  if (searchInp && !document.getElementById('gmBtnClearStockFilters')) {
+    const btnClear = document.createElement('button');
+    btnClear.id = 'gmBtnClearStockFilters';
+    btnClear.type = 'button';
+    btnClear.className = 'btn-sm';
+    btnClear.textContent = 'Limpar Filtros';
+    btnClear.addEventListener('click', () => {
+      searchInp.value = '';
+      const condSel = document.getElementById('stockConditionFilter');
+      if (condSel) condSel.value = 'todos';
+      stockOnlyInStockFilter = 'no';
+      stockSupplierFilter = 'all';
+      stockLowStockFilter = 'no';
+      stockFormatFilter = 'all';
+      stockExpiryAlertFilter = 'all';
+      stockHasCostFilter = 'all';
+      syncStockSegmentedButtonsUI();
+      renderStock();
+    });
+    searchInp.insertAdjacentElement('afterend', btnClear);
+  }
 }
 
 function renderStock() {
@@ -4306,98 +5004,113 @@ function renderStock() {
   ensureStockTableHeaderWithoutBatch();
 
   const canManageStock = hasStockAccess();
-  const stockBar = document.getElementById('gmStockManagerBar');
-  if (stockBar) stockBar.style.display = canManageStock ? 'flex' : 'none';
-
-  // Oculta cards financeiros antigos da aba estoque; mantém apenas métricas operacionais
-  const adminGrid = document.getElementById('stockAdminMetricsGrid');
-  const sellerBanner = document.getElementById('stockSellerQuickFilterBanner');
-  if (adminGrid) adminGrid.style.display = 'none';
-  if (sellerBanner) sellerBanner.style.display = 'none';
-
-  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  const totalUnits = products.reduce((a, p) => a + (Number(p.qty) || 0), 0);
-  const lowCount = products.filter(p => (Number(p.qty) || 0) <= 2).length;
-  const outCount = products.filter(p => (Number(p.qty) || 0) === 0).length;
-
-  setTxt('gmStockOpTotalUnits', totalUnits);
-  setTxt('gmStockOpSkus', products.length);
-  setTxt('gmStockOpLow', lowCount);
-  setTxt('gmStockOpOut', outCount);
-
   const term = (document.getElementById('stockSearchInput')?.value || '').toLowerCase();
   const cond = document.getElementById('stockConditionFilter')?.value || 'todos';
-  const avail = document.getElementById('stockAvailabilityFilter')?.value || 'todos';
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+  const totalUnitsAll = products.reduce((acc, p) => acc + (Number(p.qty) || 0), 0);
+  const lowStockCount = products.filter(p => {
+    const q = Number(p.qty) || 0;
+    return q > 0 && q <= 2;
+  }).length;
+  const outOfStockCount = products.filter(p => (Number(p.qty) || 0) <= 0).length;
+
+  setTxt('gmStockOpTotalUnits', totalUnitsAll);
+  setTxt('gmStockOpSkus', products.length);
+  setTxt('gmStockOpLow', lowStockCount);
+  setTxt('gmStockOpOut', outOfStockCount);
+
+  setTxt('metricStockItems', products.length);
+  setTxt('metricStockCost', canManageStock ? fmtBRL(products.reduce((acc, p) => acc + Number(p.cost || 0) * Number(p.qty || 0), 0)) : 'Restrito');
+  setTxt('metricStockSale', fmtBRL(products.reduce((acc, p) => acc + Number(p.price || 0) * Number(p.qty || 0), 0)));
 
   const filtered = products.filter(p => {
     const qtyNum = Number(p.qty) || 0;
     const costNum = Number(p.cost) || 0;
-    const hasSup = Boolean(p.supplier && String(p.supplier).trim() && String(p.supplier).trim().toLowerCase() !== 'sem fornecedor');
+    const hasSupplier = Boolean(String(p.supplier || '').trim());
     const isDecant = isDecantProduct(p);
-    const isExpAlert = isExpiringOrExpiredProduct(p);
+    const isExpiring = isExpiringOrExpiredProduct(p);
 
-    const matchTerm =
-      String(p.name || '').toLowerCase().includes(term)
-      || String(p.supplier || '').toLowerCase().includes(term)
+    const matchTerm = !term
+      || String(p.name || '').toLowerCase().includes(term)
       || String(p.id || '').toLowerCase().includes(term)
+      || String(p.supplier || '').toLowerCase().includes(term)
+      || String(p.condition || '').toLowerCase().includes(term)
       || String(p.battery || '').toLowerCase().includes(term);
 
     const matchCond = cond === 'todos' || p.condition === cond;
-    const matchAvail = avail === 'todos' || (avail === 'disponivel' && qtyNum > 0) || (avail === 'esgotado' && qtyNum === 0);
-    const matchOnlyInStock = stockOnlyInStockFilter !== 'yes' || qtyNum > 0;
-    const matchLow = stockLowStockFilter !== 'yes' || qtyNum <= 2;
-    const matchSup = stockSupplierFilter === 'all'
-      || (stockSupplierFilter === 'yes' && hasSup)
-      || (stockSupplierFilter === 'no' && !hasSup);
     const matchFormat = stockFormatFilter === 'all'
       || (stockFormatFilter === 'decant' && isDecant)
       || (stockFormatFilter === 'bottle' && !isDecant);
-    const matchExpiry = stockExpiryAlertFilter !== 'expiring' || isExpAlert;
-    const matchCost = stockHasCostFilter === 'all'
+    const matchOnlyInStock = stockOnlyInStockFilter !== 'yes' || qtyNum > 0;
+    const matchSupplier = stockSupplierFilter === 'all'
+      || (stockSupplierFilter === 'yes' && hasSupplier)
+      || (stockSupplierFilter === 'no' && !hasSupplier);
+    const matchLowStock = stockLowStockFilter !== 'yes' || (qtyNum > 0 && qtyNum <= 2);
+    const matchExpiry = stockExpiryAlertFilter !== 'expiring' || isExpiring;
+    const matchHasCost = stockHasCostFilter === 'all'
       || (stockHasCostFilter === 'yes' && costNum > 0)
       || (stockHasCostFilter === 'no' && costNum <= 0);
 
-    return matchTerm && matchCond && matchAvail && matchOnlyInStock && matchLow && matchSup && matchFormat && matchExpiry && matchCost;
+    return matchTerm && matchCond && matchFormat && matchOnlyInStock && matchSupplier && matchLowStock && matchExpiry && matchHasCost;
   });
 
   const tbody = document.getElementById('tableStockDetailed');
   if (!tbody) return;
 
   if (filtered.length === 0) {
-    const colSpan = canManageStock ? 9 : 7;
-    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum item encontrado para os filtros selecionados.</td></tr>`;
+    const cols = canManageStock ? 9 : 7;
+    tbody.innerHTML = `<tr><td colspan="${cols}" style="text-align:center; color:var(--text-muted); padding:1.2rem;">Nenhum produto encontrado com os filtros atuais.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = filtered.map(p => {
-    const costVal = Number(p.cost) || 0;
-    const priceVal = Number(p.price) || 0;
-    const qtyVal = Number(p.qty) || 0;
-    const margin = priceVal > 0 ? (((priceVal - costVal) / priceVal) * 100).toFixed(1) : '0.0';
-    const supLabel = p.supplier || 'Sem fornecedor';
-    const qtyBadgeClass = qtyVal === 0 ? 'badge-despesa' : (qtyVal <= 2 ? 'badge-warning' : 'badge-receita');
+    const priceNum = Number(p.price) || 0;
+    const costNum = Number(p.cost) || 0;
+    const qtyNum = Number(p.qty) || 0;
+    const margin = priceNum > 0 ? (((priceNum - costNum) / priceNum) * 100).toFixed(1) : '0.0';
+    const isDecant = isDecantProduct(p);
+    const formatBadge = isDecant
+      ? `<span class="badge-tag badge-warning">Decant</span>`
+      : `<span class="badge-tag badge-info">Frasco</span>`;
+    const expiryBadge = renderCriticalExpiryBadge(p.expiry);
 
     return `
       <tr>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'id')"><strong>${p.id}</strong></td>
-        <td class="editable-cell">
+        <td style="white-space:nowrap;">
+          <strong style="cursor:pointer;" onclick="quickEditProductField('${p.id}', 'id')">${p.id}</strong>
+        </td>
+        <td>
           <div>
-            <strong style="cursor:pointer;" onclick="openViewStockProductModal('${p.id}')">${p.name}</strong>
-            <div style="font-size:0.75rem; color:#9ca3af; margin-top:2px; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'supplier')">
-              Fornecedor: <span style="color:#e5e7eb;">${supLabel}</span>
-            </div>
+            <strong style="cursor:pointer;" onclick="quickEditProductField('${p.id}', 'name')">${p.name}</strong>
+            ${formatBadge}
+          </div>
+          <div style="font-size:0.74rem; color:var(--text-muted); cursor:pointer;" onclick="quickEditProductField('${p.id}', 'supplier')">
+            Fornecedor: ${p.supplier || '<span style="color:#fbbf24;">Não informado</span>'}
           </div>
         </td>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'battery')">
-          <span class="badge-tag badge-info">${p.condition || 'Produto'}</span>
-          ${p.battery ? `<small style="color:var(--text-muted); margin-left:4px;">${p.battery}</small>` : ''}
+        <td>
+          <span class="badge-tag badge-info">${p.condition}</span>
+          ${p.battery ? `<small style="color:var(--text-muted); margin-left:4px; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'battery')">• ${p.battery}</small>` : ''}
         </td>
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'expiry')">${formatDateSafe(p.expiry)}</td>
-        ${canManageStock ? `<td class="editable-cell" onclick="quickEditProductField('${p.id}', 'cost')" style="color:#fbbf24;">${fmtBRL(costVal)}</td>` : ''}
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'price')"><strong style="color:#34d399;">${fmtBRL(priceVal)}</strong></td>
-        ${canManageStock ? `<td><span class="badge-tag badge-receita">${margin}%</span></td>` : ''}
-        <td class="editable-cell" onclick="quickEditProductField('${p.id}', 'qty')">
-          <span class="badge-tag ${qtyBadgeClass}">${qtyVal} un.</span>
+        <td style="white-space:nowrap; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'expiry')">
+          ${formatDateSafe(p.expiry)}${expiryBadge}
+        </td>
+        ${canManageStock ? `
+          <td class="admin-only-col" style="white-space:nowrap; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'cost')">
+            ${costNum > 0 ? fmtBRL(costNum) : '<span style="color:#fbbf24;">R$ 0,00</span>'}
+          </td>
+        ` : ''}
+        <td style="white-space:nowrap; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'price')">
+          <strong style="color:#34d399;">${fmtBRL(priceNum)}</strong>
+        </td>
+        ${canManageStock ? `
+          <td class="admin-only-col" style="white-space:nowrap;">
+            <span class="badge-tag badge-receita">${margin}%</span>
+          </td>
+        ` : ''}
+        <td style="white-space:nowrap; cursor:pointer;" onclick="quickEditProductField('${p.id}', 'qty')">
+          ${qtyNum === 0 ? `<span class="badge-tag badge-despesa">0 un.</span>` : qtyNum <= 2 ? `<span class="badge-tag badge-warning">${qtyNum} un.</span>` : `<span class="badge-tag badge-receita">${qtyNum} un.</span>`}
         </td>
         <td style="white-space:nowrap;">
           ${renderStockActionButton(p.id)}
@@ -4407,140 +5120,172 @@ function renderStock() {
   }).join('');
 }
 
-window.adjustStockQty = function (id, delta) {
-  if (!hasStockAccess()) return showToast('Sem permissão para alterar o estoque.');
-  const prod = products.find(p => p.id === id);
-  if (!prod) return;
-  prod.qty = Math.max(0, prod.qty + delta);
-  pushStockToNuvemshop(prod); saveAll(); renderAll();
-};
-
 // ============================================================================
-// MÓDULO DE TROCAS E DEVOLUÇÕES
+// 11. TROCAS, FINANCEIRO, CAIXA & FERRAMENTAS
 // ============================================================================
 function initRmaModule() {
   const overlay = document.getElementById('rmaModalOverlay');
-  const form = document.getElementById('formNewRma');
-  const saleSel = document.getElementById('rmaSaleSelect');
-
   document.getElementById('btnOpenNewRmaModal')?.addEventListener('click', () => {
-    form?.reset();
+    document.getElementById('rmaOpenedDate').value = new Date().toISOString().split('T')[0];
     overlay.classList.add('active');
   });
-
   document.getElementById('btnCloseRmaModal')?.addEventListener('click', () => overlay.classList.remove('active'));
   document.getElementById('btnCancelRmaModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-
-  saleSel?.addEventListener('change', () => {
-    const s = sales.find(item => String(item.id) === String(saleSel.value));
-    if (s) {
-      document.getElementById('rmaClientName').value = s.client || '';
-      document.getElementById('rmaDeviceName').value = s.items || '';
-      document.getElementById('rmaAmountInput').value = Number(s.total || 0);
-    }
-  });
-
-  form?.addEventListener('submit', (e) => {
+  document.getElementById('formNewRma')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const itemName = document.getElementById('rmaDeviceName').value.trim();
-    const stockAction = document.getElementById('rmaStockActionSelect').value;
+    const saleId = document.getElementById('rmaSaleSelect').value || 'AVULSO';
+    const linkedSale = sales.find(s => String(s.id) === String(saleId));
+    const returnQty = Math.max(1, parseInt(document.getElementById('rmaReturnQty')?.value, 10) || 1);
+    const returnProdName = (document.getElementById('rmaReturnedDevice').value || '').trim();
+    const restockItems = document.getElementById('rmaRestockItems')?.checked !== false;
 
-    if (stockAction === 'retornar_estoque') {
-      const matchedProd = products.find(p => itemName.toLowerCase().includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(itemName.toLowerCase()));
+    if (restockItems && returnProdName) {
+      const matchedProd = products.find(p =>
+        returnProdName.toLowerCase().includes(p.name.toLowerCase()) ||
+        p.name.toLowerCase().includes(returnProdName.toLowerCase())
+      );
       if (matchedProd) {
-        matchedProd.qty += 1;
+        matchedProd.qty = (Number(matchedProd.qty) || 0) + returnQty;
         pushStockToNuvemshop(matchedProd);
       }
     }
 
-    const newRma = {
-      cod: 'RMA-' + (201 + rmaList.length),
-      date: new Date().toLocaleDateString('pt-BR'),
-      saleId: saleSel.value || 'AVULSO',
+    rmaList.unshift({
+      cod: 'TR-' + String(rmaList.length + 1).padStart(3, '0'),
+      saleId,
       clientName: document.getElementById('rmaClientName').value.trim().toUpperCase(),
-      deviceName: itemName,
-      type: document.getElementById('rmaTypeSelect').value,
-      stockAction,
-      amount: parseFloat(document.getElementById('rmaAmountInput').value) || 0,
-      reason: document.getElementById('rmaReasonInput').value.trim() || 'Troca solicitada pelo cliente',
-      status: 'Concluído'
-    };
-
-    rmaList.unshift(newRma);
+      clientPhone: document.getElementById('rmaClientPhone').value.trim(),
+      returnedDevice: returnProdName,
+      returnQty,
+      restocked: restockItems,
+      defect: document.getElementById('rmaDefect').value.trim(),
+      solution: document.getElementById('rmaSolution').value,
+      openedDate: document.getElementById('rmaOpenedDate').value,
+      status: 'Concluída',
+      value: linkedSale ? linkedSale.total : 0
+    });
     saveAll();
     renderAll();
     overlay.classList.remove('active');
-    showToast(`Troca / Devolução ${newRma.cod} registrada!`);
+    showToast(restockItems ? 'Troca/Devolução registrada e item devolvido ao estoque!' : 'Troca/Devolução registrada!');
   });
 }
 
 function renderRma() {
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('rmaMetricOpen', rmaList.filter(r => r.status !== 'Concluída').length);
+  setTxt('rmaMetricSupplier', rmaList.filter(r => r.solution === 'Reembolso').length);
+  setTxt('rmaMetricCredit', rmaList.filter(r => r.solution === 'Crédito em Loja').length);
+  setTxt('rmaMetricValue', fmtBRL(rmaList.reduce((acc, r) => acc + Number(r.value || 0), 0)));
+
   const tbody = document.getElementById('tableRmaList');
-  if (tbody) tbody.innerHTML = rmaList.map(r => `
-    <tr>
-      <td><strong>${r.cod}</strong></td>
-      <td>${r.date}</td>
-      <td>${r.clientName}</td>
-      <td>${r.deviceName}</td>
-      <td>${r.type}</td>
-      <td>${r.stockAction === 'retornar_estoque' ? '<span class="badge-tag badge-info">Retornou +1</span>' : '<span class="badge-tag badge-warning">Avaria</span>'}</td>
-      <td>${fmtBRL(r.amount)}</td>
-      <td><span class="badge-tag badge-receita">${r.status}</span></td>
-      <td><small style="color:var(--text-muted);">${r.reason || '-'}</small></td>
-    </tr>
-  `).join('');
+  if (tbody) tbody.innerHTML = rmaList.map(r => {
+    const msg = `Olá *${r.clientName}*! Aqui é da *GRUPO MISTER Perfumaria*. Sua solicitação de troca/devolução *${r.cod}* (${r.returnedDevice}) foi registrada como *${r.status}* (${r.solution}).`;
+    const digits = (r.clientPhone || '').replace(/\D/g, '');
+    const waHref = digits ? `https://wa.me/55${digits}?text=${encodeURIComponent(msg)}` : '#';
+    return `
+      <tr>
+        <td><strong>${r.cod}</strong></td>
+        <td>${r.clientName}</td>
+        <td>${r.returnedDevice} <small style="color:var(--text-muted);">(${r.returnQty || 1}x)</small></td>
+        <td>${r.defect}</td>
+        <td><span class="badge-tag badge-info">${r.solution}</span></td>
+        <td>${formatDateSafe(r.openedDate)}</td>
+        <td><span class="badge-tag badge-receita">${r.status}</span></td>
+        <td>
+          <a href="${waHref}" target="_blank" class="btn-sm btn-green" style="text-decoration:none;" onclick="showToast('Notificando cliente via WhatsApp...')">
+            <i class="ph ph-whatsapp-logo"></i> Avisar
+          </a>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
-function initFinanceModule() {}
-function renderFinance() {
-  const vendas = sales.reduce((a, s) => a + Number(s.total || 0), 0);
-  const desp = finEntries.filter(f => f.type === 'Despesa').reduce((a, f) => a + Number(f.amount || 0), 0);
-  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setTxt('finMetricGross', fmtBRL(vendas));
-  setTxt('finMetricCmv', fmtBRL(vendas * 0.55));
-  setTxt('finMetricExpenses', fmtBRL(desp));
-  setTxt('finMetricNetProfit', fmtBRL(vendas - vendas * 0.55 - desp));
-  const tbody = document.getElementById('tableFinEntries');
-  if (tbody) tbody.innerHTML = finEntries.map(f => `<tr><td><strong>${f.cod}</strong></td><td>${f.date}</td><td>${f.desc}</td><td>${f.category}</td><td><span class="badge-tag ${f.type === 'Receita' ? 'badge-receita' : 'badge-despesa'}">${f.type}</span></td><td><strong>${fmtBRL(f.amount)}</strong></td><td>${f.status}</td><td>-</td></tr>`).join('');
+function initFinanceModule() {
+  const overlay = document.getElementById('finEntryModalOverlay');
+  document.getElementById('btnOpenFinEntryModal')?.addEventListener('click', () => {
+    document.getElementById('finDate').value = new Date().toISOString().split('T')[0];
+    overlay.classList.add('active');
+  });
+  document.getElementById('btnCloseFinEntryModal')?.addEventListener('click', () => overlay.classList.remove('active'));
+  document.getElementById('btnCancelFinEntryModal')?.addEventListener('click', () => overlay.classList.remove('active'));
+  document.getElementById('formNewFinEntry')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    finEntries.unshift({
+      id: Date.now(),
+      date: document.getElementById('finDate').value,
+      type: document.getElementById('finType').value,
+      category: document.getElementById('finCategory').value,
+      desc: document.getElementById('finDesc').value.trim(),
+      value: parseFloat(document.getElementById('finValue').value) || 0,
+      status: document.getElementById('finStatus').value
+    });
+    saveAll(); renderFinance(); overlay.classList.remove('active'); showToast('Lançamento financeiro salvo!');
+  });
 }
+
+function renderFinance() {
+  const receitasVendas = sales.reduce((acc, s) => acc + Number(s.total || 0), 0);
+  const receitasAvulsas = finEntries.filter(f => f.type === 'Receita').reduce((acc, f) => acc + Number(f.value || 0), 0);
+  const despesasTotal = finEntries.filter(f => f.type === 'Despesa').reduce((acc, f) => acc + Number(f.value || 0), 0);
+  const custoEstoque = products.reduce((acc, p) => acc + Number(p.cost || 0) * Number(p.qty || 0), 0);
+  const lucroBruto = (receitasVendas + receitasAvulsas) - despesasTotal - custoEstoque;
+
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('finReceitas', fmtBRL(receitasVendas + receitasAvulsas));
+  setTxt('finDespesas', fmtBRL(despesasTotal));
+  setTxt('finCustoEstoque', fmtBRL(custoEstoque));
+  setTxt('finLucroBruto', fmtBRL(lucroBruto));
+
+  const tbody = document.getElementById('tableFinanceEntries');
+  if (tbody) tbody.innerHTML = finEntries.map(f => `<tr><td>${formatDateSafe(f.date)}</td><td><span class="badge-tag ${f.type === 'Receita' ? 'badge-receita' : 'badge-despesa'}">${f.type}</span></td><td>${f.category}</td><td>${f.desc}</td><td><strong style="color:${f.type === 'Receita' ? '#34d399' : '#f87171'};">${fmtBRL(f.value)}</strong></td><td><span class="badge-tag badge-info">${f.status}</span></td><td><button type="button" class="btn-sm btn-danger" onclick="deleteFinEntry(${f.id})">&times;</button></td></tr>`).join('');
+}
+
+window.deleteFinEntry = function (id) {
+  finEntries = finEntries.filter(f => f.id !== id);
+  saveAll(); renderFinance();
+};
 
 function initCashAndTools() {
-  const toolOverlay = document.getElementById('cashToolModalOverlay');
-  document.getElementById('btnCloseCashTool')?.addEventListener('click', () => toolOverlay.classList.remove('active'));
-  document.getElementById('btnTogglePdvTools')?.addEventListener('click', (e) => { e.stopPropagation(); document.getElementById('pdvToolsMenu').classList.toggle('open'); });
-  document.addEventListener('click', () => document.getElementById('pdvToolsMenu')?.classList.remove('open'));
-  document.getElementById('btnPrintLastReceipt')?.addEventListener('click', (e) => { e.preventDefault(); if (sales.length) openReceiptModal(sales[0].id); });
+  document.getElementById('formCashMovement')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    cashMoves.unshift({ date: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), type: document.getElementById('cashMoveType').value, reason: document.getElementById('cashMoveReason').value.trim(), val: parseFloat(document.getElementById('cashMoveValue').value) || 0 });
+    saveAll(); renderCashMoves(); e.target.reset(); showToast('Movimentação registrada!');
+  });
+  document.getElementById('btnResetDemoData')?.addEventListener('click', () => {
+    if (!confirm('Restaurar dados iniciais e limpar histórico de vendas?')) return;
+    localStorage.clear();
+    location.reload();
+  });
 }
 
-window.openCashMovementModal = function (type) {
-  const toolOverlay = document.getElementById('cashToolModalOverlay');
-  document.getElementById('cashToolModalTitle').textContent = `Lançar ${type}`;
-  document.getElementById('cashToolModalBody').innerHTML = `<form id="fcm"><div class="form-group"><label>Valor (R$):</label><input type="number" id="cmv" step="0.01" required /></div><button type="submit" class="btn-primary">Confirmar</button></form>`;
-  toolOverlay.classList.add('active');
-  document.getElementById('fcm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    cashMoves.unshift({ type, value: parseFloat(document.getElementById('cmv').value) || 0, date: getNowBrDateTime() });
-    saveAll(); toolOverlay.classList.remove('active'); showToast(`${type} registrado!`);
-  });
-};
+function renderCashMoves() {
+  const tbody = document.getElementById('tableCashMoves');
+  if (tbody) tbody.innerHTML = cashMoves.map(m => `<tr><td>${m.date}</td><td><span class="badge-tag ${m.type === 'Suprimento' ? 'badge-receita' : 'badge-despesa'}">${m.type}</span></td><td>${m.reason}</td><td><strong>${fmtBRL(m.val)}</strong></td></tr>`).join('');
+}
 
 window.openReceiptModal = function (saleId) {
-  const s = sales.find(item => item.id === saleId);
-  if (!s) return;
-  const discLine = Number(s.discount || 0) > 0 ? `<br>Desconto Aplicado: -${fmtBRL(s.discount)}` : '';
-  const trackLine = s.trackingCode ? `<br>Código de Rastreio: <strong>${s.trackingCode}</strong>` : '';
-  const obsLine = s.observation ? `<br>Obs.: ${s.observation}` : '';
-  const canalLine = s.type === 'Online / Nuvemshop' ? ' (Nuvemshop)' : '';
-  document.getElementById('cashToolModalTitle').textContent = `Comprovante #${s.id}`;
-  document.getElementById('cashToolModalBody').innerHTML = `
-    <div style="background:#fff;color:#111;padding:0.9rem;border-radius:6px;font-family:monospace;font-size:0.82rem;">
-      <strong>GRUPO MISTER PERFUMARIA${canalLine}</strong><br>
-      Pedido #${s.id} | ${s.date}<br>
-      Cliente: ${s.client}<br>
-      Entrega: ${s.shippingMethod || 'Loja'} | Status: ${s.orderStatus || 'Em Separação'}${trackLine}<br>
-      Itens: ${s.items}${discLine}${obsLine}<br>
-      <strong>TOTAL: ${fmtBRL(s.total)}</strong>
+  const sale = sales.find(s => String(s.id) === String(saleId));
+  if (!sale) return;
+  document.getElementById('receiptBody').innerHTML = `
+    <div style="text-align:center; border-bottom:1px dashed #333; padding-bottom:8px; margin-bottom:8px;">
+      <strong style="font-size:1.1rem;">GRUPO MISTER PERFUMARIA</strong><br>
+      <small>Comprovante • Pedido #${sale.id}</small>
     </div>
+    <p><strong>Data:</strong> ${sale.date}</p>
+    <p><strong>Cliente:</strong> ${sale.client}</p>
+    <p><strong>Vendedor:</strong> ${sale.seller}</p>
+    <p><strong>Itens:</strong> ${sale.items}</p>
+    <p><strong>Envio:</strong> ${sale.shippingMethod || 'Retirada na Loja'} (${sale.orderStatus || 'Em Separação'})</p>
+    ${sale.trackingCode ? `<p><strong>Rastreio:</strong> <code>${sale.trackingCode}</code></p>` : ''}
+    ${sale.observation ? `<p><strong>Observação:</strong> ${sale.observation}</p>` : ''}
+    <p><strong>Pagamento:</strong> ${sale.payment}</p>
+    <hr style="border:none; border-top:1px dashed #333; margin:8px 0;" />
+    <p style="font-size:1.1rem; display:flex; justify-content:space-between;"><strong>TOTAL:</strong> <strong style="color:#10b981;">${fmtBRL(sale.total)}</strong></p>
   `;
-  document.getElementById('cashToolModalOverlay').classList.add('active');
+  document.getElementById('receiptModalOverlay').classList.add('active');
 };
+
+document.getElementById('btnCloseReceiptModal')?.addEventListener('click', () => document.getElementById('receiptModalOverlay').classList.remove('active'));
+document.getElementById('btnPrintReceipt')?.addEventListener('click', () => window.print());
