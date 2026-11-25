@@ -3418,7 +3418,6 @@ function initSalesAndPdv() {
   document.getElementById('salesChannelFilter')?.addEventListener('change', renderSales);
   document.getElementById('quickStockSearch')?.addEventListener('input', renderQuickStock);
   document.getElementById('quickStockCondition')?.addEventListener('change', renderQuickStock);
-}
 
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.gm-gh-action-wrap') && !e.target.closest('.gm-gh-dropdown')) {
