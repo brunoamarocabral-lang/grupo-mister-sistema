@@ -2944,56 +2944,83 @@ function selectPdvSearchedProduct(prod) {
   }
 }
 
+function getPdvAvailableProductsList() {
+  const source =
+    Array.isArray(typeof products !== 'undefined' ? products : null)
+      ? products
+      : Array.isArray(window.products)
+        ? window.products
+        : [];
+  return source.filter((p) => Number(p.qty ?? p.stock ?? 1) > 0);
+}
+
 function renderPdvProductSearchResults(query = '') {
   const resultsList = document.getElementById('modalProductResults');
   const searchInput = document.getElementById('modalProductSearch');
   const hiddenSelect = document.getElementById('modalProductSelect');
   if (!resultsList || !searchInput || !hiddenSelect) return;
 
-  const available = Array.isArray(products)
-    ? products.filter(p => Number(p.qty) > 0)
-    : [];
+  const group = document.getElementById('pdvProductSearchGroup');
+  if (group && group.parentElement) {
+    group.parentElement.style.overflow = 'visible';
+  }
+
+  const available = getPdvAvailableProductsList();
   const normQuery = normalizePdvSearchText(query);
   const terms = normQuery ? normQuery.split(/\s+/) : [];
 
-  const matches = terms.length === 0
-    ? available
-    : available.filter(p => {
-        const hay = normalizePdvSearchText(
-          `${p.name || ''} ${p.condition || ''} ${p.battery || ''} ${p.id || ''}`
-        );
-        return terms.every(t => hay.includes(t));
-      });
+  const matches =
+    terms.length === 0
+      ? available
+      : available.filter((p) => {
+          const hay = normalizePdvSearchText(
+            `${p.name || ''} ${p.condition || ''} ${p.battery || ''} ${p.id || ''}`
+          );
+          return terms.every((t) => hay.includes(t));
+        });
 
   resultsList.innerHTML = '';
+
   if (matches.length === 0) {
-    resultsList.innerHTML = `<li style="padding:8px 10px; color:#9ca3af; font-size:0.84rem;">Nenhuma fragrância encontrada</li>`;
-    resultsList.style.display = 'block';
+    resultsList.innerHTML = `<li style="padding:8px 10px; color:#9ca3af; font-size:0.84rem;">${
+      available.length === 0
+        ? 'Nenhum produto carregado no estoque'
+        : 'Nenhuma fragrância encontrada'
+    }</li>`;
+    resultsList.style.setProperty('display', 'block', 'important');
     return;
   }
 
-  matches.slice(0, 30).forEach(prod => {
+  matches.slice(0, 30).forEach((prod) => {
     const li = document.createElement('li');
     li.style.cssText =
-      'padding:8px 10px; cursor:pointer; font-size:0.84rem; color:#f3f4f6; border-bottom:1px solid rgba(255,255,255,0.05);';
-    li.textContent = `${prod.name} — ${fmtBRL(prod.price)} (${prod.qty} un.)`;
+      'padding:8px 10px; cursor:pointer; font-size:0.84rem; color:#f3f4f6; border-bottom:1px solid rgba(255,255,255,0.06);';
+    const precoFormatado = typeof fmtBRL === 'function'
+      ? fmtBRL(prod.price)
+      : `R$ ${Number(prod.price || 0).toFixed(2).replace('.', ',')}`;
+    const qtdDisp = prod.qty ?? prod.stock ?? '';
+    li.textContent = qtdDisp !== ''
+      ? `${prod.name} — ${precoFormatado} (${qtdDisp} un.)`
+      : `${prod.name} — ${precoFormatado}`;
+
     li.addEventListener('mouseenter', () => {
       li.style.background = '#232a36';
     });
     li.addEventListener('mouseleave', () => {
       li.style.background = 'transparent';
     });
-    li.addEventListener('click', () => {
+    li.addEventListener('mousedown', (e) => {
+      e.preventDefault();
       selectPdvSearchedProduct(prod);
     });
     resultsList.appendChild(li);
   });
 
-  resultsList.style.display = 'block';
+  resultsList.style.setProperty('display', 'block', 'important');
 }
 
 function initSalesAndPdv() {
-  syncPdvLiveClockBadge();
+  if (typeof syncPdvLiveClockBadge === 'function') syncPdvLiveClockBadge();
   const pdvOverlay = document.getElementById('pdvModalOverlay');
   const searchInput = document.getElementById('modalProductSearch');
   const resultsList = document.getElementById('modalProductResults');
@@ -3005,6 +3032,125 @@ function initSalesAndPdv() {
   const channelSelect = document.getElementById('modalContactChannel');
   const shippingNotesHidden = document.getElementById('modalShippingNotes');
   const confirmBtn = document.getElementById('btnModalConfirmSale');
+
+  const syncChannelToNotes = () => {
+    const canal = channelSelect?.value || 'Loja';
+    if (shippingNotesHidden) {
+      shippingNotesHidden.value = `Canal: ${canal}`;
+    }
+    return canal;
+  };
+
+  document.getElementById('btnOpenPdvModal')?.addEventListener('click', () => {
+    if (typeof modalCart !== 'undefined') modalCart = [];
+    const genDisc = document.getElementById('modalGeneralDiscount');
+    if (genDisc) genDisc.value = '0';
+    if (typeof renderModalCart === 'function') renderModalCart();
+    const shipMethod = document.getElementById('modalShippingMethod');
+    if (shipMethod) shipMethod.value = 'Retirada na Loja';
+    if (channelSelect) channelSelect.value = 'Loja';
+    syncChannelToNotes();
+    const obs = document.getElementById('modalOrderObservation');
+    if (obs) obs.value = '';
+    const saleDate = document.getElementById('modalSaleDate');
+    if (saleDate && typeof getNowBrDateTime === 'function') saleDate.value = getNowBrDateTime();
+    if (searchInput) searchInput.value = '';
+    if (prodSel) prodSel.value = '';
+    if (priceInput) priceInput.value = '';
+    if (qtyInput) qtyInput.value = '1';
+    if (discountInput) discountInput.value = '0';
+    if (resultsList) resultsList.style.setProperty('display', 'none', 'important');
+    pdvOverlay?.classList.add('active');
+  });
+
+  document.getElementById('btnClosePdvModal')?.addEventListener('click', () => pdvOverlay?.classList.remove('active'));
+  document.getElementById('btnModalCancelSale')?.addEventListener('click', () => pdvOverlay?.classList.remove('active'));
+  document.getElementById('modalGeneralDiscount')?.addEventListener('input', () => {
+    if (typeof renderModalCart === 'function') renderModalCart();
+  });
+
+  prodSel?.addEventListener('change', () => {
+    const opt = prodSel.options[prodSel.selectedIndex];
+    if (priceInput) {
+      priceInput.value = opt ? (opt.getAttribute('data-price') || '0') : '0';
+    }
+  });
+
+  if (searchInput && !searchInput.dataset.bound) {
+    searchInput.dataset.bound = 'true';
+    searchInput.addEventListener('focus', () => {
+      renderPdvProductSearchResults(searchInput.value);
+    });
+    searchInput.addEventListener('click', () => {
+      renderPdvProductSearchResults(searchInput.value);
+    });
+    searchInput.addEventListener('input', () => {
+      if (prodSel) prodSel.value = '';
+      renderPdvProductSearchResults(searchInput.value);
+    });
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const firstItem = resultsList?.querySelector('li');
+        if (firstItem && resultsList.style.display !== 'none') {
+          e.preventDefault();
+          firstItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        }
+      }
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#pdvProductSearchGroup') && resultsList) {
+      resultsList.style.setProperty('display', 'none', 'important');
+    }
+  });
+
+  if (addItemBtn && !addItemBtn.dataset.searchBound) {
+    addItemBtn.dataset.searchBound = 'true';
+    addItemBtn.addEventListener('click', () => {
+      const list = getPdvAvailableProductsList();
+      if (!prodSel?.value && searchInput?.value && list.length > 0) {
+        const normTyped = normalizePdvSearchText(searchInput.value);
+        const exactOrFirst =
+          list.find((p) => normalizePdvSearchText(p.name) === normTyped) ||
+          list.find((p) => normalizePdvSearchText(p.name).includes(normTyped));
+        if (exactOrFirst) {
+          selectPdvSearchedProduct(exactOrFirst);
+        }
+      }
+
+      setTimeout(() => {
+        if (searchInput) searchInput.value = '';
+        if (prodSel) prodSel.value = '';
+        if (priceInput) priceInput.value = '';
+        if (qtyInput) qtyInput.value = '1';
+        if (discountInput) discountInput.value = '0';
+        if (resultsList) resultsList.style.setProperty('display', 'none', 'important');
+      }, 0);
+    }, true);
+  }
+
+  if (channelSelect && !channelSelect.dataset.bound) {
+    channelSelect.dataset.bound = 'true';
+    syncChannelToNotes();
+    channelSelect.addEventListener('change', syncChannelToNotes);
+  }
+
+  if (confirmBtn && !confirmBtn.dataset.channelBound) {
+    confirmBtn.dataset.channelBound = 'true';
+    confirmBtn.addEventListener('click', () => {
+      const canal = syncChannelToNotes();
+      setTimeout(() => {
+        if (typeof sales !== 'undefined' && Array.isArray(sales) && sales[0]) {
+          sales[0].contactChannel = canal;
+          sales[0].shippingNotes = `Canal: ${canal}`;
+          if (typeof persistLocalOnly === 'function') persistLocalOnly();
+          if (typeof renderSales === 'function') renderSales();
+        }
+      }, 0);
+    }, true);
+  }
+}
 
   const syncChannelToNotes = () => {
     const canal = channelSelect?.value || 'Loja';
