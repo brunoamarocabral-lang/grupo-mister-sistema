@@ -3244,7 +3244,7 @@ function initSalesAndPdv() {
     }, true);
   }
 
-  document.getElementById('btnAddModalProduct')?.addEventListener('click', () => {
+ document.getElementById('btnAddModalProduct')?.addEventListener('click', () => {
     if (prodSel && !prodSel.value && searchInput?.value) {
       const normTyped = normalizePdvSearchText(searchInput.value);
       const list = getPdvAvailableProductsList();
@@ -3302,15 +3302,6 @@ function initSalesAndPdv() {
     const observation = document.getElementById('modalOrderObservation').value.trim();
     const saleDateStr = document.getElementById('modalSaleDate').value || getNowBrDateTime();
 
-    setTimeout(() => {
-      if (Array.isArray(sales) && sales.length > 0) {
-        const createdSale = sales.find((s) => String(s.id) === newId) || sales[0];
-        createdSale.contactChannel = canal;
-        createdSale.shippingNotes = shippingNotes;
-        if (typeof persistLocalOnly === 'function') persistLocalOnly();
-        if (typeof renderSales === 'function') renderSales();
-      }
-    }, 0);
     modalCart.forEach(item => {
       const prod = products.find(p => p.id === item.prodId);
       if (prod) { prod.qty = Math.max(0, prod.qty - item.qty); pushStockToNuvemshop(prod); }
@@ -3325,6 +3316,7 @@ function initSalesAndPdv() {
       date: saleDateStr,
       isoDate: new Date().toISOString().split('T')[0],
       type: 'Venda Presencial',
+      contactChannel: canal,
       shippingMethod,
       shippingNotes,
       trackingCode: '',
@@ -3427,12 +3419,6 @@ function initSalesAndPdv() {
   document.getElementById('quickStockSearch')?.addEventListener('input', renderQuickStock);
   document.getElementById('quickStockCondition')?.addEventListener('change', renderQuickStock);
 }
-
-// ============================================================================
-// MENU SUSPENSO "AÇÕES ▾" (VENDAS, ESTOQUE, CLIENTES E FINANCEIRO)
-// ============================================================================
-function closeAllGithubActionMenus() {
-  document.querySelectorAll('.gm-gh-dropdown.open').forEach(el => el.classList.remove('open'));
 }
 
 document.addEventListener('click', (e) => {
