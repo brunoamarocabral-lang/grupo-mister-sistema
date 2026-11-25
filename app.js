@@ -3018,7 +3018,6 @@ function renderPdvProductSearchResults(query = '') {
 
   resultsList.style.setProperty('display', 'block', 'important');
 }
-
 function initSalesAndPdv() {
   if (typeof syncPdvLiveClockBadge === 'function') syncPdvLiveClockBadge();
   const pdvOverlay = document.getElementById('pdvModalOverlay');
@@ -3141,24 +3140,17 @@ function initSalesAndPdv() {
     confirmBtn.addEventListener('click', () => {
       const canal = syncChannelToNotes();
       setTimeout(() => {
-        if (typeof sales !== 'undefined' && Array.isArray(sales) && sales[0]) {
-          sales[0].contactChannel = canal;
-          sales[0].shippingNotes = `Canal: ${canal}`;
+        if (typeof sales !== 'undefined' && Array.isArray(sales) && sales.length > 0) {
+          const targetSale = sales[0];
+          targetSale.contactChannel = canal;
+          targetSale.shippingNotes = `Canal: ${canal}`;
           if (typeof persistLocalOnly === 'function') persistLocalOnly();
           if (typeof renderSales === 'function') renderSales();
         }
-      }, 0);
+      }, 50);
     }, true);
   }
 }
-
-  const syncChannelToNotes = () => {
-    const canal = channelSelect?.value || 'Loja';
-    if (shippingNotesHidden) {
-      shippingNotesHidden.value = `Canal: ${canal}`;
-    }
-    return canal;
-  };
 
   document.getElementById('btnOpenPdvModal')?.addEventListener('click', () => {
     modalCart = [];
