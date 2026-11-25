@@ -2903,29 +2903,217 @@ function updateFastPdvTotal() {
   if (el) el.textContent = fmtBRL(total);
 }
 
+function normalizePdvSearchText(str = '') {
+  return String(str)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function selectPdvSearchedProduct(prod) {
+  const searchInput = document.getElementById('modalProductSearch');
+  const resultsList = document.getElementById('modalProductResults');
+  const hiddenSelect = document.getElementById('modalProductSelect');
+  const priceInput = document.getElementById('modalProductDisplayPrice');
+
+  if (!prod) return;
+
+  if (searchInput) searchInput.value = prod.name;
+  if (priceInput) {
+    priceInput.value = Number(prod.price || 0);
+    priceInput.dispatchEvent(new Event('input', { bubbles: true }));
+    priceInput.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  if (hiddenSelect) {
+    let opt = Array.from(hiddenSelect.options).find(o => String(o.value) === String(prod.id));
+    if (!opt) {
+      opt = document.createElement('option');
+      opt.value = prod.id;
+      opt.textContent = prod.name;
+      opt.setAttribute('data-price', String(prod.price || 0));
+      hiddenSelect.appendChild(opt);
+    }
+    hiddenSelect.value = prod.id;
+    hiddenSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  if (resultsList) {
+    resultsList.style.display = 'none';
+  }
+}
+
+function renderPdvProductSearchResults(query = '') {
+  const resultsList = document.getElementById('modalProductResults');
+  const searchInput = document.getElementById('modalProductSearch');
+  const hiddenSelect = document.getElementById('modalProductSelect');
+  if (!resultsList || !searchInput || !hiddenSelect) return;
+
+  const available = Array.isArray(products)
+    ? products.filter(p => Number(p.qty) > 0)
+    : [];
+  const normQuery = normalizePdvSearchText(query);
+  const terms = normQuery ? normQuery.split(/\s+/) : [];
+
+  const matches = terms.length === 0
+    ? available
+    : available.filter(p => {
+        const hay = normalizePdvSearchText(
+          `${p.name || ''} ${p.condition || ''} ${p.battery || ''} ${p.id || ''}`
+        );
+        return terms.every(t => hay.includes(t));
+      });
+
+  resultsList.innerHTML = '';
+  if (matches.length === 0) {
+    resultsList.innerHTML = `<li style="padding:8px 10px; color:#9ca3af; font-size:0.84rem;">Nenhuma fragrância encontrada</li>`;
+    resultsList.style.display = 'block';
+    return;
+  }
+
+  matches.slice(0, 30).forEach(prod => {
+    const li = document.createElement('li');
+    li.style.cssText =
+      'padding:8px 10px; cursor:pointer; font-size:0.84rem; color:#f3f4f6; border-bottom:1px solid rgba(255,255,255,0.05);';
+    li.textContent = `${prod.name} — ${fmtBRL(prod.price)} (${prod.qty} un.)`;
+    li.addEventListener('mouseenter', () => {
+      li.style.background = '#232a36';
+    });
+    li.addEventListener('mouseleave', () => {
+      li.style.background = 'transparent';
+    });
+    li.addEventListener('click', () => {
+      selectPdvSearchedProduct(prod);
+    });
+    resultsList.appendChild(li);
+  });
+
+  resultsList.style.display = 'block';
+}
+
 function initSalesAndPdv() {
   syncPdvLiveClockBadge();
   const pdvOverlay = document.getElementById('pdvModalOverlay');
+  const searchInput = document.getElementById('modalProductSearch');
+  const resultsList = document.getElementById('modalProductResults');
+  const prodSel = document.getElementById('modalProductSelect');
+  const priceInput = document.getElementById('modalProductDisplayPrice');
+  const qtyInput = document.getElementById('modalProductQty');
+  const discountInput = document.getElementById('modalProductDiscount');
+  const addItemBtn = document.getElementById('btnAddModalProduct');
+  const channelSelect = document.getElementById('modalContactChannel');
+  const shippingNotesHidden = document.getElementById('modalShippingNotes');
+  const confirmBtn = document.getElementById('btnModalConfirmSale');
+
+  const syncChannelToNotes = () => {
+    const canal = channelSelect?.value || 'Loja';
+    if (shippingNotesHidden) {
+      shippingNotesHidden.value = `Canal: ${canal}`;
+    }
+    return canal;
+  };
+
   document.getElementById('btnOpenPdvModal')?.addEventListener('click', () => {
     modalCart = [];
     document.getElementById('modalGeneralDiscount').value = '0';
     renderModalCart();
     document.getElementById('modalShippingMethod').value = 'Retirada na Loja';
-    document.getElementById('modalShippingNotes').value = '';
+    if (channelSelect) channelSelect.value = 'Loja';
+    syncChannelToNotes();
     document.getElementById('modalOrderObservation').value = '';
     document.getElementById('modalSaleDate').value = getNowBrDateTime();
+    if (searchInput) searchInput.value = '';
+    if (prodSel) prodSel.value = '';
+    if (priceInput) priceInput.value = '';
+    if (qtyInput) qtyInput.value = '1';
+    if (discountInput) discountInput.value = '0';
+    if (resultsList) resultsList.style.display = 'none';
     pdvOverlay.classList.add('active');
   });
+
   document.getElementById('btnClosePdvModal')?.addEventListener('click', () => pdvOverlay.classList.remove('active'));
   document.getElementById('btnModalCancelSale')?.addEventListener('click', () => pdvOverlay.classList.remove('active'));
   document.getElementById('modalGeneralDiscount')?.addEventListener('input', renderModalCart);
 
-  const prodSel = document.getElementById('modalProductSelect');
   prodSel?.addEventListener('change', () => {
     const opt = prodSel.options[prodSel.selectedIndex];
-    document.getElementById('modalProductDisplayPrice').value = opt ? (opt.getAttribute('data-price') || '0') : '0';
+    if (priceInput) {
+      priceInput.value = opt ? (opt.getAttribute('data-price') || '0') : '0';
+    }
   });
 
+  if (searchInput && !searchInput.dataset.bound) {
+    searchInput.dataset.bound = 'true';
+    searchInput.addEventListener('focus', () => {
+      renderPdvProductSearchResults(searchInput.value);
+    });
+    searchInput.addEventListener('input', () => {
+      if (prodSel) prodSel.value = '';
+      renderPdvProductSearchResults(searchInput.value);
+    });
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const firstItem = resultsList?.querySelector('li');
+        if (firstItem && resultsList.style.display !== 'none') {
+          e.preventDefault();
+          firstItem.click();
+        }
+      }
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#pdvProductSearchGroup') && resultsList) {
+      resultsList.style.display = 'none';
+    }
+  });
+
+  if (addItemBtn && !addItemBtn.dataset.searchBound) {
+    addItemBtn.dataset.searchBound = 'true';
+    addItemBtn.addEventListener('click', () => {
+      if (!prodSel?.value && searchInput?.value && Array.isArray(products)) {
+        const normTyped = normalizePdvSearchText(searchInput.value);
+        const exactOrFirst =
+          products.find(p => normalizePdvSearchText(p.name) === normTyped) ||
+          products.find(p => normalizePdvSearchText(p.name).includes(normTyped));
+        if (exactOrFirst) {
+          selectPdvSearchedProduct(exactOrFirst);
+        }
+      }
+
+      setTimeout(() => {
+        if (searchInput) searchInput.value = '';
+        if (prodSel) prodSel.value = '';
+        if (priceInput) priceInput.value = '';
+        if (qtyInput) qtyInput.value = '1';
+        if (discountInput) discountInput.value = '0';
+        if (resultsList) resultsList.style.display = 'none';
+      }, 0);
+    }, true);
+  }
+
+  if (channelSelect && !channelSelect.dataset.bound) {
+    channelSelect.dataset.bound = 'true';
+    syncChannelToNotes();
+    channelSelect.addEventListener('change', syncChannelToNotes);
+  }
+
+  if (confirmBtn && !confirmBtn.dataset.channelBound) {
+    confirmBtn.dataset.channelBound = 'true';
+    confirmBtn.addEventListener('click', () => {
+      const canal = syncChannelToNotes();
+      setTimeout(() => {
+        if (Array.isArray(sales) && sales[0]) {
+          sales[0].contactChannel = canal;
+          sales[0].shippingNotes = `Canal: ${canal}`;
+          persistLocalOnly();
+          renderSales();
+        }
+      }, 0);
+    }, true);
+  }
+}
   document.getElementById('btnAddModalProduct')?.addEventListener('click', () => {
     const prod = products.find(p => p.id === prodSel.value);
     const qty = parseInt(document.getElementById('modalProductQty').value, 10) || 1;
