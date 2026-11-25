@@ -851,7 +851,7 @@
 
   <!-- ================= MODAIS ================= -->
 
-  <!-- MODAL NOVA VENDA PDV -->
+<!-- MODAL NOVA VENDA PDV -->
   <div class="modal-overlay" id="pdvModalOverlay">
     <div class="modal-container">
       <div class="modal-header">
@@ -864,7 +864,20 @@
           <div class="form-group"><label for="modalSellerSelect">Vendedor:</label><input type="text" id="modalSellerSelect" readonly /></div>
         </div>
         <div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:0.5rem; align-items:end;">
-          <div class="form-group"><label for="modalProductSelect">Produto:</label><select id="modalProductSelect"></select></div>
+          <div class="form-group" style="position:relative;" id="pdvProductSearchGroup">
+            <label for="modalProductSearch">Produto:</label>
+            <input
+              type="text"
+              id="modalProductSearch"
+              placeholder="Buscar fragrância (ex.: Fakhar, Yara, Allure)..."
+              autocomplete="off"
+            />
+            <select id="modalProductSelect" style="display:none;"></select>
+            <ul
+              id="modalProductResults"
+              style="display:none; position:absolute; top:100%; left:0; right:0; z-index:9999; max-height:220px; overflow-y:auto; margin:2px 0 0; padding:0; list-style:none; background:#141923; border:1px solid #30363d; border-radius:8px; box-shadow:0 12px 28px rgba(0,0,0,0.75);"
+            ></ul>
+          </div>
           <div class="form-group"><label for="modalProductDisplayPrice">Preço:</label><input type="number" id="modalProductDisplayPrice" step="0.01" /></div>
           <div class="form-group"><label for="modalProductQty">Qtd.:</label><input type="number" id="modalProductQty" value="1" min="1" /></div>
           <div class="form-group"><label for="modalProductDiscount">Desc. Item:</label><input type="number" id="modalProductDiscount" value="0" step="0.01" /></div>
@@ -901,7 +914,15 @@
               <option value="Correios">Correios</option>
             </select>
           </div>
-          <div class="form-group"><label for="modalShippingNotes">Endereço / CEP Envio:</label><input type="text" id="modalShippingNotes" placeholder="Opcional..." /></div>
+          <div class="form-group">
+            <label for="modalContactChannel">Canal de Contato:</label>
+            <select id="modalContactChannel">
+              <option value="Loja">Loja</option>
+              <option value="WhatsApp">WhatsApp</option>
+              <option value="Instagram">Instagram</option>
+            </select>
+            <input type="hidden" id="modalShippingNotes" value="" />
+          </div>
         </div>
 
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
