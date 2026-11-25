@@ -3152,27 +3152,54 @@ function initSalesAndPdv() {
   }
 }
 
+const pdvOverlay = document.getElementById('pdvModalOverlay');
+  const searchInput = document.getElementById('modalProductSearch');
+  const resultsList = document.getElementById('modalProductResults');
+  const prodSel = document.getElementById('modalProductSelect');
+  const priceInput = document.getElementById('modalProductDisplayPrice');
+  const qtyInput = document.getElementById('modalProductQty');
+  const discountInput = document.getElementById('modalProductDiscount');
+  const channelSelect = document.getElementById('modalContactChannel');
+  const shippingNotesHidden = document.getElementById('modalShippingNotes');
+
+  const syncChannelToNotes = () => {
+    const canal = channelSelect?.value || 'Loja';
+    if (shippingNotesHidden) {
+      shippingNotesHidden.value = `Canal: ${canal}`;
+    }
+    return canal;
+  };
+
   document.getElementById('btnOpenPdvModal')?.addEventListener('click', () => {
-    modalCart = [];
-    document.getElementById('modalGeneralDiscount').value = '0';
-    renderModalCart();
-    document.getElementById('modalShippingMethod').value = 'Retirada na Loja';
+    if (typeof modalCart !== 'undefined') modalCart = [];
+    const genDisc = document.getElementById('modalGeneralDiscount');
+    if (genDisc) genDisc.value = '0';
+    if (typeof renderModalCart === 'function') renderModalCart();
+    const shipMethod = document.getElementById('modalShippingMethod');
+    if (shipMethod) shipMethod.value = 'Retirada na Loja';
     if (channelSelect) channelSelect.value = 'Loja';
     syncChannelToNotes();
-    document.getElementById('modalOrderObservation').value = '';
-    document.getElementById('modalSaleDate').value = getNowBrDateTime();
+    const obs = document.getElementById('modalOrderObservation');
+    if (obs) obs.value = '';
+    const saleDate = document.getElementById('modalSaleDate');
+    if (saleDate && typeof getNowBrDateTime === 'function') saleDate.value = getNowBrDateTime();
     if (searchInput) searchInput.value = '';
     if (prodSel) prodSel.value = '';
     if (priceInput) priceInput.value = '';
     if (qtyInput) qtyInput.value = '1';
     if (discountInput) discountInput.value = '0';
-    if (resultsList) resultsList.style.display = 'none';
-    pdvOverlay.classList.add('active');
+    if (resultsList) {
+      resultsList.style.display = 'none';
+      resultsList.style.setProperty('display', 'none', 'important');
+    }
+    pdvOverlay?.classList.add('active');
   });
 
-  document.getElementById('btnClosePdvModal')?.addEventListener('click', () => pdvOverlay.classList.remove('active'));
-  document.getElementById('btnModalCancelSale')?.addEventListener('click', () => pdvOverlay.classList.remove('active'));
-  document.getElementById('modalGeneralDiscount')?.addEventListener('input', renderModalCart);
+  document.getElementById('btnClosePdvModal')?.addEventListener('click', () => pdvOverlay?.classList.remove('active'));
+  document.getElementById('btnModalCancelSale')?.addEventListener('click', () => pdvOverlay?.classList.remove('active'));
+  document.getElementById('modalGeneralDiscount')?.addEventListener('input', () => {
+    if (typeof renderModalCart === 'function') renderModalCart();
+  });
 
   prodSel?.addEventListener('change', () => {
     const opt = prodSel.options[prodSel.selectedIndex];
@@ -3184,18 +3211,25 @@ function initSalesAndPdv() {
   if (searchInput && !searchInput.dataset.bound) {
     searchInput.dataset.bound = 'true';
     searchInput.addEventListener('focus', () => {
-      renderPdvProductSearchResults(searchInput.value);
+      if (typeof renderPdvProductSearchResults === 'function') renderPdvProductSearchResults(searchInput.value);
+    });
+    searchInput.addEventListener('click', () => {
+      if (typeof renderPdvProductSearchResults === 'function') renderPdvProductSearchResults(searchInput.value);
     });
     searchInput.addEventListener('input', () => {
       if (prodSel) prodSel.value = '';
-      renderPdvProductSearchResults(searchInput.value);
+      if (typeof renderPdvProductSearchResults === 'function') renderPdvProductSearchResults(searchInput.value);
     });
     searchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const firstItem = resultsList?.querySelector('li');
         if (firstItem && resultsList.style.display !== 'none') {
           e.preventDefault();
-          firstItem.click();
+          firstItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        }
+      }
+    });
+  }
         }
       }
     });
@@ -4823,11 +4857,37 @@ function initClientsModule() {
   const legacyOverlay = document.getElementById('clientModalOverlay');
   const openBtn = document.getElementById('btnOpenClientModal');
 
-  if (openBtn) {
+  const openClientCreationModal = () => {
+    if (typeof window.openNewClientModal === 'function' && window.openNewClientModal !== openClientCreationModal) {
+      return window.openNewClientModal();
+    }
+    if (typeof openClientModal === 'function') {
+      return openClientModal();
+    }
+    if (typeof openEditClientModal === 'function') {
+      return openEditClientModal('');
+    }
+
+    const modal =
+      document.getElementById('newClientModalOverlay') ||
+      document.getElementById('clientFormModalOverlay') ||
+      document.getElementById('modalClientOverlay') ||
+      legacyOverlay;
+
+    if (modal) {
+      modal.classList.add('active');
+      modal.style.display = 'flex';
+    }
+  };
+
+  window.openNewClientModal = openClientCreationModal;
+
+  if (openBtn && !openBtn.dataset.newClientBound) {
+    openBtn.dataset.newClientBound = 'true';
     openBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopImmediatePropagation();
-      openNewClientModal();
+      openClientCreationModal();
     }, true);
   }
 
