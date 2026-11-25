@@ -3237,43 +3237,80 @@ function initSalesAndPdv() {
     channelSelect.addEventListener('change', syncChannelToNotes);
   }
 
-  if (confirmBtn && !confirmBtn.dataset.channelBound) {
+ if (confirmBtn && !confirmBtn.dataset.channelBound) {
     confirmBtn.dataset.channelBound = 'true';
     confirmBtn.addEventListener('click', () => {
-      const canal = syncChannelToNotes();
-      setTimeout(() => {
-        if (Array.isArray(sales) && sales[0]) {
-          sales[0].contactChannel = canal;
-          sales[0].shippingNotes = `Canal: ${canal}`;
-          persistLocalOnly();
-          renderSales();
-        }
-      }, 0);
+      syncChannelToNotes();
     }, true);
   }
-}
+
   document.getElementById('btnAddModalProduct')?.addEventListener('click', () => {
-    const prod = products.find(p => p.id === prodSel.value);
+    if (prodSel && !prodSel.value && searchInput?.value) {
+      const normTyped = normalizePdvSearchText(searchInput.value);
+      const list = getPdvAvailableProductsList();
+      const matched =
+        list.find((p) => normalizePdvSearchText(p.name) === normTyped) ||
+        list.find((p) => normalizePdvSearchText(p.name).includes(normTyped));
+      if (matched) {
+        let opt = Array.from(prodSel.options).find((o) => String(o.value) === String(matched.id));
+        if (!opt) {
+          opt = document.createElement('option');
+          opt.value = matched.id;
+          opt.textContent = matched.name;
+          opt.setAttribute('data-price', String(matched.price || 0));
+          prodSel.appendChild(opt);
+        }
+        prodSel.value = matched.id;
+        if (priceInput && !priceInput.value) {
+          priceInput.value = Number(matched.price || 0);
+        }
+      }
+    }
+
+    const prod = products.find((p) => String(p.id) === String(prodSel?.value || ''));
     const qty = parseInt(document.getElementById('modalProductQty').value, 10) || 1;
     if (!prod || qty > prod.qty) return showToast('Estoque insuficiente!');
     const unitPrice = parseFloat(document.getElementById('modalProductDisplayPrice').value) || prod.price;
     const discount = parseFloat(document.getElementById('modalProductDiscount').value) || 0;
-    modalCart.push({ prodId: prod.id, name: prod.name, qty, unitPrice, total: Math.max(0, unitPrice * qty - discount) });
+    modalCart.push({
+      prodId: prod.id,
+      name: prod.name,
+      qty,
+      unitPrice,
+      total: Math.max(0, unitPrice * qty - discount)
+    });
     renderModalCart();
+
+    if (searchInput) searchInput.value = '';
+    if (prodSel) prodSel.value = '';
+    if (priceInput) priceInput.value = '';
+    if (qtyInput) qtyInput.value = '1';
+    if (discountInput) discountInput.value = '0';
+    if (resultsList) resultsList.style.setProperty('display', 'none', 'important');
   });
 
   document.getElementById('btnModalConfirmSale')?.addEventListener('click', () => {
     if (modalCart.length === 0) return showToast('Carrinho vazio!');
-    const clientObj = clients.find(c => c.cod === document.getElementById('modalClientSelect').value);
+    const canal = syncChannelToNotes();
+    const clientObj = clients.find((c) => c.cod === document.getElementById('modalClientSelect').value);
     const grossSale = modalCart.reduce((acc, i) => acc + i.total, 0);
     const generalDiscount = parseFloat(document.getElementById('modalGeneralDiscount').value) || 0;
     const totalSale = Math.max(0, grossSale - generalDiscount);
     const newId = String(9054500 + sales.length + 1);
     const shippingMethod = document.getElementById('modalShippingMethod').value;
-    const shippingNotes = document.getElementById('modalShippingNotes').value.trim();
+    const shippingNotes = document.getElementById('modalShippingNotes').value.trim() || `Canal: ${canal}`;
     const observation = document.getElementById('modalOrderObservation').value.trim();
     const saleDateStr = document.getElementById('modalSaleDate').value || getNowBrDateTime();
 
+    setTimeout(() => {
+      if (Array.isArray(sales) && sales.length > 0) {
+        const createdSale = sales.find((s) => String(s.id) === newId) || sales[0];
+        createdSale.contactChannel = canal;
+        createdSale.shippingNotes = shippingNotes;
+        if (typeof persistLocalOnly === 'function') persistLocalOnly();
+        if (typeof renderSales === 'function') renderSales();
+      }
+    }, 0);
     modalCart.forEach(item => {
       const prod = products.find(p => p.id === item.prodId);
       if (prod) { prod.qty = Math.max(0, prod.qty - item.qty); pushStockToNuvemshop(prod); }
