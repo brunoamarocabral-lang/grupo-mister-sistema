@@ -423,11 +423,11 @@ function injectLayoutAndActionStyles() {
 
     /* Identidade unificada dos modais e blocos do modal de edição */
     .gm-modal-section-card {
-      background: rgba(255, 255, 255, 0.025);
-      border: 1px solid var(--border, #252a34);
+      background: #1b2230;
+      border: 1px solid #2a3344;
       border-left: 3px solid #60a5fa;
       border-radius: 8px;
-      padding: 0.7rem 0.8rem;
+      padding: 0.72rem 0.85rem;
       margin-bottom: 0.75rem;
     }
 
@@ -444,11 +444,17 @@ function injectLayoutAndActionStyles() {
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      color: #9ca3af;
+      color: #cbd5e1;
       margin-bottom: 0.55rem;
       display: flex;
       align-items: center;
       gap: 0.35rem;
+    }
+
+    .gm-edit-sale-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 0.6rem;
     }
 
     .gm-sale-item-row {
@@ -457,10 +463,10 @@ function injectLayoutAndActionStyles() {
       gap: 0.45rem;
       align-items: center;
       margin-bottom: 0.45rem;
-      background: rgba(15, 23, 42, 0.45);
+      background: #141923;
       padding: 0.42rem 0.5rem;
       border-radius: 6px;
-      border: 1px solid rgba(96, 165, 250, 0.22);
+      border: 1px solid #2a3344;
     }
 
     .gm-sale-item-row input {
@@ -472,13 +478,18 @@ function injectLayoutAndActionStyles() {
     }
 
     .gm-edit-sale-card {
-      max-width: 740px !important;
+      max-width: 760px !important;
       width: 95% !important;
       max-height: 90vh;
       overflow-y: auto;
+      background: #141923 !important;
+      border: 1px solid #2d3545 !important;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.88) !important;
+      opacity: 1 !important;
     }
 
     /* Opacidade / fundo sólido nos modais de visualização e edição */
+    #editSaleModalOverlay.modal-overlay,
     #viewSaleModalOverlay.modal-overlay,
     #viewStockProductModalOverlay.modal-overlay,
     #finEntryModalOverlay.modal-overlay,
@@ -538,8 +549,8 @@ function injectLayoutAndActionStyles() {
     }
 
     .gm-client-address-preview {
-      background: rgba(59, 130, 246, 0.1);
-      border: 1px solid rgba(59, 130, 246, 0.35);
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(96, 165, 250, 0.35);
       border-radius: 8px;
       padding: 0.6rem 0.75rem;
       font-size: 0.82rem;
@@ -789,10 +800,10 @@ function persistLocalOnly() {
   localStorage.setItem(STORAGE_KEYS.FINANCE, JSON.stringify(finEntries));
   localStorage.setItem(STORAGE_KEYS.COMMISSIONS, JSON.stringify(sellerCommissionRates));
 }
-const BRAND_LOGO_PATH = 'logo-grupo-mister.png'; // Altera se renomeares o ficheiro na pasta
+
+const BRAND_LOGO_PATH = 'logo-grupo-mister.png';
 
 function applyBrandLogoEverywhere() {
-  // 1. Ícone da aba ("globinho" do navegador)
   let favicon = document.querySelector('link[rel="icon"]');
   if (!favicon) {
     favicon = document.createElement('link');
@@ -801,13 +812,13 @@ function applyBrandLogoEverywhere() {
   }
   favicon.href = BRAND_LOGO_PATH;
 
-  // 2. Imagens da marca na página de login, sidebar e cabeçalho
   document.querySelectorAll('img.sidebar-brand-logo, img.topbar-brand-logo, #loginScreenOverlay img').forEach((img) => {
     img.src = BRAND_LOGO_PATH;
     img.style.display = 'block';
     img.style.objectFit = 'contain';
   });
 }
+
 function saveAll() {
   syncSalesToFinanceEntries();
   persistLocalOnly();
@@ -816,12 +827,14 @@ function saveAll() {
 
 const fmtBRL = (val) => Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+let toastTimeoutId = null;
 function showToast(msg) {
   const toast = document.getElementById('toast');
   if (!toast) return;
   toast.textContent = msg;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3400);
+  if (toastTimeoutId) clearTimeout(toastTimeoutId);
+  toastTimeoutId = setTimeout(() => toast.classList.remove('show'), 3400);
 }
 
 // ============================================================================
@@ -1547,9 +1560,25 @@ window.removeLoginAccount = async function (id) {
 // ============================================================================
 // 4. INICIALIZAÇÃO GERAL
 // ============================================================================
+function initGlobalKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeAllGithubActionMenus();
+      document.querySelectorAll('.modal-overlay.active').forEach(modal => {
+        if (modal.id !== 'loginScreenOverlay') {
+          modal.classList.remove('active');
+        }
+      });
+      setMobileSidebarOpen(false);
+    }
+  });
+}
+
 function startApp() {
   injectLayoutAndActionStyles();
+  applyBrandLogoEverywhere();
   initMobileSidebarToggle();
+  initGlobalKeyboardShortcuts();
   initLoginByCredentials();
   ensureCommercialStockSubtabInMenuAndSection();
   initNavigation();
@@ -3199,7 +3228,7 @@ function ensureViewStockProductModal() {
   overlay.innerHTML = `
     <div class="modal-content gm-view-modal-card">
       <div class="modal-header">
-        <h3><i class="ph ph-eye"></i> Detalhes do Produto <span id="viewStockProdHeaderId"></span></h3>
+        <h3><i class="ph ph-eye" style="color:#34d399;"></i> Detalhes do Produto <span id="viewStockProdHeaderId" style="color:#fbbf24;"></span></h3>
         <button type="button" id="btnCloseViewStockProdModal" class="btn-close">&times;</button>
       </div>
       <div id="viewStockProdModalBody" class="modal-body"></div>
@@ -3276,7 +3305,7 @@ function ensureViewSaleModal() {
   overlay.innerHTML = `
     <div class="modal-content gm-view-modal-card">
       <div class="modal-header">
-        <h3><i class="ph ph-eye"></i> Detalhes Completos da Venda <span id="viewSaleHeaderId"></span></h3>
+        <h3><i class="ph ph-eye" style="color:#34d399;"></i> Detalhes Completos da Venda <span id="viewSaleHeaderId" style="color:#fbbf24;"></span></h3>
         <button type="button" id="btnCloseViewSaleModal" class="btn-close">&times;</button>
       </div>
       <div id="viewSaleModalBody" class="modal-body"></div>
@@ -3392,19 +3421,19 @@ function ensureEditSaleModalStructure() {
           <div class="gm-modal-section-card">
             <div class="gm-modal-section-title"><i class="ph ph-user-list" style="color:#60a5fa;"></i> Dados do Pedido e Cliente</div>
             <div class="gm-edit-sale-grid">
-              <div class="form-group">
+              <div class="form-group" style="margin:0;">
                 <label for="editSaleClient">Cliente:</label>
                 <input type="text" id="editSaleClient" required />
               </div>
-              <div class="form-group">
+              <div class="form-group" style="margin:0;">
                 <label for="editSaleSeller">Vendedor:</label>
                 <input type="text" id="editSaleSeller" />
               </div>
-              <div class="form-group">
+              <div class="form-group" style="margin:0;">
                 <label for="editSaleDate">Data / Hora:</label>
                 <input type="text" id="editSaleDate" />
               </div>
-              <div class="form-group">
+              <div class="form-group" style="margin:0;">
                 <label for="editSalePayment">Pagamento:</label>
                 <select id="editSalePayment">
                   <option value="Pix">Pix</option>
@@ -3420,7 +3449,7 @@ function ensureEditSaleModalStructure() {
           <div class="gm-modal-section-card accent-amber">
             <div class="gm-modal-section-title"><i class="ph ph-truck" style="color:#fbbf24;"></i> Envio, Status e Rastreio</div>
             <div class="gm-edit-sale-grid">
-              <div class="form-group">
+              <div class="form-group" style="margin:0;">
                 <label for="editSaleShippingMethod">Modalidade de Envio:</label>
                 <select id="editSaleShippingMethod">
                   <option value="Retirada na Loja">Retirada na Loja</option>
@@ -3428,7 +3457,7 @@ function ensureEditSaleModalStructure() {
                   <option value="Correios">Correios</option>
                 </select>
               </div>
-              <div class="form-group">
+              <div class="form-group" style="margin:0;">
                 <label for="editSaleOrderStatus">Status do Pedido:</label>
                 <select id="editSaleOrderStatus">
                   <option value="Em Separação">Em Separação</option>
@@ -3437,11 +3466,11 @@ function ensureEditSaleModalStructure() {
                   <option value="Entregue">Entregue</option>
                 </select>
               </div>
-              <div class="form-group">
+              <div class="form-group" style="margin:0;">
                 <label for="editSaleTrackingCode">Código de Rastreio:</label>
                 <input type="text" id="editSaleTrackingCode" placeholder="Ex: BR123456789BR" />
               </div>
-              <div class="form-group">
+              <div class="form-group" style="margin:0;">
                 <label for="editSaleShippingNotes">Endereço / Detalhes de Envio:</label>
                 <input type="text" id="editSaleShippingNotes" />
               </div>
@@ -3456,16 +3485,16 @@ function ensureEditSaleModalStructure() {
           <div class="gm-modal-section-card accent-emerald">
             <div class="gm-modal-section-title"><i class="ph ph-currency-circle-dollar" style="color:#34d399;"></i> Valores e Observações</div>
             <div class="gm-edit-sale-grid">
-              <div class="form-group">
+              <div class="form-group" style="margin:0;">
                 <label for="editSaleDiscount">Desconto (R$):</label>
                 <input type="number" id="editSaleDiscount" step="0.01" min="0" />
               </div>
-              <div class="form-group">
+              <div class="form-group" style="margin:0;">
                 <label for="editSaleTotal">Total da Venda (R$):</label>
                 <input type="number" id="editSaleTotal" step="0.01" min="0" required />
               </div>
             </div>
-            <div class="form-group" style="margin-top:0.5rem;">
+            <div class="form-group" style="margin-top:0.55rem; margin-bottom:0;">
               <label for="editSaleObservation">Observação Interna:</label>
               <input type="text" id="editSaleObservation" placeholder="Observações da venda ou entrega..." />
             </div>
@@ -3485,37 +3514,44 @@ function ensureEditSaleModalStructure() {
 
 function ensureSaleItemsEditorInsideModal() {
   const form = document.getElementById('formEditSale');
-  if (!form || document.getElementById('gmSaleItemsEditorBlock')) return;
+  if (!form) return;
 
-  const itemsInput = document.getElementById('editSaleItems');
-  const block = document.createElement('div');
-  block.id = 'gmSaleItemsEditorBlock';
-  block.className = 'gm-modal-section-card';
-  block.innerHTML = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.45rem; gap:0.5rem; flex-wrap:wrap;">
-      <div class="gm-modal-section-title" style="margin:0;"><i class="ph ph-list-checks" style="color:#60a5fa;"></i> Itens Unitários (Item por Item)</div>
-      <button type="button" id="gmBtnAddEditSaleItem" class="btn-sm btn-blue"><i class="ph ph-plus"></i> Adicionar Item</button>
-    </div>
-    <div style="display:grid; grid-template-columns:minmax(140px,1.8fr) 74px 105px 95px 34px; gap:0.45rem; font-size:0.74rem; color:var(--text-muted); padding:0 0.5rem 0.25rem;">
-      <span>Item / Fragrância</span>
-      <span>Qtd</span>
-      <span>Unit. (R$)</span>
-      <span>Subtotal</span>
-      <span></span>
-    </div>
-    <div id="gmSaleItemsRowsContainer"></div>
-  `;
+  let block = document.getElementById('gmSaleItemsEditorBlock');
+  if (!block) {
+    const itemsInput = document.getElementById('editSaleItems');
+    block = document.createElement('div');
+    block.id = 'gmSaleItemsEditorBlock';
+    block.className = 'gm-modal-section-card';
+    block.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.45rem; gap:0.5rem; flex-wrap:wrap;">
+        <div class="gm-modal-section-title" style="margin:0;"><i class="ph ph-list-checks" style="color:#60a5fa;"></i> Itens Unitários (Item por Item)</div>
+        <button type="button" id="gmBtnAddEditSaleItem" class="btn-sm btn-blue"><i class="ph ph-plus"></i> Adicionar Item</button>
+      </div>
+      <div style="display:grid; grid-template-columns:minmax(140px,1.8fr) 74px 105px 95px 34px; gap:0.45rem; font-size:0.74rem; color:var(--text-muted); padding:0 0.5rem 0.25rem;">
+        <span>Item / Fragrância</span>
+        <span>Qtd</span>
+        <span>Unit. (R$)</span>
+        <span>Subtotal</span>
+        <span></span>
+      </div>
+      <div id="gmSaleItemsRowsContainer"></div>
+    `;
 
-  if (itemsInput?.parentElement) {
-    itemsInput.parentElement.insertAdjacentElement('afterend', block);
-  } else {
-    form.prepend(block);
+    if (itemsInput?.parentElement) {
+      itemsInput.parentElement.insertAdjacentElement('afterend', block);
+    } else {
+      form.prepend(block);
+    }
   }
 
-  document.getElementById('gmBtnAddEditSaleItem')?.addEventListener('click', () => {
-    editingSaleItemsDraft.push({ name: '', qty: 1, price: 0 });
-    renderEditingSaleItemsRows(true);
-  });
+  const btnAdd = document.getElementById('gmBtnAddEditSaleItem');
+  if (btnAdd && !btnAdd.dataset.bound) {
+    btnAdd.dataset.bound = 'true';
+    btnAdd.addEventListener('click', () => {
+      editingSaleItemsDraft.push({ name: '', qty: 1, price: 0 });
+      renderEditingSaleItemsRows(true);
+    });
+  }
 }
 
 function recalculateSaleTotalFromDraft(forceRecalcTotal = false) {
@@ -4256,7 +4292,7 @@ function ensureClientFormAndViewModals() {
     viewOverlay.innerHTML = `
       <div class="modal-content gm-view-modal-card">
         <div class="modal-header">
-          <h3><i class="ph ph-eye"></i> Detalhes do Cliente <span id="viewClientHeaderCod"></span></h3>
+          <h3><i class="ph ph-eye" style="color:#34d399;"></i> Detalhes do Cliente <span id="viewClientHeaderCod" style="color:#fbbf24;"></span></h3>
           <button type="button" id="btnCloseViewClientModal" class="btn-close">&times;</button>
         </div>
         <div id="viewClientModalBody" class="modal-body"></div>
@@ -4484,7 +4520,6 @@ function renderClients() {
   setTxt('metricTotalClientes', clients.length);
   setTxt('metricClientesVip', clients.filter(c => c.category === 'VIP / Recorrente').length);
 
-  // Localiza pedidos que correspondam ao número de pedido digitado
   const matchingOrdersBySearch = rawTerm
     ? sales.filter(s => {
         const orderIdStr = String(s.id || '').toLowerCase();
@@ -4944,69 +4979,80 @@ function initStockModule() {
   ensureStockTableHeaderWithoutBatch();
 
   const overlay = document.getElementById('productModalOverlay');
-  document.getElementById('btnCloseProductModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
-  document.getElementById('btnCancelProductModal')?.addEventListener('click', () => overlay?.classList.remove('active'));
+  document.getElementById('btnCloseProductModal')?.addEventListener('click', () => overlay.classList.remove('active'));
+  document.getElementById('btnCancelProductModal')?.addEventListener('click', () => overlay.classList.remove('active'));
 
   document.getElementById('btnDeleteProductInModal')?.addEventListener('click', () => {
-    const targetId = document.getElementById('editProdId').value;
-    if (!targetId || !hasStockAccess()) return;
-    if (!confirm('Deseja excluir permanentemente este produto do estoque?')) return;
-    products = products.filter(p => p.id !== targetId);
+    if (!hasStockAccess()) return showToast('Você não tem permissão para apagar itens do estoque.');
+    const editId = document.getElementById('editProdId').value;
+    if (!editId) return;
+    if (!confirm('Deseja realmente apagar este item do estoque?')) return;
+    products = products.filter(p => p.id !== editId);
     saveAll();
     renderAll();
-    overlay?.classList.remove('active');
-    showToast('Produto excluído do estoque.');
+    overlay.classList.remove('active');
+    showToast('Item removido do estoque!');
   });
 
   document.getElementById('formNewProduct')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (!hasStockAccess()) return showToast('Sem permissão para alterar o estoque.');
-    ensureSupplierFieldInProductModal();
-    const editingId = document.getElementById('editProdId').value;
-    const customCode = document.getElementById('prodCodeDisplay').value.trim();
-    const supplierVal = (document.getElementById('prodSupplier')?.value || '').trim();
+    if (!hasStockAccess()) return showToast('Você não tem permissão para alterar o estoque.');
+    const canEditCost = hasStockAccess();
+    const editId = document.getElementById('editProdId').value;
+    const codeInput = document.getElementById('prodCodeDisplay').value.trim();
+    const nameVal = document.getElementById('prodName').value.trim();
+    const supVal = (document.getElementById('prodSupplier')?.value || '').trim();
+    const imeiVal = document.getElementById('prodImei').value.trim();
+    const expiryVal = document.getElementById('prodExpiry').value;
+    const condVal = document.getElementById('prodCondition').value;
+    const batVal = document.getElementById('prodBattery').value.trim();
+    const costVal = parseFloat(document.getElementById('prodCost').value) || 0;
+    const priceVal = parseFloat(document.getElementById('prodPrice').value) || 0;
+    const qtyVal = parseInt(document.getElementById('prodQty').value, 10) || 0;
+    const nuvemIdVal = document.getElementById('prodNuvemId').value.trim();
+    const nuvemVarIdVal = document.getElementById('prodNuvemVariantId').value.trim();
 
-    if (editingId) {
-      const prod = products.find(p => p.id === editingId);
+    if (editId) {
+      const prod = products.find(p => p.id === editId);
       if (prod) {
-        prod.id = customCode || prod.id;
-        prod.name = document.getElementById('prodName').value.trim();
-        prod.supplier = supplierVal;
-        prod.imei = document.getElementById('prodImei').value.trim();
-        prod.expiry = document.getElementById('prodExpiry').value;
-        prod.condition = document.getElementById('prodCondition').value;
-        prod.battery = document.getElementById('prodBattery').value.trim();
-        prod.cost = parseFloat(document.getElementById('prodCost').value) || 0;
-        prod.price = parseFloat(document.getElementById('prodPrice').value) || 0;
-        prod.qty = parseInt(document.getElementById('prodQty').value, 10) || 0;
-        prod.nuvemId = document.getElementById('prodNuvemId').value.trim();
-        prod.nuvemVarId = document.getElementById('prodNuvemVariantId').value.trim();
+        prod.id = codeInput || prod.id;
+        prod.name = nameVal;
+        prod.supplier = supVal;
+        prod.imei = imeiVal;
+        prod.expiry = expiryVal;
+        prod.condition = condVal;
+        prod.battery = batVal;
+        if (canEditCost) prod.cost = costVal;
+        prod.price = priceVal;
+        prod.qty = qtyVal;
+        prod.nuvemId = nuvemIdVal;
+        prod.nuvemVarId = nuvemVarIdVal;
         pushStockToNuvemshop(prod);
       }
-      showToast('Produto atualizado!');
+      showToast('Produto atualizado com sucesso!');
     } else {
       const newProd = {
-        id: customCode || ('PRD-' + String(products.length + 1).padStart(2, '0')),
-        name: document.getElementById('prodName').value.trim(),
-        supplier: supplierVal,
-        imei: document.getElementById('prodImei').value.trim(),
-        expiry: document.getElementById('prodExpiry').value,
-        condition: document.getElementById('prodCondition').value,
-        battery: document.getElementById('prodBattery').value.trim(),
-        cost: parseFloat(document.getElementById('prodCost').value) || 0,
-        price: parseFloat(document.getElementById('prodPrice').value) || 0,
-        qty: parseInt(document.getElementById('prodQty').value, 10) || 0,
-        nuvemId: document.getElementById('prodNuvemId').value.trim(),
-        nuvemVarId: document.getElementById('prodNuvemVariantId').value.trim()
+        id: codeInput || ('PRD-' + String(products.length + 1).padStart(2, '0')),
+        name: nameVal,
+        supplier: supVal,
+        imei: imeiVal || ('LT-' + Math.floor(1000 + Math.random() * 9000)),
+        expiry: expiryVal,
+        condition: condVal,
+        battery: batVal,
+        cost: canEditCost ? costVal : 0,
+        price: priceVal,
+        qty: qtyVal,
+        nuvemId: nuvemIdVal,
+        nuvemVarId: nuvemVarIdVal
       };
       products.unshift(newProd);
       pushStockToNuvemshop(newProd);
-      showToast('Produto salvo!');
+      showToast('Fragrância adicionada ao estoque!');
     }
 
     saveAll();
     renderAll();
-    overlay?.classList.remove('active');
+    overlay.classList.remove('active');
   });
 
   document.getElementById('stockSearchInput')?.addEventListener('input', renderStock);
@@ -5018,100 +5064,92 @@ function renderStock() {
   ensureStockOperationalMetricsCards();
   ensureStockSegmentedFilterControls();
   ensureStockTableHeaderWithoutBatch();
-  syncStockSegmentedButtonsUI();
 
   const canManageStock = hasStockAccess();
-  const totalItems = products.reduce((acc, p) => acc + (Number(p.qty) || 0), 0);
-  const lowStockCount = products.filter(p => {
-    const q = Number(p.qty) || 0;
-    return q > 0 && q <= 2;
-  }).length;
-  const outOfStockCount = products.filter(p => (Number(p.qty) || 0) <= 0).length;
-  const totalCost = products.reduce((acc, p) => acc + ((Number(p.cost) || 0) * (Number(p.qty) || 0)), 0);
-  const totalSaleVal = products.reduce((acc, p) => acc + ((Number(p.price) || 0) * (Number(p.qty) || 0)), 0);
-
-  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setTxt('stockMetricUnits', `${totalItems} un.`);
-  setTxt('stockMetricSkus', `${products.length} itens`);
-  setTxt('stockMetricCost', canManageStock ? fmtBRL(totalCost) : 'Restrito');
-  setTxt('stockMetricSale', canManageStock ? fmtBRL(totalSaleVal) : 'Restrito');
-  setTxt('stockMetricProfit', canManageStock ? fmtBRL(totalSaleVal - totalCost) : 'Restrito');
-  setTxt('gmStockOpTotalUnits', totalItems);
-  setTxt('gmStockOpSkus', products.length);
-  setTxt('gmStockOpLow', lowStockCount);
-  setTxt('gmStockOpOut', outOfStockCount);
-
-  const term = (document.getElementById('stockSearchInput')?.value || '').toLowerCase().trim();
-  const cond = document.getElementById('stockConditionFilter')?.value || 'todos';
   const tbody = document.getElementById('tableStockDetailed');
   if (!tbody) return;
 
+  const totalUnits = products.reduce((acc, p) => acc + (Number(p.qty) || 0), 0);
+  const lowStockCount = products.filter(p => (Number(p.qty) || 0) > 0 && (Number(p.qty) || 0) <= 2).length;
+  const outOfStockCount = products.filter(p => (Number(p.qty) || 0) === 0).length;
+
+  const setOpTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setOpTxt('gmStockOpTotalUnits', totalUnits);
+  setOpTxt('gmStockOpSkus', products.length);
+  setOpTxt('gmStockOpLow', lowStockCount);
+  setOpTxt('gmStockOpOut', outOfStockCount);
+
+  const term = (document.getElementById('stockSearchInput')?.value || '').toLowerCase().trim();
+  const cond = document.getElementById('stockConditionFilter')?.value || 'todos';
+
   const filtered = products.filter(p => {
-    const q = Number(p.qty) || 0;
-    const costVal = Number(p.cost) || 0;
-    const hasSup = Boolean(String(p.supplier || '').trim());
+    const qtyNum = Number(p.qty) || 0;
+    const costNum = Number(p.cost) || 0;
+    const hasSupplier = Boolean(String(p.supplier || '').trim());
     const isDecant = isDecantProduct(p);
-    const isExp = isExpiringOrExpiredProduct(p);
+    const isExpAlert = isExpiringOrExpiredProduct(p);
 
     const matchTerm = !term
       || p.name.toLowerCase().includes(term)
-      || (p.id || '').toLowerCase().includes(term)
+      || p.id.toLowerCase().includes(term)
       || (p.supplier || '').toLowerCase().includes(term)
-      || (p.condition || '').toLowerCase().includes(term)
       || (p.battery || '').toLowerCase().includes(term);
 
     const matchCond = cond === 'todos' || p.condition === cond;
+    const matchInStock = stockOnlyInStockFilter !== 'yes' || qtyNum > 0;
+    const matchSupplier = stockSupplierFilter === 'all'
+      || (stockSupplierFilter === 'yes' && hasSupplier)
+      || (stockSupplierFilter === 'no' && !hasSupplier);
+    const matchLowStock = stockLowStockFilter !== 'yes' || (qtyNum > 0 && qtyNum <= 2);
     const matchFormat = stockFormatFilter === 'all'
       || (stockFormatFilter === 'decant' && isDecant)
       || (stockFormatFilter === 'bottle' && !isDecant);
-    const matchOnlyInStock = stockOnlyInStockFilter === 'no' || q > 0;
-    const matchSupplier = stockSupplierFilter === 'all'
-      || (stockSupplierFilter === 'yes' && hasSup)
-      || (stockSupplierFilter === 'no' && !hasSup);
-    const matchLowStock = stockLowStockFilter === 'no' || (q > 0 && q <= 2);
-    const matchExpiry = stockExpiryAlertFilter === 'all' || isExp;
+    const matchExpiry = stockExpiryAlertFilter !== 'expiring' || isExpAlert;
     const matchHasCost = stockHasCostFilter === 'all'
-      || (stockHasCostFilter === 'yes' && costVal > 0)
-      || (stockHasCostFilter === 'no' && costVal <= 0);
+      || (stockHasCostFilter === 'yes' && costNum > 0)
+      || (stockHasCostFilter === 'no' && costNum <= 0);
 
-    return matchTerm && matchCond && matchFormat && matchOnlyInStock && matchSupplier && matchLowStock && matchExpiry && matchHasCost;
+    return matchTerm && matchCond && matchInStock && matchSupplier && matchLowStock && matchFormat && matchExpiry && matchHasCost;
   });
 
   if (filtered.length === 0) {
     const colSpan = canManageStock ? 9 : 7;
-    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum item encontrado para os filtros ativos.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum item encontrado para os filtros selecionados.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = filtered.map(p => {
+    const margin = (p.price && p.price > 0) ? (((p.price - (p.cost || 0)) / p.price) * 100).toFixed(1) : '0.0';
     const qtyNum = Number(p.qty) || 0;
-    const costNum = Number(p.cost) || 0;
-    const priceNum = Number(p.price) || 0;
-    const profit = (priceNum - costNum) * qtyNum;
-    const qtyBadgeClass = qtyNum <= 0 ? 'badge-despesa' : (qtyNum <= 2 ? 'badge-warning' : 'badge-receita');
+    const isDecant = isDecantProduct(p);
     const expiryBadge = renderCriticalExpiryBadge(p.expiry);
+    const formatBadge = isDecant
+      ? `<span class="badge-tag badge-warning" style="margin-left:4px;">Decant</span>`
+      : `<span class="badge-tag badge-info" style="margin-left:4px;">Frasco</span>`;
 
-    const editAttr = canManageStock ? `style="cursor:pointer;" title="Clique para editar"` : '';
-    const onClickFn = (field) => canManageStock ? `onclick="quickEditProductField('${p.id}', '${field}')"` : '';
+    const qtyBadgeClass = qtyNum === 0
+      ? 'badge-despesa'
+      : (qtyNum <= 2 ? 'badge-warning' : 'badge-receita');
 
     return `
       <tr>
-        <td ${editAttr} ${onClickFn('id')}><strong>${p.id}</strong></td>
-        <td ${editAttr} ${onClickFn('name')}>
+        <td style="white-space:nowrap;"><strong>${p.id}</strong></td>
+        <td>
           <strong>${p.name}</strong>
-          <div style="font-size:0.73rem; color:var(--text-muted);">
-            Fornecedor: ${p.supplier ? `<strong>${p.supplier}</strong>` : '<span style="color:#fbbf24;">Sem fornecedor</span>'}
+          <div style="font-size:0.73rem; color:var(--text-muted); margin-top:2px;">
+            Fornecedor: ${p.supplier ? `<span style="color:#cbd5e1;">${p.supplier}</span>` : `<span style="color:#fbbf24;">Sem fornecedor</span>`}
           </div>
         </td>
-        <td ${editAttr} ${onClickFn('battery')}>
+        <td>
           <span class="badge-tag badge-info">${p.condition}</span>
-          ${p.battery ? `<small style="color:var(--text-muted); margin-left:4px;">• ${p.battery}</small>` : ''}
+          ${formatBadge}
+          ${p.battery ? `<div style="font-size:0.74rem; color:var(--text-muted); margin-top:2px;">${p.battery}</div>` : ''}
         </td>
-        <td ${editAttr} ${onClickFn('expiry')} style="white-space:nowrap;">${formatDateSafe(p.expiry)}${expiryBadge}</td>
-        ${canManageStock ? `<td class="admin-only-col" ${editAttr} ${onClickFn('cost')}>${fmtBRL(costNum)}</td>` : ''}
-        <td ${editAttr} ${onClickFn('price')}><strong style="color:#34d399;">${fmtBRL(priceNum)}</strong></td>
-        ${canManageStock ? `<td class="admin-only-col" style="color:${profit >= 0 ? '#34d399' : '#f87171'}; font-weight:700;">${fmtBRL(profit)}</td>` : ''}
-        <td ${editAttr} ${onClickFn('qty')}><span class="badge-tag ${qtyBadgeClass}">${qtyNum} un.</span></td>
+        <td style="white-space:nowrap;">${formatDateSafe(p.expiry)}${expiryBadge}</td>
+        ${canManageStock ? `<td class="admin-only-col" style="white-space:nowrap; color:#fbbf24;">${fmtBRL(p.cost || 0)}</td>` : ''}
+        <td style="white-space:nowrap;"><strong style="color:#34d399;">${fmtBRL(p.price || 0)}</strong></td>
+        ${canManageStock ? `<td class="admin-only-col" style="white-space:nowrap;"><span class="badge-tag badge-receita">${margin}%</span></td>` : ''}
+        <td style="white-space:nowrap;"><span class="badge-tag ${qtyBadgeClass}">${qtyNum} un.</span></td>
         <td style="white-space:nowrap;">${renderStockActionButton(p.id)}</td>
       </tr>
     `;
@@ -5119,324 +5157,390 @@ function renderStock() {
 }
 
 // ============================================================================
-// TROCAS, DEVOLUÇÕES & RMA
+// MÓDULO DE TROCAS E DEVOLUÇÕES (RMA)
 // ============================================================================
 function initRmaModule() {
   const overlay = document.getElementById('rmaModalOverlay');
-  document.getElementById('btnOpenRmaModal')?.addEventListener('click', () => { document.getElementById('formNewRma')?.reset(); overlay.classList.add('active'); });
+  document.getElementById('btnOpenRmaModal')?.addEventListener('click', () => overlay.classList.add('active'));
   document.getElementById('btnCloseRmaModal')?.addEventListener('click', () => overlay.classList.remove('active'));
   document.getElementById('btnCancelRmaModal')?.addEventListener('click', () => overlay.classList.remove('active'));
-
   document.getElementById('formNewRma')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const saleId = document.getElementById('rmaSaleSelect').value;
-    const sale = sales.find(s => String(s.id) === String(saleId));
-    const client = document.getElementById('rmaClientName').value.trim().toUpperCase() || (sale ? sale.client : 'CLIENTE');
-    const productText = document.getElementById('rmaProductText').value.trim() || (sale ? sale.items : 'Fragrância');
-    const reason = document.getElementById('rmaReason').value;
-    const action = document.getElementById('rmaAction').value;
-    const returnToStock = document.getElementById('rmaReturnToStock').checked;
-
-    if (returnToStock && sale && sale.items) {
-      const matchedProd = products.find(p => sale.items.toLowerCase().includes(p.name.toLowerCase()));
-      if (matchedProd) { matchedProd.qty += 1; pushStockToNuvemshop(matchedProd); }
-    }
-
-    rmaList.unshift({ id: 'RMA-' + (201 + rmaList.length), date: new Date().toLocaleDateString('pt-BR'), saleId: saleId || 'AVULSO', client, productText, reason, action, returnToStock, status: 'Concluído' });
-    saveAll(); renderRma(); overlay.classList.remove('active'); showToast('Ocorrência de troca/devolução registrada!');
+    const sale = sales.find(s => String(s.id) === String(document.getElementById('rmaSaleSelect').value));
+    rmaList.unshift({ cod: 'RMA-' + (301 + rmaList.length), date: new Date().toLocaleDateString('pt-BR'), saleId: sale ? sale.id : 'AVULSO', client: sale ? sale.client : 'CLIENTE BALCÃO', item: sale ? sale.items : 'Fragrância', type: document.getElementById('rmaType').value, reason: document.getElementById('rmaReason').value, refundVal: parseFloat(document.getElementById('rmaRefundValue').value) || 0, status: 'Aberto' });
+    saveAll(); renderRma(); overlay.classList.remove('active'); showToast('Ocorrência registrada!');
   });
 }
 
 function renderRma() {
-  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setTxt('rmaMetricTotal', rmaList.length);
-  setTxt('rmaMetricRestocked', rmaList.filter(r => r.returnToStock).length);
-  setTxt('rmaMetricExchanges', rmaList.filter(r => r.action.includes('Troca')).length);
   const tbody = document.getElementById('tableRmaList');
-  if (tbody) tbody.innerHTML = rmaList.map(r => `<tr><td><strong>${r.id}</strong></td><td>${r.date}</td><td>${r.saleId !== 'AVULSO' ? `#${r.saleId}` : 'Avulso'}</td><td><strong>${r.client}</strong></td><td>${r.productText}</td><td><span class="badge-tag badge-warning">${r.reason}</span></td><td><span class="badge-tag badge-info">${r.action}</span></td><td>${r.returnToStock ? '<span class="badge-tag badge-receita">Sim</span>' : '<span class="badge-tag badge-despesa">Não</span>'}</td><td><span class="badge-tag badge-receita">${r.status}</span></td></tr>`).join('');
+  if (tbody) tbody.innerHTML = rmaList.map(r => `<tr><td><strong>${r.cod}</strong></td><td>${r.date}</td><td>#${r.saleId}</td><td>${r.client}</td><td>${r.item}</td><td><span class="badge-tag badge-warning">${r.type}</span></td><td>${r.reason}</td><td><strong style="color:#f87171;">${fmtBRL(r.refundVal)}</strong></td><td><span class="badge-tag ${r.status === 'Concluído' ? 'badge-receita' : 'badge-info'}">${r.status}</span></td><td>${r.status !== 'Concluído' ? `<button type="button" class="btn-sm btn-green" onclick="concludeRma('${r.cod}')">Concluir</button>` : '-'}</td></tr>`).join('');
 }
 
+window.concludeRma = function (cod) {
+  const r = rmaList.find(item => item.cod === cod);
+  if (!r) return;
+  r.status = 'Concluído';
+  saveAll(); renderRma(); showToast(`${cod} concluído!`);
+};
+
 // ============================================================================
-// MÓDULO FINANCEIRO (COM VISÃO GERAL, RESUMO CANAIS, HISTÓRICO DE VENDAS, EDITAR & VISUALIZAR)
+// MÓDULO FINANCEIRO COMPLETO (RECEITAS/DESPESAS + CANAIS + FORNECEDOR/VENDEDOR)
 // ============================================================================
+function isSaleCancelledOrRefunded(sale) {
+  const st = String(sale?.status || '').toLowerCase();
+  return st.includes('cancel') || st.includes('estorn') || st.includes('devolv');
+}
+
+function getSaleChannelLabel(sale) {
+  return sale?.type === 'Online / Nuvemshop' ? 'Online / Nuvemshop' : 'Venda Presencial';
+}
+
+function getSalePaymentStatus(sale) {
+  const st = String(sale?.paymentStatus || sale?.status || '').toLowerCase();
+  if (st.includes('pend') || st.includes('aguard')) return 'Pendente';
+  return 'Pago';
+}
+
 function syncSalesToFinanceEntries() {
   if (!Array.isArray(finEntries)) finEntries = [];
 
   sales.forEach(s => {
+    if (isSaleCancelledOrRefunded(s)) return;
     const autoId = `FIN-SALE-${s.id}`;
-    const channelLabel = s.type === 'Online / Nuvemshop' ? 'Online / Nuvemshop' : 'Venda Presencial';
-    const existing = finEntries.find(f => String(f.autoSaleId || '') === String(s.id) || f.id === autoId);
+    const channel = getSaleChannelLabel(s);
+    const payStatus = getSalePaymentStatus(s);
+    const existingIdx = finEntries.findIndex(f => String(f.autoSaleId) === String(s.id) || f.id === autoId);
 
-    if (existing) {
-      existing.desc = `Venda #${s.id} — ${s.client} (${s.items || 'Itens'})`;
-      existing.type = 'Receita';
-      existing.category = channelLabel;
-      existing.channel = channelLabel;
-      existing.seller = s.seller || 'ADMIN';
-      existing.payment = s.payment || 'Pix';
-      existing.date = s.isoDate || (s.date ? s.date.split(' ')[0] : new Date().toISOString().split('T')[0]);
-      existing.amount = Number(s.total || 0);
-      existing.status = 'Pago';
+    const entryData = {
+      id: existingIdx >= 0 ? finEntries[existingIdx].id : autoId,
+      autoSaleId: String(s.id),
+      isAutoSale: true,
+      date: s.isoDate || new Date().toISOString().split('T')[0],
+      type: 'Receita',
+      channel,
+      category: channel === 'Online / Nuvemshop' ? 'Venda Online (Nuvemshop)' : 'Venda Presencial (PDV)',
+      description: `Pedido #${s.id} — ${s.client || 'CONSUMIDOR BALCÃO'} (${s.items || 'Itens'})`,
+      clientOrSupplier: s.client || 'CONSUMIDOR BALCÃO',
+      seller: s.seller || 'ADMIN',
+      supplier: '',
+      paymentMethod: s.payment || 'Pix',
+      status: payStatus,
+      amount: Number(s.total || 0),
+      notes: s.observation || ''
+    };
+
+    if (existingIdx >= 0) {
+      finEntries[existingIdx] = { ...finEntries[existingIdx], ...entryData };
     } else {
-      finEntries.unshift({
-        id: autoId,
-        autoSaleId: String(s.id),
-        desc: `Venda #${s.id} — ${s.client} (${s.items || 'Itens'})`,
-        type: 'Receita',
-        category: channelLabel,
-        channel: channelLabel,
-        seller: s.seller || 'ADMIN',
-        payment: s.payment || 'Pix',
-        date: s.isoDate || (s.date ? s.date.split(' ')[0] : new Date().toISOString().split('T')[0]),
-        amount: Number(s.total || 0),
-        status: 'Pago'
-      });
+      finEntries.unshift(entryData);
     }
   });
 
-  const validSaleIds = new Set(sales.map(s => String(s.id)));
-  finEntries = finEntries.filter(f => !f.autoSaleId || validSaleIds.has(String(f.autoSaleId)));
+  const activeSaleIds = new Set(sales.filter(s => !isSaleCancelledOrRefunded(s)).map(s => String(s.id)));
+  finEntries = finEntries.filter(f => !f.isAutoSale || activeSaleIds.has(String(f.autoSaleId)));
 }
 
-function ensureFinanceEntryModal() {
+function getDistinctFinanceSuppliers() {
+  const set = new Set();
+  finEntries.forEach(f => {
+    if (f.type === 'Despesa') {
+      const sup = String(f.supplier || f.clientOrSupplier || '').trim();
+      if (sup) set.add(sup);
+    }
+  });
+  products.forEach(p => {
+    const sup = String(p.supplier || '').trim();
+    if (sup) set.add(sup);
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+function getDistinctFinanceSellers() {
+  const set = new Set();
+  sales.forEach(s => {
+    const sel = String(s.seller || '').trim();
+    if (sel) set.add(sel.toUpperCase());
+  });
+  finEntries.forEach(f => {
+    const sel = String(f.seller || '').trim();
+    if (sel) set.add(sel.toUpperCase());
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+function ensureFinanceModals() {
   if (!document.getElementById('finEntryModalOverlay')) {
-    const overlay = document.createElement('div');
-    overlay.id = 'finEntryModalOverlay';
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
+    const modal = document.createElement('div');
+    modal.id = 'finEntryModalOverlay';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
       <div class="modal-content gm-view-modal-card">
         <div class="modal-header">
-          <h3><i class="ph ph-wallet" style="color:#34d399;"></i> <span id="finEntryModalTitle">Novo Lançamento Financeiro</span></h3>
+          <h3><i class="ph ph-currency-circle-dollar" style="color:#34d399;"></i> <span id="finEntryModalTitle">Novo Lançamento Financeiro</span></h3>
           <button type="button" id="btnCloseFinEntryModal" class="btn-close">&times;</button>
         </div>
         <form id="formFinEntry" class="modal-body">
-          <input type="hidden" id="finEditEntryId" />
-          <div class="gm-modal-section-card">
-            <div class="gm-modal-section-title">Dados do Lançamento</div>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:0.6rem;">
-              <div class="form-group" style="margin:0;">
-                <label for="finEntryType">Tipo:</label>
-                <select id="finEntryType">
-                  <option value="Receita">Receita (Entrada)</option>
-                  <option value="Despesa">Despesa (Saída)</option>
-                </select>
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label for="finEntryDesc">Descrição:</label>
-                <input type="text" id="finEntryDesc" required placeholder="Ex: Reposição frascos / decants..." />
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label for="finEntryCategory">Categoria:</label>
-                <input type="text" id="finEntryCategory" placeholder="Ex: Estoque, Marketing, Motoboy..." />
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label for="finEntryChannel">Canal:</label>
-                <select id="finEntryChannel">
-                  <option value="Venda Presencial">Venda Presencial</option>
-                  <option value="Online / Nuvemshop">Online / Nuvemshop</option>
-                  <option value="Operacional">Operacional</option>
-                </select>
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label for="finEntrySeller">Responsável / Vendedor:</label>
-                <input type="text" id="finEntrySeller" placeholder="ADMIN" />
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label for="finEntryPayment">Pagamento:</label>
-                <select id="finEntryPayment">
-                  <option value="Pix">Pix</option>
-                  <option value="Dinheiro">Dinheiro</option>
-                  <option value="Crédito">Crédito</option>
-                  <option value="Débito">Débito</option>
-                  <option value="Boleto / Transferência">Boleto / Transferência</option>
-                </select>
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label for="finEntryDate">Data:</label>
-                <input type="date" id="finEntryDate" required />
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label for="finEntryAmount">Valor (R$):</label>
-                <input type="number" id="finEntryAmount" step="0.01" min="0" required />
-              </div>
-              <div class="form-group" style="margin:0;">
-                <label for="finEntryStatus">Status:</label>
-                <select id="finEntryStatus">
-                  <option value="Pago">Pago</option>
-                  <option value="Pendente">Pendente</option>
-                </select>
-              </div>
+          <input type="hidden" id="finEditId" />
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:0.65rem;">
+            <div class="form-group">
+              <label for="finTypeInput">Tipo:</label>
+              <select id="finTypeInput">
+                <option value="Receita">Receita (+)</option>
+                <option value="Despesa">Despesa (-)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="finChannelInput">Canal de Origem:</label>
+              <select id="finChannelInput">
+                <option value="Venda Presencial">Venda Presencial</option>
+                <option value="Online / Nuvemshop">Online / Nuvemshop</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="finDateInput">Data:</label>
+              <input type="date" id="finDateInput" required />
+            </div>
+            <div class="form-group">
+              <label for="finAmountInput">Valor (R$):</label>
+              <input type="number" id="finAmountInput" step="0.01" min="0.01" required />
+            </div>
+            <div class="form-group">
+              <label for="finCategoryInput">Categoria:</label>
+              <input type="text" id="finCategoryInput" placeholder="Ex: Fornecedor, Frete, Embalagens, Comissão..." required />
+            </div>
+            <div class="form-group">
+              <label for="finPartyInput">Cliente / Fornecedor:</label>
+              <input type="text" id="finPartyInput" placeholder="Nome do cliente ou fornecedor" />
+            </div>
+            <div class="form-group">
+              <label for="finSellerInput">Vendedor / Responsável:</label>
+              <input type="text" id="finSellerInput" placeholder="Ex: ADMIN, VENDEDOR 1" />
+            </div>
+            <div class="form-group">
+              <label for="finPaymentInput">Forma de Pagamento:</label>
+              <select id="finPaymentInput">
+                <option value="Pix">Pix</option>
+                <option value="Dinheiro">Dinheiro</option>
+                <option value="Crédito">Crédito</option>
+                <option value="Débito">Débito</option>
+                <option value="Boleto / Transferência">Boleto / Transferência</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="finStatusInput">Status:</label>
+              <select id="finStatusInput">
+                <option value="Pago">Pago</option>
+                <option value="Pendente">Pendente</option>
+              </select>
             </div>
           </div>
-          <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.85rem;">
+          <div class="form-group" style="margin-top:0.5rem;">
+            <label for="finDescInput">Descrição:</label>
+            <input type="text" id="finDescInput" placeholder="Descreva o lançamento financeiro..." required />
+          </div>
+          <div class="form-group">
+            <label for="finNotesInput">Observações:</label>
+            <input type="text" id="finNotesInput" placeholder="Detalhes adicionais..." />
+          </div>
+          <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
             <button type="button" id="btnCancelFinEntryModal" class="btn-sm">Cancelar</button>
             <button type="submit" class="btn-primary"><i class="ph ph-check"></i> Salvar Lançamento</button>
           </div>
         </form>
       </div>
     `;
-    document.body.appendChild(overlay);
+    document.body.appendChild(modal);
 
-    const closeFn = () => overlay.classList.remove('active');
+    const closeFn = () => modal.classList.remove('active');
     document.getElementById('btnCloseFinEntryModal')?.addEventListener('click', closeFn);
     document.getElementById('btnCancelFinEntryModal')?.addEventListener('click', closeFn);
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) closeFn();
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeFn();
     });
 
     document.getElementById('formFinEntry')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      const editId = document.getElementById('finEditEntryId').value;
-      const desc = document.getElementById('finEntryDesc').value.trim();
-      const type = document.getElementById('finEntryType').value;
-      const category = document.getElementById('finEntryCategory').value.trim() || 'Geral';
-      const channel = document.getElementById('finEntryChannel').value;
-      const seller = document.getElementById('finEntrySeller').value.trim().toUpperCase() || 'ADMIN';
-      const payment = document.getElementById('finEntryPayment').value;
-      const date = document.getElementById('finEntryDate').value;
-      const amount = parseFloat(document.getElementById('finEntryAmount').value) || 0;
-      const status = document.getElementById('finEntryStatus').value;
+      if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode alterar o financeiro.');
+
+      const editId = document.getElementById('finEditId').value;
+      const typeVal = document.getElementById('finTypeInput').value;
+      const partyVal = document.getElementById('finPartyInput').value.trim();
+      const sellerVal = (document.getElementById('finSellerInput').value.trim() || (activeAccount?.displayName || activeAccount?.username || 'ADMIN')).toUpperCase();
+
+      const payload = {
+        date: document.getElementById('finDateInput').value,
+        type: typeVal,
+        channel: document.getElementById('finChannelInput').value,
+        category: document.getElementById('finCategoryInput').value.trim() || (typeVal === 'Receita' ? 'Receita Avulsa' : 'Despesa Operacional'),
+        description: document.getElementById('finDescInput').value.trim(),
+        clientOrSupplier: partyVal || (typeVal === 'Despesa' ? 'Fornecedor Geral' : 'Cliente Avulso'),
+        supplier: typeVal === 'Despesa' ? (partyVal || 'Fornecedor Geral') : '',
+        seller: sellerVal,
+        paymentMethod: document.getElementById('finPaymentInput').value,
+        status: document.getElementById('finStatusInput').value,
+        amount: Math.max(0, parseFloat(document.getElementById('finAmountInput').value) || 0),
+        notes: document.getElementById('finNotesInput').value.trim()
+      };
 
       if (editId) {
-        const entry = finEntries.find(item => item.id === editId);
-        if (entry) {
-          Object.assign(entry, { desc, type, category, channel, seller, payment, date, amount, status });
-          if (entry.autoSaleId) {
-            const linkedSale = sales.find(s => String(s.id) === String(entry.autoSaleId));
+        const idx = finEntries.findIndex(f => String(f.id) === String(editId));
+        if (idx >= 0) {
+          const prev = finEntries[idx];
+          finEntries[idx] = { ...prev, ...payload };
+          if (prev.isAutoSale && prev.autoSaleId) {
+            const linkedSale = sales.find(s => String(s.id) === String(prev.autoSaleId));
             if (linkedSale) {
-              linkedSale.total = amount;
-              linkedSale.payment = payment;
-              linkedSale.seller = seller;
-              linkedSale.type = channel === 'Online / Nuvemshop' ? 'Online / Nuvemshop' : 'Venda Presencial';
+              linkedSale.total = payload.amount;
+              linkedSale.payment = payload.paymentMethod;
+              linkedSale.seller = payload.seller;
+              linkedSale.type = payload.channel;
             }
           }
         }
         showToast('Lançamento financeiro atualizado!');
       } else {
         finEntries.unshift({
-          id: 'FIN-' + Date.now().toString().slice(-6),
-          desc,
-          type,
-          category,
-          channel,
-          seller,
-          payment,
-          date,
-          amount,
-          status
+          id: 'FIN-' + String(Date.now()).slice(-6),
+          isAutoSale: false,
+          ...payload
         });
-        showToast('Lançamento financeiro salvo!');
+        showToast('Lançamento financeiro registrado!');
       }
 
-      persistLocalOnly();
+      saveAll();
       renderAll();
       closeFn();
     });
   }
 
   if (!document.getElementById('viewFinEntryModalOverlay')) {
-    const viewOverlay = document.createElement('div');
-    viewOverlay.id = 'viewFinEntryModalOverlay';
-    viewOverlay.className = 'modal-overlay';
-    viewOverlay.innerHTML = `
+    const viewModal = document.createElement('div');
+    viewModal.id = 'viewFinEntryModalOverlay';
+    viewModal.className = 'modal-overlay';
+    viewModal.innerHTML = `
       <div class="modal-content gm-view-modal-card">
         <div class="modal-header">
-          <h3><i class="ph ph-eye"></i> Detalhes do Lançamento <span id="viewFinEntryHeaderId"></span></h3>
-          <button type="button" id="btnCloseViewFinEntryModal" class="btn-close">&times;</button>
+          <h3><i class="ph ph-eye" style="color:#34d399;"></i> Detalhes do Lançamento <span id="viewFinHeaderId" style="color:#fbbf24;"></span></h3>
+          <button type="button" id="btnCloseViewFinModal" class="btn-close">&times;</button>
         </div>
-        <div id="viewFinEntryModalBody" class="modal-body"></div>
-        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:0.85rem;">
-          <button type="button" id="btnViewFinEntrySwitchToEdit" class="btn-primary"><i class="ph ph-pencil-simple"></i> Editar</button>
-          <button type="button" id="btnCloseViewFinEntryModalFooter" class="btn-sm">Fechar</button>
+        <div id="viewFinModalBody" class="modal-body"></div>
+        <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1rem;">
+          <button type="button" id="btnViewFinSwitchToEdit" class="btn-primary"><i class="ph ph-pencil-simple"></i> Editar</button>
+          <button type="button" id="btnCloseViewFinModalFooter" class="btn-sm">Fechar</button>
         </div>
       </div>
     `;
-    document.body.appendChild(viewOverlay);
+    document.body.appendChild(viewModal);
 
-    const closeView = () => viewOverlay.classList.remove('active');
-    document.getElementById('btnCloseViewFinEntryModal')?.addEventListener('click', closeView);
-    document.getElementById('btnCloseViewFinEntryModalFooter')?.addEventListener('click', closeView);
-    viewOverlay.addEventListener('click', (e) => {
-      if (e.target === viewOverlay) closeView();
+    const closeViewFn = () => viewModal.classList.remove('active');
+    document.getElementById('btnCloseViewFinModal')?.addEventListener('click', closeViewFn);
+    document.getElementById('btnCloseViewFinModalFooter')?.addEventListener('click', closeViewFn);
+    viewModal.addEventListener('click', (e) => {
+      if (e.target === viewModal) closeViewFn();
     });
   }
 }
 
-window.openNewFinEntryModal = function (defaultType = 'Despesa') {
-  ensureFinanceEntryModal();
-  document.getElementById('finEditEntryId').value = '';
-  document.getElementById('finEntryModalTitle').textContent = defaultType === 'Receita' ? 'Nova Receita' : 'Nova Despesa';
+window.openNewFinanceModal = function (presetType = 'Receita') {
+  if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode lançar movimentações financeiras.');
+  ensureFinanceModals();
+  document.getElementById('finEditId').value = '';
+  document.getElementById('finEntryModalTitle').textContent = presetType === 'Despesa' ? 'Nova Despesa' : 'Nova Receita';
   document.getElementById('formFinEntry')?.reset();
-  document.getElementById('finEntryType').value = defaultType;
-  document.getElementById('finEntryDate').value = new Date().toISOString().split('T')[0];
-  document.getElementById('finEntrySeller').value = (activeAccount?.displayName || activeAccount?.username || 'ADMIN').toUpperCase();
-  document.getElementById('finEntryStatus').value = 'Pago';
+  document.getElementById('finTypeInput').value = presetType;
+  document.getElementById('finChannelInput').value = 'Venda Presencial';
+  document.getElementById('finDateInput').value = new Date().toISOString().split('T')[0];
+  document.getElementById('finSellerInput').value = (activeAccount?.displayName || activeAccount?.username || 'ADMIN').toUpperCase();
+  document.getElementById('finStatusInput').value = 'Pago';
   document.getElementById('finEntryModalOverlay')?.classList.add('active');
 };
 
-window.openEditFinEntryModal = function (entryId) {
-  ensureFinanceEntryModal();
-  const entry = finEntries.find(item => item.id === entryId);
+window.openEditFinanceEntryModal = function (finId) {
+  if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode editar o financeiro.');
+  ensureFinanceModals();
+  const entry = finEntries.find(f => String(f.id) === String(finId));
   if (!entry) return;
 
-  document.getElementById('finEditEntryId').value = entry.id;
+  document.getElementById('finEditId').value = entry.id;
   document.getElementById('finEntryModalTitle').textContent = `Editar Lançamento (${entry.id})`;
-  document.getElementById('finEntryType').value = entry.type || 'Receita';
-  document.getElementById('finEntryDesc').value = entry.desc || '';
-  document.getElementById('finEntryCategory').value = entry.category || 'Geral';
-  document.getElementById('finEntryChannel').value = entry.channel || 'Venda Presencial';
-  document.getElementById('finEntrySeller').value = entry.seller || 'ADMIN';
-  document.getElementById('finEntryPayment').value = entry.payment || 'Pix';
-  document.getElementById('finEntryDate').value = entry.date || new Date().toISOString().split('T')[0];
-  document.getElementById('finEntryAmount').value = Number(entry.amount || 0);
-  document.getElementById('finEntryStatus').value = entry.status || 'Pago';
+  document.getElementById('finTypeInput').value = entry.type || 'Receita';
+  document.getElementById('finChannelInput').value = entry.channel || 'Venda Presencial';
+  document.getElementById('finDateInput').value = entry.date || new Date().toISOString().split('T')[0];
+  document.getElementById('finAmountInput').value = Number(entry.amount || 0);
+  document.getElementById('finCategoryInput').value = entry.category || '';
+  document.getElementById('finPartyInput').value = entry.supplier || entry.clientOrSupplier || '';
+  document.getElementById('finSellerInput').value = entry.seller || 'ADMIN';
+  document.getElementById('finPaymentInput').value = entry.paymentMethod || 'Pix';
+  document.getElementById('finStatusInput').value = entry.status || 'Pago';
+  document.getElementById('finDescInput').value = entry.description || '';
+  document.getElementById('finNotesInput').value = entry.notes || '';
+
   document.getElementById('finEntryModalOverlay')?.classList.add('active');
 };
 
-window.openViewFinEntryModal = function (entryId) {
-  ensureFinanceEntryModal();
-  const entry = finEntries.find(item => item.id === entryId);
+window.openViewFinanceEntryModal = function (finId) {
+  ensureFinanceModals();
+  const entry = finEntries.find(f => String(f.id) === String(finId));
   if (!entry) return;
 
-  document.getElementById('viewFinEntryHeaderId').textContent = `(${entry.id})`;
-  document.getElementById('viewFinEntryModalBody').innerHTML = `
+  const isRev = entry.type === 'Receita';
+  document.getElementById('viewFinHeaderId').textContent = `(${entry.id})`;
+  document.getElementById('viewFinModalBody').innerHTML = `
     <div class="gm-view-grid">
-      <div class="gm-view-box"><small>Descrição</small><strong>${entry.desc}</strong></div>
-      <div class="gm-view-box"><small>Tipo</small><strong>${entry.type}</strong></div>
-      <div class="gm-view-box"><small>Categoria / Canal</small><strong>${entry.category || '-'} • ${entry.channel || '-'}</strong></div>
-      <div class="gm-view-box"><small>Data / Pagamento</small><strong>${formatDateSafe(entry.date)} • ${entry.payment || '-'}</strong></div>
-      <div class="gm-view-box"><small>Status</small><strong>${entry.status || 'Pago'}</strong></div>
-      <div class="gm-view-box"><small>Valor</small><strong style="color:${entry.type === 'Receita' ? '#34d399' : '#f87171'} !important;">${fmtBRL(entry.amount)}</strong></div>
+      <div class="gm-view-box"><small>Tipo</small><strong><span class="badge-tag ${isRev ? 'badge-receita' : 'badge-despesa'}">${entry.type}</span></strong></div>
+      <div class="gm-view-box"><small>Canal de Origem</small><strong>${entry.channel || 'Venda Presencial'}</strong></div>
+      <div class="gm-view-box"><small>Data</small><strong>${formatDateSafe(entry.date)}</strong></div>
+      <div class="gm-view-box"><small>Status</small><strong><span class="badge-tag ${entry.status === 'Pago' ? 'badge-receita' : 'badge-warning'}">${entry.status || 'Pago'}</span></strong></div>
+      <div class="gm-view-box"><small>Categoria</small><strong>${entry.category || '-'}</strong></div>
+      <div class="gm-view-box"><small>Cliente / Fornecedor</small><strong>${entry.supplier || entry.clientOrSupplier || '-'}</strong></div>
+      <div class="gm-view-box"><small>Vendedor / Responsável</small><strong>${entry.seller || 'ADMIN'}</strong></div>
+      <div class="gm-view-box"><small>Forma de Pagamento</small><strong>${entry.paymentMethod || '-'}</strong></div>
+      <div class="gm-view-box"><small>Valor</small><strong style="color:${isRev ? '#34d399' : '#f87171'} !important; font-size:1.05rem;">${isRev ? '+' : '-'} ${fmtBRL(entry.amount)}</strong></div>
+    </div>
+    <div class="gm-view-box" style="margin-bottom:0.75rem;">
+      <small>Descrição</small>
+      <strong>${entry.description || '-'}</strong>
+    </div>
+    <div class="gm-view-box">
+      <small>Observações</small>
+      <strong>${entry.notes || 'Nenhuma observação.'}</strong>
     </div>
   `;
 
-  const btnEdit = document.getElementById('btnViewFinEntrySwitchToEdit');
+  const btnEdit = document.getElementById('btnViewFinSwitchToEdit');
   if (btnEdit) {
+    btnEdit.style.display = isCurrentUserAdmin() ? 'inline-flex' : 'none';
     btnEdit.onclick = () => {
       document.getElementById('viewFinEntryModalOverlay')?.classList.remove('active');
-      openEditFinEntryModal(entry.id);
+      openEditFinanceEntryModal(entry.id);
     };
   }
 
   document.getElementById('viewFinEntryModalOverlay')?.classList.add('active');
 };
 
-window.deleteFinEntryRecord = function (entryId) {
-  const entry = finEntries.find(item => item.id === entryId);
+window.deleteFinanceEntryRecord = function (finId) {
+  if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode excluir lançamentos.');
+  const entry = finEntries.find(f => String(f.id) === String(finId));
   if (!entry) return;
-  if (!confirm(`Deseja realmente excluir o lançamento "${entry.desc}"?`)) return;
-  if (entry.autoSaleId) {
+
+  if (entry.isAutoSale && entry.autoSaleId) {
+    if (!confirm(`Este lançamento vem da venda #${entry.autoSaleId}. Deseja também apagar a venda #${entry.autoSaleId}?`)) return;
     sales = sales.filter(s => String(s.id) !== String(entry.autoSaleId));
+  } else {
+    if (!confirm(`Deseja realmente apagar o lançamento "${entry.description}"?`)) return;
   }
-  finEntries = finEntries.filter(item => item.id !== entryId);
-  saveAll();
+
+  finEntries = finEntries.filter(f => String(f.id) !== String(finId));
+  persistLocalOnly();
   renderAll();
-  showToast('Lançamento excluído.');
+  showToast('Lançamento removido.');
 };
 
-window.toggleFinEntryActionMenu = function (event, entryId) {
+window.toggleFinanceActionMenu = function (event, finId) {
   event.stopPropagation();
-  const menuId = `gmFinMenu_${String(entryId).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  const menuId = `gmFinMenu_${String(finId).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
   let menu = document.getElementById(menuId);
   const wasOpen = menu?.classList.contains('open');
   closeAllGithubActionMenus();
@@ -5446,16 +5550,16 @@ window.toggleFinEntryActionMenu = function (event, entryId) {
     menu.id = menuId;
     menu.className = 'gm-gh-dropdown';
     menu.innerHTML = `
-      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewFinEntryModal('${entryId}')">
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openViewFinanceEntryModal('${finId}')">
         <i class="ph ph-eye" style="color:#34d399; font-size:15px;"></i>
         <span>Visualizar</span>
       </button>
-      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditFinEntryModal('${entryId}')">
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openEditFinanceEntryModal('${finId}')">
         <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
         <span>Editar</span>
       </button>
       <div class="gm-gh-dropdown-divider"></div>
-      <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteFinEntryRecord('${entryId}')">
+      <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteFinanceEntryRecord('${finId}')">
         <i class="ph ph-trash" style="font-size:15px;"></i>
         <span>Apagar</span>
       </button>
@@ -5468,196 +5572,463 @@ window.toggleFinEntryActionMenu = function (event, entryId) {
   }
 };
 
-function ensureFinanceOperationalSummaryPanels() {
+function ensureFinanceEnhancedLayout() {
+  ensureFinanceModals();
   const finSection = document.getElementById('financeiro');
-  if (!finSection || document.getElementById('gmFinanceOperationalPanels')) return;
+  if (!finSection) return;
 
-  const panel = document.createElement('div');
-  panel.id = 'gmFinanceOperationalPanels';
-  panel.className = 'gm-fin-subgrid';
-  panel.innerHTML = `
-    <div class="card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #60a5fa; border-radius:10px; padding:0.85rem 1rem;">
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
-        <div>
-          <h4 style="margin:0; font-size:0.95rem;"><i class="ph ph-storefront" style="color:#60a5fa;"></i> Resumo por Canal de Venda</h4>
-          <small style="color:var(--text-muted);">Compare receita e pedidos entre Loja Física e Online / Nuvemshop</small>
+  if (!document.getElementById('gmFinanceEnhancedContainer')) {
+    const container = document.createElement('div');
+    container.id = 'gmFinanceEnhancedContainer';
+    container.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem; margin-bottom:0.85rem;">
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+          <button type="button" id="gmBtnNewReceita" class="btn-green"><i class="ph ph-plus-circle"></i> Nova Receita</button>
+          <button type="button" id="gmBtnNewDespesa" class="btn-danger"><i class="ph ph-minus-circle"></i> Nova Despesa</button>
         </div>
-        <select id="gmFinChannelSortSelect" style="width:auto; padding:0.32rem 0.55rem; font-size:0.78rem;">
-          <option value="revenue_desc">Ordenar: Maior Receita</option>
-          <option value="orders_desc">Ordenar: Maior Nº Pedidos</option>
-        </select>
-      </div>
-      <div id="gmFinChannelBreakdownList"></div>
-    </div>
-
-    <div class="card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #34d399; border-radius:10px; padding:0.85rem 1rem;">
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
-        <div>
-          <h4 style="margin:0; font-size:0.95rem;"><i class="ph ph-receipt" style="color:#34d399;"></i> Histórico de Vendas no Financeiro</h4>
-          <small style="color:var(--text-muted);">Acesso direto para visualizar, editar ou apagar vendas lançadas</small>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+          <input type="date" id="finStartDateFilter" title="Data inicial" />
+          <input type="date" id="finEndDateFilter" title="Data final" />
+          <input type="text" id="finSearchInput" placeholder="Buscar lançamento, cliente, fornecedor ou vendedor..." style="min-width:230px;" />
+          <button type="button" id="gmBtnClearFinFilters" class="btn-sm">Limpar Filtros</button>
         </div>
-        <span class="badge-tag badge-receita" id="gmFinSalesCountBadge">0 vendas</span>
       </div>
-      <div id="gmFinRecentSalesList" style="max-height:230px; overflow-y:auto;"></div>
-    </div>
-  `;
 
-  const tableEl = document.getElementById('tableFinanceEntries')?.closest('.table-responsive, table');
-  if (tableEl) {
-    tableEl.parentNode.insertBefore(panel, tableEl);
-  } else {
-    finSection.appendChild(panel);
+      <div class="grid-4" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(185px, 1fr)); gap:0.75rem; margin-bottom:0.9rem;">
+        <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #34d399; border-radius:10px; padding:0.8rem 0.95rem;">
+          <small style="color:var(--text-muted); display:block; font-size:0.76rem;">Receitas</small>
+          <strong id="finMetricReceitas" style="font-size:1.3rem; color:#34d399;">R$ 0,00</strong>
+        </div>
+        <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #f87171; border-radius:10px; padding:0.8rem 0.95rem;">
+          <small style="color:var(--text-muted); display:block; font-size:0.76rem;">Despesas</small>
+          <strong id="finMetricDespesas" style="font-size:1.3rem; color:#f87171;">R$ 0,00</strong>
+        </div>
+        <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #60a5fa; border-radius:10px; padding:0.8rem 0.95rem;">
+          <small style="color:var(--text-muted); display:block; font-size:0.76rem;">Saldo Líquido</small>
+          <strong id="finMetricSaldo" style="font-size:1.3rem; color:#f3f4f6;">R$ 0,00</strong>
+        </div>
+        <div class="stat-card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-left:3px solid #fbbf24; border-radius:10px; padding:0.8rem 0.95rem;">
+          <small style="color:var(--text-muted); display:block; font-size:0.76rem;">A Receber / Pendente</small>
+          <strong id="finMetricPendente" style="font-size:1.3rem; color:#fbbf24;">R$ 0,00</strong>
+        </div>
+      </div>
+
+      <div class="card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-radius:10px; padding:0.8rem 0.9rem; margin-bottom:0.9rem;">
+        <div class="gm-seg-filters-row" style="margin-top:0; padding-top:0; border-top:none;">
+          <div class="gm-seg-group">
+            <label>Tipo</label>
+            <div class="gm-seg-pills" id="finTypePills">
+              <button type="button" class="gm-seg-btn active" data-val="todos">Todos</button>
+              <button type="button" class="gm-seg-btn" data-val="Receita">Receitas</button>
+              <button type="button" class="gm-seg-btn" data-val="Despesa">Despesas</button>
+            </div>
+          </div>
+
+          <div class="gm-seg-group">
+            <label>Status</label>
+            <div class="gm-seg-pills" id="finStatusPills">
+              <button type="button" class="gm-seg-btn active" data-val="todos">Todos</button>
+              <button type="button" class="gm-seg-btn" data-val="Pago">Pago</button>
+              <button type="button" class="gm-seg-btn" data-val="Pendente">Pendente</button>
+            </div>
+          </div>
+
+          <div class="gm-seg-group">
+            <label>Canal de Venda</label>
+            <div class="gm-seg-pills" id="finChannelPills">
+              <button type="button" class="gm-seg-btn active" data-val="todos">Todos os Canais</button>
+              <button type="button" class="gm-seg-btn" data-val="Venda Presencial">Presencial</button>
+              <button type="button" class="gm-seg-btn" data-val="Online / Nuvemshop">Nuvemshop</button>
+            </div>
+          </div>
+
+          <div class="gm-seg-group">
+            <label for="finSupplierFilterSelect">Fornecedor</label>
+            <select id="finSupplierFilterSelect" style="min-width:165px;">
+              <option value="todos">Todos os Fornecedores</option>
+            </select>
+          </div>
+
+          <div class="gm-seg-group">
+            <label for="finSellerFilterSelect">Vendedor</label>
+            <select id="finSellerFilterSelect" style="min-width:155px;">
+              <option value="todos">Todos os Vendedores</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="gm-fin-subgrid">
+        <div class="card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-radius:10px; padding:0.85rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.65rem;">
+            <h4 style="margin:0; font-size:0.95rem;"><i class="ph ph-storefront" style="color:#60a5fa;"></i> Desempenho por Canal (Presencial vs. Nuvemshop)</h4>
+            <div style="display:flex; gap:0.35rem;" id="finChannelSortPills">
+              <button type="button" class="gm-seg-btn active" data-sort="revenue_desc">Maior Faturamento</button>
+              <button type="button" class="gm-seg-btn" data-sort="orders_desc">Mais Pedidos</button>
+            </div>
+          </div>
+          <div id="finChannelsComparisonBody"></div>
+        </div>
+
+        <div class="card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-radius:10px; padding:0.85rem;">
+          <h4 style="margin:0 0 0.65rem 0; font-size:0.95rem;"><i class="ph ph-users-three" style="color:#fbbf24;"></i> Vendas e Comissões por Vendedor</h4>
+          <div class="table-responsive">
+            <table>
+              <thead>
+                <tr>
+                  <th>VENDEDOR</th>
+                  <th>PEDIDOS</th>
+                  <th>FATURADO</th>
+                  <th>% COM.</th>
+                  <th>COMISSÃO</th>
+                </tr>
+              </thead>
+              <tbody id="finSellersBreakdownBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-radius:10px; padding:0.85rem;">
+        <h4 style="margin:0 0 0.65rem 0; font-size:0.95rem;"><i class="ph ph-list-bullets" style="color:#34d399;"></i> Extrato Financeiro de Receitas e Despesas</h4>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>DATA</th>
+                <th>TIPO / CANAL</th>
+                <th>CATEGORIA / DESCRIÇÃO</th>
+                <th>CLIENTE / FORNECEDOR</th>
+                <th>VENDEDOR</th>
+                <th>PAGAMENTO</th>
+                <th>STATUS</th>
+                <th>VALOR</th>
+                <th>AÇÕES</th>
+              </tr>
+            </thead>
+            <tbody id="tableFinanceEntriesList"></tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    finSection.prepend(container);
+
+    document.getElementById('gmBtnNewReceita')?.addEventListener('click', () => openNewFinanceModal('Receita'));
+    document.getElementById('gmBtnNewDespesa')?.addEventListener('click', () => openNewFinanceModal('Despesa'));
+
+    ['finStartDateFilter', 'finEndDateFilter', 'finSearchInput'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', renderFinance);
+      document.getElementById(id)?.addEventListener('change', renderFinance);
+    });
+
+    document.querySelectorAll('#finTypePills .gm-seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        finTypeFilter = btn.getAttribute('data-val') || 'todos';
+        document.querySelectorAll('#finTypePills .gm-seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+        renderFinance();
+      });
+    });
+
+    document.querySelectorAll('#finStatusPills .gm-seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        finStatusFilter = btn.getAttribute('data-val') || 'todos';
+        document.querySelectorAll('#finStatusPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+        renderFinance();
+      });
+    });
+
+    document.querySelectorAll('#finChannelPills .gm-seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        finChannelFilter = btn.getAttribute('data-val') || 'todos';
+        document.querySelectorAll('#finChannelPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+        renderFinance();
+      });
+    });
+
+    document.getElementById('finSupplierFilterSelect')?.addEventListener('change', (e) => {
+      finSupplierFilter = e.target.value || 'todos';
+      renderFinance();
+    });
+
+    document.getElementById('finSellerFilterSelect')?.addEventListener('change', (e) => {
+      finSellerFilter = e.target.value || 'todos';
+      renderFinance();
+    });
+
+    document.querySelectorAll('#finChannelSortPills .gm-seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        finChannelSort = btn.getAttribute('data-sort') || 'revenue_desc';
+        document.querySelectorAll('#finChannelSortPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b === btn));
+        renderFinance();
+      });
+    });
+
+    document.getElementById('gmBtnClearFinFilters')?.addEventListener('click', () => {
+      finTypeFilter = 'todos';
+      finStatusFilter = 'todos';
+      finChannelFilter = 'todos';
+      finSupplierFilter = 'todos';
+      finSellerFilter = 'todos';
+
+      const dStart = document.getElementById('finStartDateFilter');
+      const dEnd = document.getElementById('finEndDateFilter');
+      const sInp = document.getElementById('finSearchInput');
+      if (dStart) dStart.value = '';
+      if (dEnd) dEnd.value = '';
+      if (sInp) sInp.value = '';
+
+      document.querySelectorAll('#finTypePills .gm-seg-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-val') === 'todos'));
+      document.querySelectorAll('#finStatusPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-val') === 'todos'));
+      document.querySelectorAll('#finChannelPills .gm-seg-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-val') === 'todos'));
+
+      renderFinance();
+    });
   }
-
-  document.getElementById('gmFinChannelSortSelect')?.addEventListener('change', (e) => {
-    finChannelSort = e.target.value || 'revenue_desc';
-    renderFinance();
-  });
 }
 
-function initFinanceModule() {
-  ensureFinanceEntryModal();
-  ensureFinanceOperationalSummaryPanels();
-
-  const openBtn = document.getElementById('btnOpenFinEntryModal');
-  if (openBtn) {
-    openBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      openNewFinEntryModal('Despesa');
-    }, true);
+function refreshFinanceDropdownFilters() {
+  const supSel = document.getElementById('finSupplierFilterSelect');
+  if (supSel) {
+    const suppliers = getDistinctFinanceSuppliers();
+    if (finSupplierFilter !== 'todos' && !suppliers.includes(finSupplierFilter)) {
+      finSupplierFilter = 'todos';
+    }
+    supSel.innerHTML = `<option value="todos">Todos os Fornecedores</option>` +
+      suppliers.map(sup => `<option value="${sup.replace(/"/g, '&quot;')}" ${finSupplierFilter === sup ? 'selected' : ''}>${sup}</option>`).join('');
   }
 
-  document.getElementById('finSearchInput')?.addEventListener('input', renderFinance);
-  document.getElementById('finTypeFilter')?.addEventListener('change', (e) => {
-    finTypeFilter = e.target.value || 'todos';
-    renderFinance();
-  });
-  document.getElementById('finStatusFilter')?.addEventListener('change', (e) => {
-    finStatusFilter = e.target.value || 'todos';
-    renderFinance();
-  });
+  const selSel = document.getElementById('finSellerFilterSelect');
+  if (selSel) {
+    const sellers = getDistinctFinanceSellers();
+    if (finSellerFilter !== 'todos' && !sellers.includes(finSellerFilter)) {
+      finSellerFilter = 'todos';
+    }
+    selSel.innerHTML = `<option value="todos">Todos os Vendedores</option>` +
+      sellers.map(s => `<option value="${s.replace(/"/g, '&quot;')}" ${finSellerFilter === s ? 'selected' : ''}>${s}</option>`).join('');
+  }
+}
+
+window.updateSellerCommissionRate = function (sellerName, rateVal) {
+  if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode alterar comissões.');
+  const rate = Math.max(0, Math.min(100, parseFloat(String(rateVal).replace(',', '.')) || 0));
+  sellerCommissionRates[sellerName] = rate;
+  persistLocalOnly();
+  renderFinance();
+  showToast(`Comissão de ${sellerName} definida em ${rate}%.`);
+};
+
+function initFinanceModule() {
+  ensureFinanceEnhancedLayout();
+  syncSalesToFinanceEntries();
 }
 
 function renderFinance() {
+  ensureFinanceEnhancedLayout();
   syncSalesToFinanceEntries();
-  ensureFinanceEntryModal();
-  ensureFinanceOperationalSummaryPanels();
+  refreshFinanceDropdownFilters();
 
-  const totalReceitas = finEntries.filter(f => f.type === 'Receita').reduce((acc, f) => acc + Number(f.amount || 0), 0);
-  const totalDespesas = finEntries.filter(f => f.type === 'Despesa').reduce((acc, f) => acc + Number(f.amount || 0), 0);
-  const pendentesVal = finEntries.filter(f => f.status === 'Pendente').reduce((acc, f) => acc + Number(f.amount || 0), 0);
-  const saldoLiquido = totalReceitas - totalDespesas;
-
-  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setTxt('finMetricReceitas', fmtBRL(totalReceitas));
-  setTxt('finMetricDespesas', fmtBRL(totalDespesas));
-  setTxt('finMetricSaldo', fmtBRL(saldoLiquido));
-  setTxt('finMetricPendentes', fmtBRL(pendentesVal));
-
-  // Resumo por canal de venda
-  const channelBox = document.getElementById('gmFinChannelBreakdownList');
-  if (channelBox) {
-    const channelNames = ['Venda Presencial', 'Online / Nuvemshop'];
-    const stats = channelNames.map(chName => {
-      const chSales = sales.filter(s =>
-        chName === 'Online / Nuvemshop'
-          ? s.type === 'Online / Nuvemshop'
-          : s.type !== 'Online / Nuvemshop'
-      );
-      const rev = chSales.reduce((acc, s) => acc + Number(s.total || 0), 0);
-      const share = totalReceitas > 0 ? ((rev / totalReceitas) * 100).toFixed(1) : '0.0';
-      return { chName, count: chSales.length, rev, share };
-    });
-
-    if (finChannelSort === 'orders_desc') {
-      stats.sort((a, b) => b.count - a.count);
-    } else {
-      stats.sort((a, b) => b.rev - a.rev);
-    }
-
-    channelBox.innerHTML = stats.map(st => `
-      <div style="margin-bottom:0.65rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.84rem; margin-bottom:0.25rem;">
-          <strong>${st.chName} <small style="color:var(--text-muted);">(${st.count} pedidos)</small></strong>
-          <span style="color:#34d399; font-weight:700;">${fmtBRL(st.rev)} (${st.share}%)</span>
-        </div>
-        <div style="height:7px; background:rgba(255,255,255,0.07); border-radius:999px; overflow:hidden;">
-          <div style="height:100%; width:${Math.min(100, parseFloat(st.share) || 0)}%; background:${st.chName === 'Online / Nuvemshop' ? '#a5b4fc' : '#60a5fa'};"></div>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  // Histórico de vendas integrado ao Financeiro
-  const recentSalesBox = document.getElementById('gmFinRecentSalesList');
-  setTxt('gmFinSalesCountBadge', `${sales.length} venda(s)`);
-  if (recentSalesBox) {
-    if (sales.length === 0) {
-      recentSalesBox.innerHTML = `<div style="font-size:0.82rem; color:var(--text-muted);">Nenhuma venda lançada ainda.</div>`;
-    } else {
-      recentSalesBox.innerHTML = sales.slice(0, 8).map(s => `
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; padding:0.5rem 0.6rem; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); margin-bottom:0.4rem;">
-          <div style="min-width:0;">
-            <div><strong>#${s.id}</strong> • <strong>${s.client}</strong></div>
-            <div style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.date} • ${s.items}</div>
-          </div>
-          <div style="display:flex; align-items:center; gap:0.45rem; flex-shrink:0;">
-            <strong style="color:#34d399; font-size:0.86rem;">${fmtBRL(s.total)}</strong>
-            ${renderGithubPencilActionButton(s.id)}
-          </div>
-        </div>
-      `).join('');
-    }
-  }
-
+  const canManageFin = isCurrentUserAdmin();
+  const startDate = document.getElementById('finStartDateFilter')?.value || '';
+  const endDate = document.getElementById('finEndDateFilter')?.value || '';
   const term = (document.getElementById('finSearchInput')?.value || '').toLowerCase().trim();
-  const typeSel = document.getElementById('finTypeFilter')?.value || finTypeFilter || 'todos';
-  const statusSel = document.getElementById('finStatusFilter')?.value || finStatusFilter || 'todos';
 
   const filtered = finEntries.filter(f => {
-    const matchTerm = !term
-      || (f.desc || '').toLowerCase().includes(term)
-      || (f.category || '').toLowerCase().includes(term)
-      || (f.payment || '').toLowerCase().includes(term)
-      || (f.id || '').toLowerCase().includes(term);
-    const matchType = typeSel === 'todos' || f.type === typeSel;
-    const matchStatus = statusSel === 'todos' || f.status === statusSel;
-    const matchChannel = finChannelFilter === 'todos' || f.channel === finChannelFilter;
-    return matchTerm && matchType && matchStatus && matchChannel;
+    const fDate = String(f.date || '');
+    const fType = f.type || 'Receita';
+    const fStatus = f.status || 'Pago';
+    const fChannel = f.channel || 'Venda Presencial';
+    const fSupplier = String(f.supplier || (fType === 'Despesa' ? f.clientOrSupplier : '') || '').trim();
+    const fSeller = String(f.seller || 'ADMIN').trim().toUpperCase();
+
+    if (finTypeFilter !== 'todos' && fType !== finTypeFilter) return false;
+    if (finStatusFilter !== 'todos' && fStatus !== finStatusFilter) return false;
+    if (finChannelFilter !== 'todos' && fChannel !== finChannelFilter) return false;
+    if (finSupplierFilter !== 'todos' && fSupplier !== finSupplierFilter) return false;
+    if (finSellerFilter !== 'todos' && fSeller !== finSellerFilter) return false;
+
+    if (startDate && fDate && fDate < startDate) return false;
+    if (endDate && fDate && fDate > endDate) return false;
+
+    if (term) {
+      const hay = [
+        f.id, f.description, f.category, f.clientOrSupplier,
+        f.supplier, f.seller, f.paymentMethod, f.channel, f.notes
+      ].join(' ').toLowerCase();
+      if (!hay.includes(term)) return false;
+    }
+
+    return true;
   });
 
-  const tbody = document.getElementById('tableFinanceEntries');
-  if (!tbody) return;
+  const receitasTotal = filtered
+    .filter(f => f.type === 'Receita')
+    .reduce((acc, f) => acc + Number(f.amount || 0), 0);
+  const despesasTotal = filtered
+    .filter(f => f.type === 'Despesa')
+    .reduce((acc, f) => acc + Number(f.amount || 0), 0);
+  const saldoLiquido = receitasTotal - despesasTotal;
+  const pendenteTotal = filtered
+    .filter(f => f.status === 'Pendente')
+    .reduce((acc, f) => acc + Number(f.amount || 0), 0);
+
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('finMetricReceitas', canManageFin ? fmtBRL(receitasTotal) : 'Restrito');
+  setTxt('finMetricDespesas', canManageFin ? fmtBRL(despesasTotal) : 'Restrito');
+  setTxt('finMetricSaldo', canManageFin ? fmtBRL(saldoLiquido) : 'Restrito');
+  setTxt('finMetricPendente', canManageFin ? fmtBRL(pendenteTotal) : 'Restrito');
+
+  const saldoEl = document.getElementById('finMetricSaldo');
+  if (saldoEl && canManageFin) {
+    saldoEl.style.color = saldoLiquido >= 0 ? '#34d399' : '#f87171';
+  }
+
+  const chBox = document.getElementById('finChannelsComparisonBody');
+  if (chBox) {
+    const validSales = sales.filter(s => {
+      if (isSaleCancelledOrRefunded(s)) return false;
+      const ch = getSaleChannelLabel(s);
+      const sel = String(s.seller || 'ADMIN').trim().toUpperCase();
+      if (finChannelFilter !== 'todos' && ch !== finChannelFilter) return false;
+      if (finSellerFilter !== 'todos' && sel !== finSellerFilter) return false;
+      if (startDate && s.isoDate && s.isoDate < startDate) return false;
+      if (endDate && s.isoDate && s.isoDate > endDate) return false;
+      return true;
+    });
+
+    const presSales = validSales.filter(s => getSaleChannelLabel(s) === 'Venda Presencial');
+    const onlSales = validSales.filter(s => getSaleChannelLabel(s) === 'Online / Nuvemshop');
+
+    const channelsArr = [
+      {
+        name: 'Venda Presencial',
+        badgeClass: 'badge-info',
+        orders: presSales.length,
+        revenue: presSales.reduce((acc, s) => acc + Number(s.total || 0), 0)
+      },
+      {
+        name: 'Online / Nuvemshop',
+        badgeClass: 'badge-nuvem',
+        orders: onlSales.length,
+        revenue: onlSales.reduce((acc, s) => acc + Number(s.total || 0), 0)
+      }
+    ];
+
+    if (finChannelSort === 'orders_desc') {
+      channelsArr.sort((a, b) => b.orders - a.orders || b.revenue - a.revenue);
+    } else {
+      channelsArr.sort((a, b) => b.revenue - a.revenue || b.orders - a.orders);
+    }
+
+    const totalChannelRev = channelsArr.reduce((acc, c) => acc + c.revenue, 0);
+
+    chBox.innerHTML = channelsArr.map(ch => {
+      const share = totalChannelRev > 0 ? ((ch.revenue / totalChannelRev) * 100).toFixed(1) : '0.0';
+      const ticket = ch.orders > 0 ? ch.revenue / ch.orders : 0;
+      return `
+        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border, #252a34); border-radius:8px; padding:0.65rem 0.75rem; margin-bottom:0.55rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:0.5rem; margin-bottom:0.35rem;">
+            <span class="badge-tag ${ch.badgeClass}">${ch.name}</span>
+            <strong style="color:#34d399;">${canManageFin ? fmtBRL(ch.revenue) : 'Restrito'} (${share}%)</strong>
+          </div>
+          <div style="width:100%; height:7px; background:rgba(255,255,255,0.07); border-radius:999px; overflow:hidden; margin-bottom:0.35rem;">
+            <div style="width:${share}%; height:100%; background:${ch.name === 'Venda Presencial' ? '#60a5fa' : '#a5b4fc'};"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:0.76rem; color:var(--text-muted);">
+            <span><strong>${ch.orders}</strong> pedido(s)</span>
+            <span>Ticket médio: <strong>${canManageFin ? fmtBRL(ticket) : 'Restrito'}</strong></span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  const sellersTbody = document.getElementById('finSellersBreakdownBody');
+  if (sellersTbody) {
+    const validSales = sales.filter(s => {
+      if (isSaleCancelledOrRefunded(s)) return false;
+      const ch = getSaleChannelLabel(s);
+      const sel = String(s.seller || 'ADMIN').trim().toUpperCase();
+      if (finChannelFilter !== 'todos' && ch !== finChannelFilter) return false;
+      if (finSellerFilter !== 'todos' && sel !== finSellerFilter) return false;
+      if (startDate && s.isoDate && s.isoDate < startDate) return false;
+      if (endDate && s.isoDate && s.isoDate > endDate) return false;
+      return true;
+    });
+
+    const sellerMap = new Map();
+    validSales.forEach(s => {
+      const sel = String(s.seller || 'ADMIN').trim().toUpperCase();
+      const current = sellerMap.get(sel) || { seller: sel, orders: 0, revenue: 0 };
+      current.orders += 1;
+      current.revenue += Number(s.total || 0);
+      sellerMap.set(sel, current);
+    });
+
+    const sellerRows = Array.from(sellerMap.values()).sort((a, b) => b.revenue - a.revenue);
+    if (sellerRows.length === 0) {
+      sellersTbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Nenhuma venda no filtro atual.</td></tr>`;
+    } else {
+      sellersTbody.innerHTML = sellerRows.map(row => {
+        const rate = Number(sellerCommissionRates[row.seller] ?? 0);
+        const commVal = (row.revenue * rate) / 100;
+        return `
+          <tr>
+            <td><strong>${row.seller}</strong></td>
+            <td>${row.orders}</td>
+            <td><strong style="color:#34d399;">${canManageFin ? fmtBRL(row.revenue) : 'Restrito'}</strong></td>
+            <td>
+              <input type="number" min="0" max="100" step="0.5" value="${rate}"
+                ${canManageFin ? '' : 'disabled'}
+                style="width:64px; padding:0.25rem 0.4rem; font-size:0.8rem;"
+                onchange="updateSellerCommissionRate('${row.seller.replace(/'/g, "\\'")}', this.value)" />%
+            </td>
+            <td><strong style="color:#fbbf24;">${canManageFin ? fmtBRL(commVal) : 'Restrito'}</strong></td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
+
+  const listTbody = document.getElementById('tableFinanceEntriesList');
+  if (!listTbody) return;
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.2rem;">Nenhum lançamento financeiro encontrado.</td></tr>`;
+    listTbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:1.25rem;">Nenhum lançamento financeiro encontrado para os filtros selecionados.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = filtered.map(f => {
-    const typeBadge = f.type === 'Receita'
-      ? `<span class="badge-tag badge-receita">Receita</span>`
-      : `<span class="badge-tag badge-despesa">Despesa</span>`;
-    const statusBadge = f.status === 'Pago'
-      ? `<span class="badge-tag badge-receita">Pago</span>`
-      : `<span class="badge-tag badge-warning">Pendente</span>`;
-    const amountColor = f.type === 'Receita' ? '#34d399' : '#f87171';
+  listTbody.innerHTML = filtered.map(f => {
+    const isRev = f.type === 'Receita';
+    const chBadge = f.channel === 'Online / Nuvemshop'
+      ? `<span class="badge-tag badge-nuvem" style="margin-left:4px;">Nuvemshop</span>`
+      : `<span class="badge-tag badge-info" style="margin-left:4px;">Presencial</span>`;
+    const partyDisplay = f.supplier || f.clientOrSupplier || '-';
 
     return `
       <tr>
-        <td>${formatDateSafe(f.date)}</td>
-        <td>
-          <strong>${f.desc}</strong>
-          <div style="font-size:0.74rem; color:var(--text-muted);">${f.category || 'Geral'} • ${f.payment || 'Pix'}</div>
+        <td style="white-space:nowrap;">${formatDateSafe(f.date)}</td>
+        <td style="white-space:nowrap;">
+          <span class="badge-tag ${isRev ? 'badge-receita' : 'badge-despesa'}">${f.type}</span>
+          ${chBadge}
         </td>
-        <td>${typeBadge}</td>
-        <td><span class="badge-tag badge-info">${f.channel || 'Geral'}</span></td>
-        <td>${statusBadge}</td>
-        <td><strong style="color:${amountColor};">${f.type === 'Despesa' ? '-' : ''}${fmtBRL(f.amount)}</strong></td>
+        <td>
+          <strong>${f.category || '-'}</strong>
+          <div style="font-size:0.75rem; color:var(--text-muted);">${f.description || '-'}</div>
+        </td>
+        <td>${partyDisplay}</td>
+        <td style="white-space:nowrap;"><strong>${f.seller || 'ADMIN'}</strong></td>
+        <td style="white-space:nowrap;">${f.paymentMethod || '-'}</td>
+        <td style="white-space:nowrap;">
+          <span class="badge-tag ${f.status === 'Pago' ? 'badge-receita' : 'badge-warning'}">${f.status || 'Pago'}</span>
+        </td>
+        <td style="white-space:nowrap;">
+          <strong style="color:${isRev ? '#34d399' : '#f87171'};">
+            ${canManageFin ? `${isRev ? '+' : '-'} ${fmtBRL(f.amount)}` : 'Restrito'}
+          </strong>
+        </td>
         <td style="white-space:nowrap;">
           <div class="gm-gh-action-wrap">
-            <button type="button" class="gm-gh-pencil-btn" onclick="toggleFinEntryActionMenu(event, '${f.id}')">
+            <button type="button" class="gm-gh-pencil-btn" onclick="toggleFinanceActionMenu(event, '${f.id}')">
               <span>Ações</span>
               <i class="ph ph-caret-down" style="font-size:13px; color:#9ca3af;"></i>
             </button>
@@ -5668,59 +6039,15 @@ function renderFinance() {
   }).join('');
 }
 
-// ============================================================================
-// RECIBO TÉRMICO & FERRAMENTAS
-// ============================================================================
+function initCashAndTools() {
+  const recOverlay = document.getElementById('receiptModalOverlay');
+  document.getElementById('btnCloseReceiptModal')?.addEventListener('click', () => recOverlay.classList.remove('active'));
+  document.getElementById('btnPrintReceipt')?.addEventListener('click', () => window.print());
+}
+
 window.openReceiptModal = function (saleId) {
   const s = sales.find(item => String(item.id) === String(saleId));
   if (!s) return;
-  document.getElementById('receiptBodyContent').innerHTML = `
-    <div style="text-align:center; border-bottom:1px dashed #666; padding-bottom:8px; margin-bottom:8px;">
-      <strong>GRUPO MISTER PERFUMARIA</strong><br>
-      <small>Pedido #${s.id} • ${s.date}</small>
-    </div>
-    <p><strong>Cliente:</strong> ${s.client}</p>
-    <p><strong>Itens:</strong> ${s.items}</p>
-    <p><strong>Envio:</strong> ${s.shippingMethod || 'Retirada na Loja'} (${s.orderStatus || 'Em Separação'})</p>
-    ${s.trackingCode ? `<p><strong>Rastreio:</strong> <code>${s.trackingCode}</code></p>` : ''}
-    ${s.observation ? `<p><strong>Obs.:</strong> ${s.observation}</p>` : ''}
-    <p><strong>Pagamento:</strong> ${s.payment}</p>
-    <hr style="border:0; border-top:1px dashed #666; margin:8px 0;">
-    <p style="font-size:1.1rem; text-align:right;"><strong>Total: ${fmtBRL(s.total)}</strong></p>
-  `;
+  document.getElementById('receiptBodyContent').innerHTML = `<div style="text-align:center;border-bottom:1px dashed #ccc;padding-bottom:8px;margin-bottom:8px;"><strong>GRUPO MISTER PERFUMARIA</strong><br><small>Pedido #${s.id} • ${s.date}</small></div><p><strong>Cliente:</strong> ${s.client}</p><p><strong>Itens:</strong> ${s.items}</p><p><strong>Entrega:</strong> ${s.shippingMethod || 'Retirada na Loja'}</p>${s.trackingCode ? `<p><strong>Rastreio:</strong> ${s.trackingCode}</p>` : ''}${s.observation ? `<p><strong>Obs.:</strong> ${s.observation}</p>` : ''}<p><strong>Pagamento:</strong> ${s.payment}</p><hr style="margin:8px 0;"><p style="font-size:1.1rem;"><strong>TOTAL: ${fmtBRL(s.total)}</strong></p>`;
   document.getElementById('receiptModalOverlay').classList.add('active');
 };
-
-function initCashAndTools() {
-  document.getElementById('btnCloseReceiptModal')?.addEventListener('click', () => document.getElementById('receiptModalOverlay').classList.remove('active'));
-  document.getElementById('btnPrintReceipt')?.addEventListener('click', () => window.print());
-
-  document.getElementById('btnExportBackup')?.addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify({ products, clients, sales, warranties, quotes, finEntries }, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `backup_grupo_mister_${new Date().toISOString().slice(0, 10)}.json`; a.click();
-  });
-
-  document.getElementById('importBackupInput')?.addEventListener('change', (e) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const d = JSON.parse(ev.target.result);
-        if (Array.isArray(d.products)) products = d.products;
-        if (Array.isArray(d.clients)) clients = d.clients;
-        if (Array.isArray(d.sales)) sales = d.sales;
-        if (Array.isArray(d.warranties)) warranties = d.warranties;
-        if (Array.isArray(d.quotes)) quotes = d.quotes;
-        if (Array.isArray(d.finEntries)) finEntries = d.finEntries;
-        normalizeSalesArray(); saveAll(); renderAll(); showToast('Backup restaurado!');
-      } catch (_) { showToast('Arquivo inválido!'); }
-    };
-    reader.readAsText(file);
-  });
-
-  document.getElementById('btnResetDemoData')?.addEventListener('click', () => {
-    if (!confirm('Resetar todos os dados locais?')) return;
-    localStorage.clear();
-    location.reload();
-  });
-}
