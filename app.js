@@ -3135,13 +3135,13 @@ function initSalesAndPdv() {
     channelSelect.addEventListener('change', syncChannelToNotes);
   }
 
-  if (confirmBtn && !confirmBtn.dataset.channelBound) {
+if (confirmBtn && !confirmBtn.dataset.channelBound) {
     confirmBtn.dataset.channelBound = 'true';
     confirmBtn.addEventListener('click', () => {
       const canal = syncChannelToNotes();
       setTimeout(() => {
         if (typeof sales !== 'undefined' && Array.isArray(sales) && sales.length > 0) {
-          const targetSale = sales[0];
+          const targetSale = sales.find((s) => s.contactChannel === undefined || s.contactChannel === null) || sales[0];
           targetSale.contactChannel = canal;
           targetSale.shippingNotes = `Canal: ${canal}`;
           if (typeof persistLocalOnly === 'function') persistLocalOnly();
@@ -3150,9 +3150,8 @@ function initSalesAndPdv() {
       }, 50);
     }, true);
   }
-}
 
-const pdvOverlay = document.getElementById('pdvModalOverlay');
+  const pdvOverlay = document.getElementById('pdvModalOverlay');
   const searchInput = document.getElementById('modalProductSearch');
   const resultsList = document.getElementById('modalProductResults');
   const prodSel = document.getElementById('modalProductSelect');
@@ -3194,7 +3193,6 @@ const pdvOverlay = document.getElementById('pdvModalOverlay');
     }
     pdvOverlay?.classList.add('active');
   });
-
   document.getElementById('btnClosePdvModal')?.addEventListener('click', () => pdvOverlay?.classList.remove('active'));
   document.getElementById('btnModalCancelSale')?.addEventListener('click', () => pdvOverlay?.classList.remove('active'));
   document.getElementById('modalGeneralDiscount')?.addEventListener('input', () => {
