@@ -1895,11 +1895,38 @@ function renderCommercialStockCatalog() {
 // ============================================================================
 // 5. NAVEGAÇÃO SPA
 // ============================================================================
-window.navigateToSection = function (targetId, labelText) {
-  document.querySelectorAll('.nav-item, .submenu-item').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+function applyFinanceSubtab(finSubtab) {
+  const mode = finSubtab === 'control' ? 'control' : 'overview';
+  const overviewPart = document.getElementById('gmFinanceOverviewPart');
+  const controlPart = document.getElementById('gmFinanceControlSubtab');
 
-  const activeBtn = document.querySelector(`.nav-item[data-target="${targetId}"], .submenu-item[data-target="${targetId}"]`);
+  if (overviewPart) {
+    overviewPart.classList.toggle('active-part', mode === 'overview');
+    overviewPart.style.display = mode === 'overview' ? 'block' : 'none';
+  }
+  if (controlPart) {
+    controlPart.classList.toggle('active-part', mode === 'control');
+    controlPart.style.display = mode === 'control' ? 'block' : 'none';
+  }
+}
+
+window.navigateToSection = function (targetId, labelText, finSubtab) {
+  if (!targetId) return;
+
+  document.querySelectorAll('.nav-item, .submenu-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.content-section').forEach(s => {
+    s.classList.remove('active');
+    s.style.display = 'none';
+  });
+
+  let activeBtn = null;
+  if (targetId === 'financeiro' && finSubtab) {
+    activeBtn = document.querySelector(`.submenu-item[data-target="financeiro"][data-fin-nav="${finSubtab}"]`);
+  }
+  if (!activeBtn) {
+    activeBtn = document.querySelector(`.nav-item[data-target="${targetId}"], .submenu-item[data-target="${targetId}"]`);
+  }
+
   if (activeBtn) {
     activeBtn.classList.add('active');
     const parentDropdown = activeBtn.closest('.nav-dropdown');
@@ -1907,56 +1934,89 @@ window.navigateToSection = function (targetId, labelText) {
   }
 
   const targetSection = document.getElementById(targetId);
-  if (targetSection) targetSection.classList.add('active');
+  if (targetSection) {
+    targetSection.classList.add('active');
+    targetSection.style.display = 'block';
+  }
 
   const pageTitle = document.getElementById('pageTitle');
   if (pageTitle && labelText) pageTitle.textContent = labelText;
 
-  setMobileSidebarOpen(false);
+  if (typeof setMobileSidebarOpen === 'function') {
+    setMobileSidebarOpen(false);
+  }
 
-  if (targetId === 'estoque') renderStock();
-  if (targetId === 'consulta_estoque') renderCommercialStockCatalog();
-  if (targetId === 'clientes') renderClients();
+  if (targetId === 'estoque' && typeof renderStock === 'function') renderStock();
+  if (targetId === 'consulta_estoque' && typeof renderCommercialStockCatalog === 'function') renderCommercialStockCatalog();
+  if (targetId === 'clientes' && typeof renderClients === 'function') renderClients();
   if (targetId === 'financeiro') {
-    syncSalesToFinanceEntries();
-    renderFinance();
+    const resolvedSubtab = finSubtab || activeBtn?.getAttribute('data-fin-nav') || 'overview';
+    if (typeof syncSalesToFinanceEntries === 'function') syncSalesToFinanceEntries();
+    if (typeof renderFinance === 'function') renderFinance();
+    applyFinanceSubtab(resolvedSubtab);
   }
 };
 
 function initNavigation() {
   document.querySelectorAll('.dropdown-toggle').forEach(toggle => {
+    if (toggle.dataset.navBound === '1') return;
+    toggle.dataset.navBound = '1';
+
     toggle.addEventListener('click', (e) => {
       e.preventDefault();
-      toggle.closest('.nav-dropdown')?.classList.toggle('open');
+      const dropdown = toggle.closest('.nav-dropdown');
+      const finSub = dropdown?.querySelector('[data-target="financeiro"]');
+
+      if (finSub) {
+        dropdown.classList.add('open');
+        const subtab = finSub.getAttribute('data-fin-nav') || 'overview';
+        const span = finSub.querySelector('span');
+        const label = span ? span.textContent.trim() : 'Visão Geral & Extrato';
+        window.navigateToSection('financeiro', label, subtab);
+        return;
+      }
+
+      dropdown?.classList.toggle('open');
     });
   });
 
   document.querySelectorAll('.nav-item[data-target], .submenu-item[data-target]').forEach(btn => {
+    if (btn.dataset.navBound === '1') return;
+    btn.dataset.navBound = '1';
+
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       const targetId = btn.getAttribute('data-target');
+      const finSubtab = btn.getAttribute('data-fin-nav') || undefined;
       const span = btn.querySelector('span');
-      navigateToSection(targetId, span ? span.textContent : 'GRUPO MISTER');
+      const label = span ? span.textContent.trim() : 'GRUPO MISTER';
+      window.navigateToSection(targetId, label, finSubtab);
     });
   });
 
   const sidebarSearchInput = document.getElementById('sidebarMenuSearch');
-  sidebarSearchInput?.addEventListener('input', () => {
-    const q = sidebarSearchInput.value.toLowerCase().trim();
-    const dropdown = document.querySelector('.nav-dropdown');
-    if (q && dropdown) dropdown.classList.add('open');
-    const allowed = getAllowedPermissionsForAccount(activeAccount);
+  if (sidebarSearchInput && sidebarSearchInput.dataset.navBound !== '1') {
+    sidebarSearchInput.dataset.navBound = '1';
 
-    document.querySelectorAll('#sidebarNavMenu .nav-item[data-target], #sidebarNavMenu .submenu-item').forEach(btn => {
-      const reqPerm = btn.getAttribute('data-perm');
-      if (!allowed.includes(reqPerm)) {
-        btn.style.display = 'none';
-        return;
-      }
-      const text = btn.textContent.toLowerCase();
-      btn.style.display = (!q || text.includes(q)) ? 'flex' : 'none';
+    sidebarSearchInput.addEventListener('input', () => {
+      const q = sidebarSearchInput.value.toLowerCase().trim();
+      const dropdown = document.querySelector('.nav-dropdown');
+      if (q && dropdown) dropdown.classList.add('open');
+      const allowed = typeof getAllowedPermissionsForAccount === 'function'
+        ? getAllowedPermissionsForAccount(activeAccount)
+        : [];
+
+      document.querySelectorAll('#sidebarNavMenu .nav-item[data-target], #sidebarNavMenu .submenu-item').forEach(btn => {
+        const reqPerm = btn.getAttribute('data-perm');
+        if (reqPerm && allowed.length && !allowed.includes(reqPerm)) {
+          btn.style.display = 'none';
+          return;
+        }
+        const text = btn.textContent.toLowerCase();
+        btn.style.display = (!q || text.includes(q)) ? 'flex' : 'none';
+      });
     });
-  });
+  }
 }
 
 // ============================================================================
