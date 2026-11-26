@@ -7220,3 +7220,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
   switchFinanceSubtab(gmActiveFinanceTab);
 });
+window.closeAllGithubActionMenus = window.closeAllGithubActionMenus || function () {
+  document.querySelectorAll('.gm-gh-dropdown.open').forEach(function (el) {
+    el.classList.remove('open');
+    el.style.display = 'none';
+  });
+};
+
+window.positionGithubMenu = window.positionGithubMenu || function (menu, anchorEl) {
+  if (!menu || !anchorEl) return;
+  var rect = anchorEl.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.display = 'block';
+  menu.style.zIndex = '9999';
+  menu.style.top = Math.min(window.innerHeight - 180, rect.bottom + 4) + 'px';
+  menu.style.left = Math.max(8, Math.min(window.innerWidth - 210, rect.left - 90)) + 'px';
+  menu.classList.add('open');
+};
+
+document.addEventListener('click', function (e) {
+  var toggle = e.target.closest('.nav-dropdown > .dropdown-toggle');
+  if (toggle) {
+    var parent = toggle.parentElement;
+    if (parent) parent.classList.toggle('open');
+  }
+
+  var subBtn = e.target.closest('.submenu-item[data-fin-nav]');
+  if (subBtn) {
+    var tab = subBtn.getAttribute('data-fin-nav') || 'overview';
+    if (typeof navigateToSection === 'function') {
+      navigateToSection('financeiro', tab === 'control' ? 'Controle Financeiro' : 'Financeiro');
+    } else {
+      document.querySelectorAll('.content-section').forEach(function (sec) {
+        sec.classList.remove('active');
+      });
+      var finSec = document.getElementById('financeiro');
+      if (finSec) finSec.classList.add('active');
+    }
+    if (typeof switchFinanceSubtab === 'function') switchFinanceSubtab(tab);
+  }
+
+  if (!e.target.closest('.gm-gh-action-wrap') && !e.target.closest('.gm-gh-dropdown')) {
+    window.closeAllGithubActionMenus();
+  }
+});
