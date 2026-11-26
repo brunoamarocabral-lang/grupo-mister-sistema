@@ -1973,12 +1973,22 @@ window.navigateToSection = function (targetId, labelText, finSubtab) {
   if (targetId === 'estoque' && typeof renderStock === 'function') renderStock();
   if (targetId === 'consulta_estoque' && typeof renderCommercialStockCatalog === 'function') renderCommercialStockCatalog();
   if (targetId === 'clientes' && typeof renderClients === 'function') renderClients();
-  if (targetId === 'financeiro') {
+ if (targetId === 'financeiro') {
     const resolvedSubtab = finSubtab || activeBtn?.getAttribute('data-fin-nav') || 'overview';
     if (typeof syncSalesToFinanceEntries === 'function') syncSalesToFinanceEntries();
     if (typeof renderFinance === 'function') renderFinance();
     applyFinanceSubtab(resolvedSubtab);
     openFinanceSubmenu();
+
+    document.querySelectorAll('#sidebarNavMenu .nav-item, #sidebarNavMenu .submenu-item').forEach(el => {
+      el.classList.remove('active');
+    });
+    const targetSubBtn = document.querySelector(
+      `#sidebarNavMenu .submenu-item[data-target="financeiro"][data-fin-nav="${resolvedSubtab}"]`
+    );
+   if (targetSubBtn) {
+      targetSubBtn.classList.add('active');
+    }
   }
 };
 
