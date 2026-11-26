@@ -767,6 +767,175 @@
           <div class="metric-card"><span class="metric-label">Despesas</span><strong class="metric-value" id="finMetricExpenses">R$ 0,00</strong></div>
           <div class="metric-card"><span class="metric-label">Lucro Líquido</span><strong class="metric-value" id="finMetricNetProfit">R$ 0,00</strong></div>
         </div>
+        <!-- NAVEGAÇÃO DE SUBABAS DO FINANCEIRO -->
+        <div id="gmFinanceSubtabsBar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem; margin-bottom:0.85rem;">
+          <div class="gm-seg-pills" id="gmFinanceSubtabPills">
+            <button type="button" class="gm-seg-btn active" data-fin-tab="overview">
+              <i class="ph ph-chart-line-up"></i> Visão Geral &amp; Extrato
+            </button>
+            <button type="button" class="gm-seg-btn" data-fin-tab="control">
+              <i class="ph ph-sliders-horizontal"></i> Controle Financeiro
+            </button>
+          </div>
+          <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+            <button type="button" class="btn-primary" id="gmBtnOpenFinanceAddModal">
+              <i class="ph ph-plus"></i> Adicionar Item
+            </button>
+          </div>
+        </div>
+
+        <!-- SUBABA 2: CONTROLE FINANCEIRO (CUSTOS FIXOS, VARIÁVEIS, ITENS DE CONTROLE & FORNECEDORES) -->
+        <div id="gmFinanceControlSubtab" style="display:none;">
+          <div class="metrics-grid" style="margin-bottom:0.9rem;">
+            <div class="metric-card">
+              <span class="metric-label">Custos Fixos (Mensal)</span>
+              <strong class="metric-value" id="finCtrlMetricFixed" style="color:#f87171;">R$ 0,00</strong>
+              <small>Recorrência operacional</small>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Custos Variáveis</span>
+              <strong class="metric-value" id="finCtrlMetricVariable" style="color:#fbbf24;">R$ 0,00</strong>
+              <small>Embalagens, frete, taxas</small>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Itens de Controle</span>
+              <strong class="metric-value" id="finCtrlMetricReserve" style="color:#60a5fa;">R$ 0,00</strong>
+              <small>Reservas, impostos e metas</small>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Fornecedores Ativos</span>
+              <strong class="metric-value" id="finCtrlMetricSuppliers" style="color:#34d399;">0</strong>
+              <small id="finCtrlMetricItemCostsCount">0 custo(s) por item</small>
+            </div>
+          </div>
+
+          <!-- CUSTOS FIXOS -->
+          <div class="card-box" style="margin-bottom:0.9rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
+              <h3 style="font-size:0.92rem; margin:0;"><i class="ph ph-repeat" style="color:#f87171;"></i> Custos Fixos</h3>
+              <button type="button" class="btn-sm btn-blue" onclick="openFinanceControlModal('Custo Fixo')">
+                <i class="ph ph-plus"></i> Novo Custo Fixo
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Descrição</th>
+                    <th>Categoria</th>
+                    <th>Vencimento</th>
+                    <th>Status</th>
+                    <th>Valor</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tableFinFixedCosts"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- CUSTOS VARIÁVEIS -->
+          <div class="card-box" style="margin-bottom:0.9rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
+              <h3 style="font-size:0.92rem; margin:0;"><i class="ph ph-trend-up" style="color:#fbbf24;"></i> Custos Variáveis</h3>
+              <button type="button" class="btn-sm btn-blue" onclick="openFinanceControlModal('Custo Variável')">
+                <i class="ph ph-plus"></i> Novo Custo Variável
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Descrição / Canal</th>
+                    <th>Categoria</th>
+                    <th>Status</th>
+                    <th>Valor</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tableFinVariableCosts"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- OUTROS ITENS DE CONTROLE -->
+          <div class="card-box" style="margin-bottom:0.9rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
+              <h3 style="font-size:0.92rem; margin:0;"><i class="ph ph-vault" style="color:#60a5fa;"></i> Outros Itens de Controle (Reservas, Impostos &amp; Metas)</h3>
+              <button type="button" class="btn-sm btn-blue" onclick="openFinanceControlModal('Item de Controle')">
+                <i class="ph ph-plus"></i> Novo Item de Controle
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Item de Controle</th>
+                    <th>Tipo / Finalidade</th>
+                    <th>Referência</th>
+                    <th>Status</th>
+                    <th>Valor</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tableFinControlOther"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- FORNECEDORES -->
+          <div class="card-box" style="margin-bottom:0.9rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
+              <h3 style="font-size:0.92rem; margin:0;"><i class="ph ph-buildings" style="color:#34d399;"></i> Fornecedores</h3>
+              <button type="button" class="btn-primary" onclick="openFinanceSupplierModal()">
+                <i class="ph ph-plus"></i> Adicionar Fornecedor
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Fornecedor</th>
+                    <th>Categoria</th>
+                    <th>Contato / WhatsApp</th>
+                    <th>Prazo / Obs.</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tableFinSuppliersList"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- CUSTO POR ITEM DE ACORDO COM O FORNECEDOR -->
+          <div class="card-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.65rem;">
+              <div>
+                <h3 style="font-size:0.92rem; margin:0;"><i class="ph ph-tag" style="color:#c084fc;"></i> Custo de Cada Item por Fornecedor</h3>
+                <small style="color:var(--text-muted);">Vincule a um produto do estoque ou lance um item/insumo avulso e registre quanto custou em cada fornecedor.</small>
+              </div>
+              <button type="button" class="btn-sm btn-green" onclick="openFinanceItemCostModal()">
+                <i class="ph ph-plus"></i> Registrar Custo por Item
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Item / Produto</th>
+                    <th>Fornecedor</th>
+                    <th>Origem</th>
+                    <th>Data</th>
+                    <th>Custo Unitário</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tableFinItemSupplierCosts"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
         <div class="card-box">
           <div class="table-responsive">
             <table class="data-table">
