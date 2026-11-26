@@ -866,3 +866,8 @@ tr:hover td {
     font-size: 12.5px;
   }
 }
+/* Submenu da sidebar expandido ao abrir o dropdown */
+#sidebarNavMenu .nav-dropdown.open > .submenu {
+  display: flex;
+  flex-direction: column;
+}
