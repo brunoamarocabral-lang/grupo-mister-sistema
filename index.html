@@ -197,20 +197,20 @@
           <i class="ph ph-calculator"></i><span>Simuladores</span>
         </button>
 
-       <div class="nav-dropdown">
-  <button type="button" class="nav-item dropdown-toggle" data-perm="financeiro">
-    <i class="ph ph-chart-line-up"></i><span>Financeiro</span>
-    <i class="ph ph-caret-down" style="margin-left: auto;"></i>
-  </button>
-  <div class="submenu">
-    <button type="button" class="submenu-item" data-target="financeiro" data-fin-nav="overview" data-perm="financeiro">
-      <i class="ph ph-receipt"></i><span>Visão Geral &amp; Extrato</span>
-    </button>
-    <button type="button" class="submenu-item" data-target="financeiro" data-fin-nav="control" data-perm="financeiro">
-      <i class="ph ph-sliders-horizontal"></i><span>Controle </span>
-    </button>
-  </div>
-</div>
+        <div class="nav-dropdown">
+          <button type="button" class="nav-item dropdown-toggle" data-perm="financeiro">
+            <i class="ph ph-chart-line-up"></i><span>Financeiro</span>
+            <i class="ph ph-caret-down" style="margin-left: auto;"></i>
+          </button>
+          <div class="submenu">
+            <button type="button" class="submenu-item" data-target="financeiro" data-fin-nav="overview" data-perm="financeiro">
+              <i class="ph ph-receipt"></i><span>Visão Geral &amp; Extrato</span>
+            </button>
+            <button type="button" class="submenu-item" data-target="financeiro" data-fin-nav="control" data-perm="financeiro">
+              <i class="ph ph-sliders-horizontal"></i><span>Controle</span>
+            </button>
+          </div>
+        </div>
 
         <button type="button" class="nav-item" data-target="configuracoes" data-perm="dashboard">
           <i class="ph ph-gear"></i><span>Configurações</span>
@@ -632,7 +632,7 @@
         <div class="card-box">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.85rem;">
             <h3 style="font-size:0.95rem;">Registro de Trocas &amp; Devoluções (RMA)</h3>
-          <button type="button" class="btn-primary" id="btnOpenRmaModal"><i class="ph ph-arrows-left-right"></i> Nova Troca</button>
+            <button type="button" class="btn-primary" id="btnOpenRmaModal"><i class="ph ph-arrows-left-right"></i> Nova Troca</button>
           </div>
           <div class="table-responsive">
             <table class="data-table">
@@ -770,7 +770,7 @@
         </div>
       </section>
 
-  <!-- 13. FINANCEIRO -->
+      <!-- 13. FINANCEIRO -->
       <section id="financeiro" class="content-section">
         <!-- PARTE 1: VISÃO GERAL & EXTRATO -->
         <div id="gmFinanceOverviewPart" data-finance-part="overview">
@@ -1025,7 +1025,7 @@
 
   <!-- ================= MODAIS ================= -->
 
-<!-- MODAL NOVA VENDA PDV -->
+  <!-- MODAL NOVA VENDA PDV -->
   <div class="modal-overlay" id="pdvModalOverlay">
     <div class="modal-container">
       <div class="modal-header">
@@ -1290,7 +1290,7 @@
       </div>
       <form id="formNewRma" class="modal-body">
         <div class="form-group">
-          <label for="rmaType">Vincular a Pedido Existente (opcional):</label>
+          <label for="rmaSaleSelect">Vincular a Pedido Existente (opcional):</label>
           <select id="rmaSaleSelect"></select>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
@@ -1456,21 +1456,6 @@
   </div>
 
   <!-- MODAL GENÉRICO (RECIBO / CAIXA) -->
-  <div class="modal-overlay" id="cashToolModalOverlay">
-    <div class="modal-container modal-sm">
-      <div class="modal-header">
-        <div class="modal-tab" id="cashToolModalTitle">Comprovante</div>
-        <button type="button" class="btn-close-modal" id="btnCloseCashTool">&times;</button>
-      </div>
-      <div class="modal-body" id="cashToolModalBody"></div>
-    </div>
-  </div>
-
-  <div class="toast" id="toast"></div>
-  <script src="app.js"></script>
-</body>
-</html>
-<!-- MODAL GENÉRICO (RECIBO / CAIXA) -->
   <div class="modal-overlay" id="cashToolModalOverlay">
     <div class="modal-container modal-sm">
       <div class="modal-header">
