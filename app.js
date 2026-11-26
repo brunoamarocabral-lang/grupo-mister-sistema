@@ -6333,3 +6333,890 @@ window.openReceiptModal = function (saleId) {
   document.getElementById('receiptBodyContent').innerHTML = `<div style="text-align:center;border-bottom:1px dashed #ccc;padding-bottom:8px;margin-bottom:8px;"><strong>GRUPO MISTER PERFUMARIA</strong><br><small>Pedido #${s.id} • ${s.date}</small></div><p><strong>Cliente:</strong> ${s.client}</p><p><strong>Itens:</strong> ${s.items}</p><p><strong>Entrega:</strong> ${s.shippingMethod || 'Retirada na Loja'}</p>${s.trackingCode ? `<p><strong>Rastreio:</strong> ${s.trackingCode}</p>` : ''}${s.observation ? `<p><strong>Obs.:</strong> ${s.observation}</p>` : ''}<p><strong>Pagamento:</strong> ${s.payment}</p><hr style="margin:8px 0;"><p style="font-size:1.1rem;"><strong>TOTAL: ${fmtBRL(s.total)}</strong></p>`;
   document.getElementById('receiptModalOverlay').classList.add('active');
 };
+// ============================================================================
+// SUBABA CONTROLE FINANCEIRO, FORNECEDORES E CUSTO POR ITEM
+// ============================================================================
+const GM_FIN_CTRL_KEY = 'gm_fin_control_items_v1';
+const GM_FIN_SUP_KEY = 'gm_fin_suppliers_v1';
+const GM_FIN_ITEM_COST_KEY = 'gm_fin_supplier_item_costs_v1';
+
+let gmActiveFinanceTab = 'overview';
+
+let gmFinControlItems = (() => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(GM_FIN_CTRL_KEY) || 'null');
+    if (Array.isArray(parsed)) return parsed;
+  } catch (_) {}
+  return [
+    {
+      id: 'CTRL-101',
+      kind: 'Custo Fixo',
+      name: 'Aluguel & Condomínio Loja / Sala',
+      category: 'Estrutura Fixa',
+      dueDayOrDate: 'Todo dia 10',
+      channel: 'Venda Presencial',
+      status: 'Pendente',
+      amount: 1450,
+      notes: 'Custo mensal recorrente'
+    },
+    {
+      id: 'CTRL-102',
+      kind: 'Custo Variável',
+      name: 'Frascos de Decant 5ml/10ml & Borrifadores',
+      category: 'Embalagens',
+      dueDayOrDate: new Date().toISOString().split('T')[0],
+      channel: 'Venda Presencial',
+      status: 'Pago',
+      amount: 280,
+      notes: 'Insumo variável conforme giro de decants'
+    },
+    {
+      id: 'CTRL-103',
+      kind: 'Item de Controle',
+      name: 'Reserva para Reposição de Estoque',
+      category: 'Reserva / Caixa',
+      dueDayOrDate: 'Mensal',
+      channel: 'Venda Presencial',
+      status: 'Ativo',
+      amount: 600,
+      notes: 'Separação para compra de lotes'
+    }
+  ];
+})();
+
+let gmFinSuppliers = (() => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(GM_FIN_SUP_KEY) || 'null');
+    if (Array.isArray(parsed)) return parsed;
+  } catch (_) {}
+  return [];
+})();
+
+let gmFinItemCosts = (() => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(GM_FIN_ITEM_COST_KEY) || 'null');
+    if (Array.isArray(parsed)) return parsed;
+  } catch (_) {}
+  return [];
+})();
+
+function persistFinanceControlData() {
+  try {
+    localStorage.setItem(GM_FIN_CTRL_KEY, JSON.stringify(gmFinControlItems));
+    localStorage.setItem(GM_FIN_SUP_KEY, JSON.stringify(gmFinSuppliers));
+    localStorage.setItem(GM_FIN_ITEM_COST_KEY, JSON.stringify(gmFinItemCosts));
+  } catch (_) {}
+  if (typeof persistLocalOnly === 'function') persistLocalOnly();
+}
+
+function getAllFinanceSuppliersList() {
+  const map = new Map();
+  gmFinSuppliers.forEach(s => {
+    const clean = String(s.name || '').trim();
+    if (clean) map.set(clean.toLowerCase(), { ...s, name: clean });
+  });
+  if (typeof getDistinctFinanceSuppliers === 'function') {
+    getDistinctFinanceSuppliers().forEach(name => {
+      const clean = String(name || '').trim();
+      if (clean && !map.has(clean.toLowerCase())) {
+        map.set(clean.toLowerCase(), {
+          id: 'SUP-AUTO-' + clean.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+          name: clean,
+          category: 'Fornecedor',
+          contact: '',
+          notes: 'Origem automática do estoque/financeiro'
+        });
+      }
+    });
+  }
+  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+}
+
+function switchFinanceSubtab(tabKey) {
+  gmActiveFinanceTab = tabKey === 'control' ? 'control' : 'overview';
+
+  document.querySelectorAll('#gmFinanceSubtabPills .gm-seg-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-fin-tab') === gmActiveFinanceTab);
+  });
+
+  const controlEl = document.getElementById('gmFinanceControlSubtab');
+  if (controlEl) {
+    controlEl.style.display = gmActiveFinanceTab === 'control' ? 'block' : 'none';
+  }
+
+  const enhancedEl = document.getElementById('gmFinanceEnhancedContainer');
+  if (enhancedEl) {
+    enhancedEl.style.display = gmActiveFinanceTab === 'overview' ? 'block' : 'none';
+  }
+
+  // Caso use o layout nativo do HTML sem gmFinanceEnhancedContainer
+  const finSec = document.getElementById('financeiro');
+  if (finSec && !enhancedEl) {
+    Array.from(finSec.children).forEach(child => {
+      if (child.id === 'gmFinanceSubtabsBar' || child.id === 'gmFinanceControlSubtab') return;
+      child.style.display = gmActiveFinanceTab === 'overview' ? '' : 'none';
+    });
+  }
+
+  if (gmActiveFinanceTab === 'control') {
+    renderFinanceControlSubtab();
+  }
+}
+
+function ensureFinanceAddChooserModal() {
+  if (document.getElementById('gmFinAddChooserOverlay')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'gmFinAddChooserOverlay';
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-container modal-sm">
+      <div class="modal-header">
+        <div class="modal-tab"><i class="ph ph-plus-circle"></i> O que deseja adicionar no Financeiro?</div>
+        <button type="button" class="btn-close-modal" id="btnCloseFinAddChooser">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:0.5rem;">
+        <button type="button" class="btn-green" style="justify-content:flex-start;" onclick="closeFinAddChooser(); openNewFinanceModal('Receita');">
+          <i class="ph ph-arrow-circle-up"></i> Nova Receita (Extrato)
+        </button>
+        <button type="button" class="btn-danger" style="justify-content:flex-start;" onclick="closeFinAddChooser(); openNewFinanceModal('Despesa');">
+          <i class="ph ph-arrow-circle-down"></i> Nova Despesa (Extrato)
+        </button>
+        <button type="button" class="btn-sm btn-blue" style="justify-content:flex-start;" onclick="closeFinAddChooser(); openFinanceControlModal('Custo Fixo');">
+          <i class="ph ph-repeat"></i> Novo Custo Fixo
+        </button>
+        <button type="button" class="btn-sm btn-blue" style="justify-content:flex-start;" onclick="closeFinAddChooser(); openFinanceControlModal('Custo Variável');">
+          <i class="ph ph-trend-up"></i> Novo Custo Variável
+        </button>
+        <button type="button" class="btn-sm" style="justify-content:flex-start;" onclick="closeFinAddChooser(); openFinanceControlModal('Item de Controle');">
+          <i class="ph ph-vault"></i> Novo Item de Controle
+        </button>
+        <button type="button" class="btn-primary" style="justify-content:flex-start;" onclick="closeFinAddChooser(); openFinanceSupplierModal();">
+          <i class="ph ph-buildings"></i> Novo Fornecedor
+        </button>
+        <button type="button" class="btn-sm btn-green" style="justify-content:flex-start;" onclick="closeFinAddChooser(); openFinanceItemCostModal();">
+          <i class="ph ph-tag"></i> Custo de Item por Fornecedor
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const closeFn = () => overlay.classList.remove('active');
+  window.closeFinAddChooser = closeFn;
+  document.getElementById('btnCloseFinAddChooser')?.addEventListener('click', closeFn);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeFn();
+  });
+}
+
+function ensureFinanceControlModals() {
+  ensureFinanceAddChooserModal();
+
+  if (!document.getElementById('gmFinControlItemModalOverlay')) {
+    const modal = document.createElement('div');
+    modal.id = 'gmFinControlItemModalOverlay';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-container modal-sm">
+        <div class="modal-header">
+          <div class="modal-tab" id="gmFinCtrlModalTitle"><i class="ph ph-sliders-horizontal"></i> Item de Controle</div>
+          <button type="button" class="btn-close-modal" id="btnCloseFinCtrlModal">&times;</button>
+        </div>
+        <form id="formGmFinControlItem" class="modal-body">
+          <input type="hidden" id="gmFinCtrlEditId" />
+          <div class="form-group">
+            <label for="gmFinCtrlKind">Classificação:</label>
+            <select id="gmFinCtrlKind">
+              <option value="Custo Fixo">Custo Fixo</option>
+              <option value="Custo Variável">Custo Variável</option>
+              <option value="Item de Controle">Item de Controle</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="gmFinCtrlName">Descrição / Nome:</label>
+            <input type="text" id="gmFinCtrlName" required placeholder="Ex.: Embalagens decant, Aluguel, Reserva..." />
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+            <div class="form-group">
+              <label for="gmFinCtrlCategory">Categoria:</label>
+              <input type="text" id="gmFinCtrlCategory" placeholder="Ex.: Embalagens, Fixo, Reserva" />
+            </div>
+            <div class="form-group">
+              <label for="gmFinCtrlAmount">Valor (R$):</label>
+              <input type="number" id="gmFinCtrlAmount" step="0.01" min="0" required />
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+            <div class="form-group">
+              <label for="gmFinCtrlRef">Vencimento / Data / Ref.:</label>
+              <input type="text" id="gmFinCtrlRef" placeholder="Ex.: Dia 10 ou 2026-11-25" />
+            </div>
+            <div class="form-group">
+              <label for="gmFinCtrlStatus">Status:</label>
+              <select id="gmFinCtrlStatus">
+                <option value="Pendente">Pendente</option>
+                <option value="Pago">Pago</option>
+                <option value="Ativo">Ativo</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="gmFinCtrlNotes">Observações:</label>
+            <input type="text" id="gmFinCtrlNotes" placeholder="Detalhes adicionais..." />
+          </div>
+          <div class="modal-footer" style="padding:0.75rem 0 0 0; gap:0.5rem;">
+            <button type="button" class="btn-sm" id="btnCancelFinCtrlModal">Cancelar</button>
+            <button type="submit" class="btn-primary">Salvar</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const closeFn = () => modal.classList.remove('active');
+    document.getElementById('btnCloseFinCtrlModal')?.addEventListener('click', closeFn);
+    document.getElementById('btnCancelFinCtrlModal')?.addEventListener('click', closeFn);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeFn();
+    });
+
+    document.getElementById('formGmFinControlItem')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode alterar o financeiro.');
+
+      const editId = document.getElementById('gmFinCtrlEditId').value;
+      const kind = document.getElementById('gmFinCtrlKind').value;
+      const name = document.getElementById('gmFinCtrlName').value.trim();
+      const category = document.getElementById('gmFinCtrlCategory').value.trim() || kind;
+      const amount = Math.max(0, parseFloat(document.getElementById('gmFinCtrlAmount').value) || 0);
+      const dueDayOrDate = document.getElementById('gmFinCtrlRef').value.trim() || new Date().toISOString().split('T')[0];
+      const status = document.getElementById('gmFinCtrlStatus').value;
+      const notes = document.getElementById('gmFinCtrlNotes').value.trim();
+
+      if (!name) return showToast('Informe a descrição.');
+
+      if (editId) {
+        const item = gmFinControlItems.find(x => String(x.id) === String(editId));
+        if (item) {
+          Object.assign(item, { kind, name, category, amount, dueDayOrDate, status, notes });
+        }
+        showToast('Item atualizado!');
+      } else {
+        gmFinControlItems.unshift({
+          id: 'CTRL-' + String(Date.now()).slice(-6),
+          kind,
+          name,
+          category,
+          amount,
+          dueDayOrDate,
+          status,
+          notes
+        });
+        showToast(`${kind} adicionado!`);
+      }
+
+      persistFinanceControlData();
+      renderFinanceControlSubtab();
+      closeFn();
+    });
+  }
+
+  if (!document.getElementById('gmFinSupplierModalOverlay')) {
+    const supModal = document.createElement('div');
+    supModal.id = 'gmFinSupplierModalOverlay';
+    supModal.className = 'modal-overlay';
+    supModal.innerHTML = `
+      <div class="modal-container modal-sm">
+        <div class="modal-header">
+          <div class="modal-tab" id="gmFinSupModalTitle"><i class="ph ph-buildings"></i> Fornecedor</div>
+          <button type="button" class="btn-close-modal" id="btnCloseFinSupModal">&times;</button>
+        </div>
+        <form id="formGmFinSupplier" class="modal-body">
+          <input type="hidden" id="gmFinSupEditId" />
+          <div class="form-group">
+            <label for="gmFinSupName">Nome / Razão do Fornecedor:</label>
+            <input type="text" id="gmFinSupName" required placeholder="Ex.: Importadora Dubai, Distribuidora X..." />
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+            <div class="form-group">
+              <label for="gmFinSupCategory">Categoria:</label>
+              <select id="gmFinSupCategory">
+                <option value="Perfumes Árabes / Nicho">Perfumes Árabes / Nicho</option>
+                <option value="Importados">Importados</option>
+                <option value="Decants & Embalagens">Decants &amp; Embalagens</option>
+                <option value="Outros">Outros</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="gmFinSupContact">Contato / WhatsApp:</label>
+              <input type="text" id="gmFinSupContact" placeholder="(11) 99999-9999" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="gmFinSupNotes">Prazo / Observações:</label>
+            <input type="text" id="gmFinSupNotes" placeholder="Ex.: Envio em 2 dias, pedido mínimo..." />
+          </div>
+          <div class="modal-footer" style="padding:0.75rem 0 0 0; gap:0.5rem;">
+            <button type="button" class="btn-sm" id="btnCancelFinSupModal">Cancelar</button>
+            <button type="submit" class="btn-primary">Salvar Fornecedor</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(supModal);
+
+    const closeSupFn = () => supModal.classList.remove('active');
+    document.getElementById('btnCloseFinSupModal')?.addEventListener('click', closeSupFn);
+    document.getElementById('btnCancelFinSupModal')?.addEventListener('click', closeSupFn);
+    supModal.addEventListener('click', (e) => {
+      if (e.target === supModal) closeSupFn();
+    });
+
+    document.getElementById('formGmFinSupplier')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode gerenciar fornecedores.');
+
+      const editId = document.getElementById('gmFinSupEditId').value;
+      const name = document.getElementById('gmFinSupName').value.trim();
+      const category = document.getElementById('gmFinSupCategory').value;
+      const contact = document.getElementById('gmFinSupContact').value.trim();
+      const notes = document.getElementById('gmFinSupNotes').value.trim();
+
+      if (!name) return showToast('Informe o nome do fornecedor.');
+
+      if (editId) {
+        const sup = gmFinSuppliers.find(s => String(s.id) === String(editId));
+        if (sup) Object.assign(sup, { name, category, contact, notes });
+        showToast('Fornecedor atualizado!');
+      } else {
+        gmFinSuppliers.unshift({
+          id: 'SUP-' + String(Date.now()).slice(-6),
+          name,
+          category,
+          contact,
+          notes
+        });
+        showToast('Fornecedor cadastrado!');
+      }
+
+      persistFinanceControlData();
+      if (typeof refreshFinanceDropdownFilters === 'function') refreshFinanceDropdownFilters();
+      renderFinanceControlSubtab();
+      closeSupFn();
+    });
+  }
+
+  if (!document.getElementById('gmFinItemCostModalOverlay')) {
+    const costModal = document.createElement('div');
+    costModal.id = 'gmFinItemCostModalOverlay';
+    costModal.className = 'modal-overlay';
+    costModal.innerHTML = `
+      <div class="modal-container modal-sm">
+        <div class="modal-header">
+          <div class="modal-tab"><i class="ph ph-tag"></i> Custo do Item por Fornecedor</div>
+          <button type="button" class="btn-close-modal" id="btnCloseFinItemCostModal">&times;</button>
+        </div>
+        <form id="formGmFinItemCost" class="modal-body">
+          <input type="hidden" id="gmFinItemCostEditId" />
+          <div class="form-group">
+            <label for="gmFinCostStockSelect">Vincular Produto do Estoque (opcional):</label>
+            <select id="gmFinCostStockSelect">
+              <option value="">-- Item / Insumo Avulso (digitar abaixo) --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="gmFinCostItemName">Nome do Item / Fragrância / Insumo:</label>
+            <input type="text" id="gmFinCostItemName" required placeholder="Ex.: Lattafa Khamrah 100ml ou Frasco Decant 5ml" />
+          </div>
+          <div class="form-group">
+            <label for="gmFinCostSupplierName">Fornecedor:</label>
+            <input type="text" id="gmFinCostSupplierName" list="gmFinSuppliersDatalist" required placeholder="Selecione ou digite o fornecedor" />
+            <datalist id="gmFinSuppliersDatalist"></datalist>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+            <div class="form-group">
+              <label for="gmFinCostUnitValue">Custo Unitário (R$):</label>
+              <input type="number" id="gmFinCostUnitValue" step="0.01" min="0" required />
+            </div>
+            <div class="form-group">
+              <label for="gmFinCostDate">Data:</label>
+              <input type="date" id="gmFinCostDate" required />
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:0.25rem;">
+            <label style="display:flex; align-items:center; gap:0.45rem; font-size:0.8rem; cursor:pointer;">
+              <input type="checkbox" id="gmFinCostSyncStock" checked />
+              <span>Atualizar custo e fornecedor no produto vinculado do Estoque</span>
+            </label>
+          </div>
+          <div class="modal-footer" style="padding:0.75rem 0 0 0; gap:0.5rem;">
+            <button type="button" class="btn-sm" id="btnCancelFinItemCostModal">Cancelar</button>
+            <button type="submit" class="btn-primary">Salvar Custo</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(costModal);
+
+    const closeCostFn = () => costModal.classList.remove('active');
+    document.getElementById('btnCloseFinItemCostModal')?.addEventListener('click', closeCostFn);
+    document.getElementById('btnCancelFinItemCostModal')?.addEventListener('click', closeCostFn);
+    costModal.addEventListener('click', (e) => {
+      if (e.target === costModal) closeCostFn();
+    });
+
+    document.getElementById('gmFinCostStockSelect')?.addEventListener('change', (e) => {
+      const prodId = e.target.value;
+      if (!prodId || !Array.isArray(products)) return;
+      const prod = products.find(p => String(p.id) === String(prodId));
+      if (!prod) return;
+      const nameInp = document.getElementById('gmFinCostItemName');
+      const supInp = document.getElementById('gmFinCostSupplierName');
+      const costInp = document.getElementById('gmFinCostUnitValue');
+      if (nameInp && !nameInp.value.trim()) nameInp.value = prod.name || '';
+      if (supInp && !supInp.value.trim() && prod.supplier) supInp.value = prod.supplier;
+      if (costInp && (!costInp.value || Number(costInp.value) === 0) && prod.cost) {
+        costInp.value = Number(prod.cost);
+      }
+    });
+
+    document.getElementById('formGmFinItemCost')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode registrar custos.');
+
+      const editId = document.getElementById('gmFinItemCostEditId').value;
+      const stockProductId = document.getElementById('gmFinCostStockSelect').value || '';
+      const itemName = document.getElementById('gmFinCostItemName').value.trim();
+      const supplierName = document.getElementById('gmFinCostSupplierName').value.trim();
+      const unitCost = Math.max(0, parseFloat(document.getElementById('gmFinCostUnitValue').value) || 0);
+      const date = document.getElementById('gmFinCostDate').value || new Date().toISOString().split('T')[0];
+      const syncStock = Boolean(document.getElementById('gmFinCostSyncStock')?.checked);
+
+      if (!itemName || !supplierName) return showToast('Preencha o item e o fornecedor.');
+
+      if (supplierName && !gmFinSuppliers.some(s => String(s.name).toLowerCase() === supplierName.toLowerCase())) {
+        gmFinSuppliers.unshift({
+          id: 'SUP-' + String(Date.now()).slice(-5),
+          name: supplierName,
+          category: 'Fornecedor',
+          contact: '',
+          notes: ''
+        });
+      }
+
+      if (editId) {
+        const rec = gmFinItemCosts.find(r => String(r.id) === String(editId));
+        if (rec) {
+          Object.assign(rec, { stockProductId, itemName, supplierName, unitCost, date });
+        }
+        showToast('Custo por fornecedor atualizado!');
+      } else {
+        gmFinItemCosts.unshift({
+          id: 'COST-' + String(Date.now()).slice(-6),
+          stockProductId,
+          itemName,
+          supplierName,
+          unitCost,
+          date
+        });
+        showToast('Custo por fornecedor registrado!');
+      }
+
+      if (syncStock && stockProductId && Array.isArray(products)) {
+        const prod = products.find(p => String(p.id) === String(stockProductId));
+        if (prod) {
+          prod.cost = unitCost;
+          prod.supplier = supplierName;
+          if (typeof pushStockToNuvemshop === 'function') pushStockToNuvemshop(prod);
+        }
+      }
+
+      persistFinanceControlData();
+      if (typeof renderStock === 'function') renderStock();
+      renderFinanceControlSubtab();
+      closeCostFn();
+    });
+  }
+}
+
+window.openFinanceControlModal = function (presetKind = 'Custo Fixo', editId = '') {
+  if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode alterar o financeiro.');
+  ensureFinanceControlModals();
+
+  document.getElementById('gmFinCtrlEditId').value = '';
+  document.getElementById('formGmFinControlItem')?.reset();
+  document.getElementById('gmFinCtrlKind').value = presetKind;
+  document.getElementById('gmFinCtrlStatus').value = presetKind === 'Item de Controle' ? 'Ativo' : 'Pendente';
+  document.getElementById('gmFinCtrlRef').value = presetKind === 'Custo Variável' ? new Date().toISOString().split('T')[0] : '';
+  document.getElementById('gmFinCtrlModalTitle').textContent = `Novo ${presetKind}`;
+
+  if (editId) {
+    const item = gmFinControlItems.find(x => String(x.id) === String(editId));
+    if (item) {
+      document.getElementById('gmFinCtrlEditId').value = item.id;
+      document.getElementById('gmFinCtrlKind').value = item.kind || presetKind;
+      document.getElementById('gmFinCtrlName').value = item.name || '';
+      document.getElementById('gmFinCtrlCategory').value = item.category || '';
+      document.getElementById('gmFinCtrlAmount').value = Number(item.amount || 0);
+      document.getElementById('gmFinCtrlRef').value = item.dueDayOrDate || '';
+      document.getElementById('gmFinCtrlStatus').value = item.status || 'Pendente';
+      document.getElementById('gmFinCtrlNotes').value = item.notes || '';
+      document.getElementById('gmFinCtrlModalTitle').textContent = `Editar ${item.kind || 'Item'}`;
+    }
+  }
+
+  document.getElementById('gmFinControlItemModalOverlay')?.classList.add('active');
+};
+
+window.deleteFinanceControlItem = function (id) {
+  if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode excluir itens.');
+  const item = gmFinControlItems.find(x => String(x.id) === String(id));
+  if (!item) return;
+  if (!confirm(`Deseja realmente apagar "${item.name}"?`)) return;
+  gmFinControlItems = gmFinControlItems.filter(x => String(x.id) !== String(id));
+  persistFinanceControlData();
+  renderFinanceControlSubtab();
+  showToast('Item removido.');
+};
+
+window.toggleFinanceControlStatus = function (id) {
+  if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode alterar status.');
+  const item = gmFinControlItems.find(x => String(x.id) === String(id));
+  if (!item) return;
+  if (item.kind === 'Item de Controle') {
+    item.status = item.status === 'Ativo' ? 'Pausado' : 'Ativo';
+  } else {
+    item.status = item.status === 'Pago' ? 'Pendente' : 'Pago';
+  }
+  persistFinanceControlData();
+  renderFinanceControlSubtab();
+  showToast(`Status atualizado para "${item.status}".`);
+};
+
+window.toggleFinControlActionMenu = function (event, id) {
+  event.stopPropagation();
+  const menuId = `gmFinCtrlMenu_${String(id).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  let menu = document.getElementById(menuId);
+  const wasOpen = menu?.classList.contains('open');
+  if (typeof closeAllGithubActionMenus === 'function') closeAllGithubActionMenus();
+
+  if (!menu) {
+    const item = gmFinControlItems.find(x => String(x.id) === String(id));
+    const nextLabel = item?.kind === 'Item de Controle' ? 'Alternar Ativo/Pausado' : 'Marcar Pago/Pendente';
+    menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'gm-gh-dropdown';
+    menu.innerHTML = `
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openFinanceControlModal('${item?.kind || 'Custo Fixo'}', '${id}')">
+        <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
+        <span>Editar</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); toggleFinanceControlStatus('${id}')">
+        <i class="ph ph-check-circle" style="color:#34d399; font-size:15px;"></i>
+        <span>${nextLabel}</span>
+      </button>
+      <div class="gm-gh-dropdown-divider"></div>
+      <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteFinanceControlItem('${id}')">
+        <i class="ph ph-trash" style="font-size:15px;"></i>
+        <span>Apagar</span>
+      </button>
+    `;
+    document.body.appendChild(menu);
+  }
+
+  if (!wasOpen && typeof positionGithubMenu === 'function') {
+    positionGithubMenu(menu, event.currentTarget);
+  }
+};
+
+window.openFinanceSupplierModal = function (editId = '') {
+  if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode gerenciar fornecedores.');
+  ensureFinanceControlModals();
+  document.getElementById('gmFinSupEditId').value = '';
+  document.getElementById('formGmFinSupplier')?.reset();
+  document.getElementById('gmFinSupModalTitle').textContent = 'Novo Fornecedor';
+
+  if (editId) {
+    const sup = gmFinSuppliers.find(s => String(s.id) === String(editId));
+    if (sup) {
+      document.getElementById('gmFinSupEditId').value = sup.id;
+      document.getElementById('gmFinSupName').value = sup.name || '';
+      document.getElementById('gmFinSupCategory').value = sup.category || 'Perfumes Árabes / Nicho';
+      document.getElementById('gmFinSupContact').value = sup.contact || '';
+      document.getElementById('gmFinSupNotes').value = sup.notes || '';
+      document.getElementById('gmFinSupModalTitle').textContent = 'Editar Fornecedor';
+    }
+  }
+
+  document.getElementById('gmFinSupplierModalOverlay')?.classList.add('active');
+};
+
+window.deleteFinanceSupplier = function (id) {
+  if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode excluir fornecedores.');
+  const sup = gmFinSuppliers.find(s => String(s.id) === String(id));
+  if (!sup) return;
+  if (!confirm(`Deseja realmente apagar o fornecedor "${sup.name}"?`)) return;
+  gmFinSuppliers = gmFinSuppliers.filter(s => String(s.id) !== String(id));
+  persistFinanceControlData();
+  if (typeof refreshFinanceDropdownFilters === 'function') refreshFinanceDropdownFilters();
+  renderFinanceControlSubtab();
+  showToast('Fornecedor removido.');
+};
+
+window.toggleFinSupplierActionMenu = function (event, id) {
+  event.stopPropagation();
+  const menuId = `gmFinSupMenu_${String(id).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  let menu = document.getElementById(menuId);
+  const wasOpen = menu?.classList.contains('open');
+  if (typeof closeAllGithubActionMenus === 'function') closeAllGithubActionMenus();
+
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'gm-gh-dropdown';
+    menu.innerHTML = `
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openFinanceSupplierModal('${id}')">
+        <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
+        <span>Editar</span>
+      </button>
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openFinanceItemCostModal('', '${id}')">
+        <i class="ph ph-tag" style="color:#34d399; font-size:15px;"></i>
+        <span>Registrar Custo de Item</span>
+      </button>
+      <div class="gm-gh-dropdown-divider"></div>
+      <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteFinanceSupplier('${id}')">
+        <i class="ph ph-trash" style="font-size:15px;"></i>
+        <span>Apagar</span>
+      </button>
+    `;
+    document.body.appendChild(menu);
+  }
+
+  if (!wasOpen && typeof positionGithubMenu === 'function') {
+    positionGithubMenu(menu, event.currentTarget);
+  }
+};
+
+window.openFinanceItemCostModal = function (editId = '', presetSupplierId = '') {
+  if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode registrar custos.');
+  ensureFinanceControlModals();
+
+  const stockSel = document.getElementById('gmFinCostStockSelect');
+  if (stockSel && Array.isArray(products)) {
+    stockSel.innerHTML = `<option value="">-- Item / Insumo Avulso (digitar abaixo) --</option>` +
+      products.map(p => `<option value="${String(p.id).replace(/"/g, '&quot;')}">${p.name} (${p.id})</option>`).join('');
+  }
+
+  const dl = document.getElementById('gmFinSuppliersDatalist');
+  if (dl) {
+    dl.innerHTML = getAllFinanceSuppliersList()
+      .map(s => `<option value="${String(s.name).replace(/"/g, '&quot;')}"></option>`)
+      .join('');
+  }
+
+  document.getElementById('gmFinItemCostEditId').value = '';
+  document.getElementById('formGmFinItemCost')?.reset();
+  document.getElementById('gmFinCostDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('gmFinCostSyncStock').checked = true;
+
+  if (presetSupplierId) {
+    const sup = gmFinSuppliers.find(s => String(s.id) === String(presetSupplierId));
+    if (sup) document.getElementById('gmFinCostSupplierName').value = sup.name;
+  }
+
+  if (editId) {
+    const rec = gmFinItemCosts.find(r => String(r.id) === String(editId));
+    if (rec) {
+      document.getElementById('gmFinItemCostEditId').value = rec.id;
+      if (stockSel) stockSel.value = rec.stockProductId || '';
+      document.getElementById('gmFinCostItemName').value = rec.itemName || '';
+      document.getElementById('gmFinCostSupplierName').value = rec.supplierName || '';
+      document.getElementById('gmFinCostUnitValue').value = Number(rec.unitCost || 0);
+      document.getElementById('gmFinCostDate').value = rec.date || new Date().toISOString().split('T')[0];
+    }
+  }
+
+  document.getElementById('gmFinItemCostModalOverlay')?.classList.add('active');
+};
+
+window.deleteFinanceItemCost = function (id) {
+  if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode apagar registros de custo.');
+  if (!confirm('Deseja realmente apagar este registro de custo por fornecedor?')) return;
+  gmFinItemCosts = gmFinItemCosts.filter(r => String(r.id) !== String(id));
+  persistFinanceControlData();
+  renderFinanceControlSubtab();
+  showToast('Registro de custo removido.');
+};
+
+window.toggleFinItemCostActionMenu = function (event, id) {
+  event.stopPropagation();
+  const menuId = `gmFinCostMenu_${String(id).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  let menu = document.getElementById(menuId);
+  const wasOpen = menu?.classList.contains('open');
+  if (typeof closeAllGithubActionMenus === 'function') closeAllGithubActionMenus();
+
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'gm-gh-dropdown';
+    menu.innerHTML = `
+      <button type="button" class="gm-gh-dropdown-item" onclick="closeAllGithubActionMenus(); openFinanceItemCostModal('${id}')">
+        <i class="ph ph-pencil-simple" style="color:#60a5fa; font-size:15px;"></i>
+        <span>Editar</span>
+      </button>
+      <div class="gm-gh-dropdown-divider"></div>
+      <button type="button" class="gm-gh-dropdown-item danger-item" onclick="closeAllGithubActionMenus(); deleteFinanceItemCost('${id}')">
+        <i class="ph ph-trash" style="font-size:15px;"></i>
+        <span>Apagar</span>
+      </button>
+    `;
+    document.body.appendChild(menu);
+  }
+
+  if (!wasOpen && typeof positionGithubMenu === 'function') {
+    positionGithubMenu(menu, event.currentTarget);
+  }
+};
+
+function renderGmStandardActionBtn(handlerCall) {
+  return `
+    <div class="gm-gh-action-wrap">
+      <button type="button" class="gm-gh-pencil-btn" onclick="${handlerCall}">
+        <span>Ações</span>
+        <i class="ph ph-caret-down" style="font-size:13px; color:#9ca3af;"></i>
+      </button>
+    </div>
+  `;
+}
+
+function renderFinanceControlSubtab() {
+  ensureFinanceControlModals();
+  const canManageFin = typeof isCurrentUserAdmin === 'function' ? isCurrentUserAdmin() : true;
+
+  const fixedItems = gmFinControlItems.filter(x => x.kind === 'Custo Fixo');
+  const varItems = gmFinControlItems.filter(x => x.kind === 'Custo Variável');
+  const otherItems = gmFinControlItems.filter(x => x.kind === 'Item de Controle');
+  const suppliers = getAllFinanceSuppliersList();
+
+  const fixedSum = fixedItems.reduce((acc, x) => acc + Number(x.amount || 0), 0);
+  const varSum = varItems.reduce((acc, x) => acc + Number(x.amount || 0), 0);
+  const otherSum = otherItems.reduce((acc, x) => acc + Number(x.amount || 0), 0);
+
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('finCtrlMetricFixed', canManageFin ? fmtBRL(fixedSum) : 'Restrito');
+  setTxt('finCtrlMetricVariable', canManageFin ? fmtBRL(varSum) : 'Restrito');
+  setTxt('finCtrlMetricReserve', canManageFin ? fmtBRL(otherSum) : 'Restrito');
+  setTxt('finCtrlMetricSuppliers', suppliers.length);
+  setTxt('finCtrlMetricItemCostsCount', `${gmFinItemCosts.length} custo(s) por item`);
+
+  const fixedTbody = document.getElementById('tableFinFixedCosts');
+  if (fixedTbody) {
+    fixedTbody.innerHTML = fixedItems.length === 0
+      ? `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Nenhum custo fixo cadastrado.</td></tr>`
+      : fixedItems.map(x => `
+        <tr>
+          <td><strong>${x.name}</strong>${x.notes ? `<div style="font-size:0.74rem; color:var(--text-muted);">${x.notes}</div>` : ''}</td>
+          <td>${x.category || 'Fixo'}</td>
+          <td>${x.dueDayOrDate || '-'}</td>
+          <td><span class="badge-tag ${x.status === 'Pago' ? 'badge-receita' : 'badge-warning'}">${x.status || 'Pendente'}</span></td>
+          <td><strong style="color:#f87171;">${canManageFin ? fmtBRL(x.amount) : 'Restrito'}</strong></td>
+          <td>${renderGmStandardActionBtn(`toggleFinControlActionMenu(event, '${x.id}')`)}</td>
+        </tr>
+      `).join('');
+  }
+
+  const varTbody = document.getElementById('tableFinVariableCosts');
+  if (varTbody) {
+    varTbody.innerHTML = varItems.length === 0
+      ? `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Nenhum custo variável cadastrado.</td></tr>`
+      : varItems.map(x => `
+        <tr>
+          <td>${formatDateSafe(x.dueDayOrDate)}</td>
+          <td><strong>${x.name}</strong>${x.notes ? `<div style="font-size:0.74rem; color:var(--text-muted);">${x.notes}</div>` : ''}</td>
+          <td>${x.category || 'Variável'}</td>
+          <td><span class="badge-tag ${x.status === 'Pago' ? 'badge-receita' : 'badge-warning'}">${x.status || 'Pendente'}</span></td>
+          <td><strong style="color:#fbbf24;">${canManageFin ? fmtBRL(x.amount) : 'Restrito'}</strong></td>
+          <td>${renderGmStandardActionBtn(`toggleFinControlActionMenu(event, '${x.id}')`)}</td>
+        </tr>
+      `).join('');
+  }
+
+  const otherTbody = document.getElementById('tableFinControlOther');
+  if (otherTbody) {
+    otherTbody.innerHTML = otherItems.length === 0
+      ? `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Nenhum item de controle cadastrado.</td></tr>`
+      : otherItems.map(x => `
+        <tr>
+          <td><strong>${x.name}</strong>${x.notes ? `<div style="font-size:0.74rem; color:var(--text-muted);">${x.notes}</div>` : ''}</td>
+          <td>${x.category || 'Controle'}</td>
+          <td>${x.dueDayOrDate || '-'}</td>
+          <td><span class="badge-tag ${x.status === 'Ativo' ? 'badge-receita' : 'badge-info'}">${x.status || 'Ativo'}</span></td>
+          <td><strong style="color:#60a5fa;">${canManageFin ? fmtBRL(x.amount) : 'Restrito'}</strong></td>
+          <td>${renderGmStandardActionBtn(`toggleFinControlActionMenu(event, '${x.id}')`)}</td>
+        </tr>
+      `).join('');
+  }
+
+  const supTbody = document.getElementById('tableFinSuppliersList');
+  if (supTbody) {
+    supTbody.innerHTML = suppliers.length === 0
+      ? `<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Nenhum fornecedor cadastrado ainda.</td></tr>`
+      : suppliers.map(s => {
+        const isManual = gmFinSuppliers.some(m => String(m.id) === String(s.id));
+        const actionHtml = isManual
+          ? renderGmStandardActionBtn(`toggleFinSupplierActionMenu(event, '${s.id}')`)
+          : `<button type="button" class="btn-sm" onclick="openFinanceItemCostModal('', '')">Vincular Custo</button>`;
+        return `
+          <tr>
+            <td><strong>${s.name}</strong></td>
+            <td><span class="badge-tag badge-info">${s.category || 'Fornecedor'}</span></td>
+            <td>${s.contact || '-'}</td>
+            <td>${s.notes || '-'}</td>
+            <td>${actionHtml}</td>
+          </tr>
+        `;
+      }).join('');
+  }
+
+  const costTbody = document.getElementById('tableFinItemSupplierCosts');
+  if (costTbody) {
+    costTbody.innerHTML = gmFinItemCosts.length === 0
+      ? `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">Nenhum custo de item por fornecedor registrado.</td></tr>`
+      : gmFinItemCosts.map(r => {
+        const linkedProd = r.stockProductId && Array.isArray(products)
+          ? products.find(p => String(p.id) === String(r.stockProductId))
+          : null;
+        const originBadge = linkedProd
+          ? `<span class="badge-tag badge-receita">Estoque (${linkedProd.id})</span>`
+          : `<span class="badge-tag badge-info">Item / Insumo</span>`;
+        return `
+          <tr>
+            <td><strong>${r.itemName}</strong></td>
+            <td><strong>${r.supplierName}</strong></td>
+            <td>${originBadge}</td>
+            <td>${formatDateSafe(r.date)}</td>
+            <td><strong style="color:#34d399;">${canManageFin ? fmtBRL(r.unitCost) : 'Restrito'}</strong></td>
+            <td>${renderGmStandardActionBtn(`toggleFinItemCostActionMenu(event, '${r.id}')`)}</td>
+          </tr>
+        `;
+      }).join('');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  ensureFinanceControlModals();
+
+  document.querySelectorAll('#gmFinanceSubtabPills .gm-seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      switchFinanceSubtab(btn.getAttribute('data-fin-tab') || 'overview');
+    });
+  });
+
+  document.getElementById('gmBtnOpenFinanceAddModal')?.addEventListener('click', () => {
+    if (!isCurrentUserAdmin()) return showToast('Apenas o Administrador pode adicionar itens no financeiro.');
+    ensureFinanceAddChooserModal();
+    document.getElementById('gmFinAddChooserOverlay')?.classList.add('active');
+  });
+
+  switchFinanceSubtab(gmActiveFinanceTab);
+});
