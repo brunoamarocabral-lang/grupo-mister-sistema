@@ -1084,7 +1084,7 @@ function injectPasswordEyeAnd2faBox() {
     eyeBtn.id = 'gmTogglePasswordEye';
     eyeBtn.type = 'button';
     eyeBtn.title = 'Mostrar ou ocultar senha';
-    eyeBtn.innerHTML = '👁️';
+    eyeBtn.innerHTML = '🔓';
     eyeBtn.style.cssText = `
       position:absolute; right:8px; background:transparent; border:none;
       color:#9ca3af; cursor:pointer; font-size:15px; padding:4px;
@@ -1092,7 +1092,7 @@ function injectPasswordEyeAnd2faBox() {
     eyeBtn.addEventListener('click', () => {
       const isPwd = passInput.type === 'password';
       passInput.type = isPwd ? 'text' : 'password';
-      eyeBtn.textContent = isPwd ? '🙈' : '👁️';
+      eyeBtn.textContent = isPwd ? '🔒' : '🔓';
     });
     wrap.appendChild(eyeBtn);
   }
@@ -2914,7 +2914,7 @@ function normalizePdvSearchText(str = '') {
 function selectPdvSearchedProduct(prod) {
   const searchInput = document.getElementById('modalProductSearch');
   const resultsList = document.getElementById('modalProductResults');
-  const hiddenSelect = document.getElementById('modalProductSelect');
+const hiddenSelect = document.getElementById('modalProductSelect');
   const priceInput = document.getElementById('modalProductDisplayPrice');
 
   if (!prod) return;
@@ -3018,6 +3018,7 @@ function renderPdvProductSearchResults(query = '') {
 
   resultsList.style.setProperty('display', 'block', 'important');
 }
+
 function initSalesAndPdv() {
   if (typeof syncPdvLiveClockBadge === 'function') syncPdvLiveClockBadge();
   const pdvOverlay = document.getElementById('pdvModalOverlay');
@@ -3135,7 +3136,7 @@ function initSalesAndPdv() {
     channelSelect.addEventListener('change', syncChannelToNotes);
   }
 
-if (confirmBtn && !confirmBtn.dataset.channelBound) {
+  if (confirmBtn && !confirmBtn.dataset.channelBound) {
     confirmBtn.dataset.channelBound = 'true';
     confirmBtn.addEventListener('click', () => {
       const canal = syncChannelToNotes();
@@ -3151,132 +3152,7 @@ if (confirmBtn && !confirmBtn.dataset.channelBound) {
     }, true);
   }
 
-  const pdvOverlay = document.getElementById('pdvModalOverlay');
-  const searchInput = document.getElementById('modalProductSearch');
-  const resultsList = document.getElementById('modalProductResults');
-  const prodSel = document.getElementById('modalProductSelect');
-  const priceInput = document.getElementById('modalProductDisplayPrice');
-  const qtyInput = document.getElementById('modalProductQty');
-  const discountInput = document.getElementById('modalProductDiscount');
-  const channelSelect = document.getElementById('modalContactChannel');
-  const shippingNotesHidden = document.getElementById('modalShippingNotes');
-
-  const syncChannelToNotes = () => {
-    const canal = channelSelect?.value || 'Loja';
-    if (shippingNotesHidden) {
-      shippingNotesHidden.value = `Canal: ${canal}`;
-    }
-    return canal;
-  };
-
-  document.getElementById('btnOpenPdvModal')?.addEventListener('click', () => {
-    if (typeof modalCart !== 'undefined') modalCart = [];
-    const genDisc = document.getElementById('modalGeneralDiscount');
-    if (genDisc) genDisc.value = '0';
-    if (typeof renderModalCart === 'function') renderModalCart();
-    const shipMethod = document.getElementById('modalShippingMethod');
-    if (shipMethod) shipMethod.value = 'Retirada na Loja';
-    if (channelSelect) channelSelect.value = 'Loja';
-    syncChannelToNotes();
-    const obs = document.getElementById('modalOrderObservation');
-    if (obs) obs.value = '';
-    const saleDate = document.getElementById('modalSaleDate');
-    if (saleDate && typeof getNowBrDateTime === 'function') saleDate.value = getNowBrDateTime();
-    if (searchInput) searchInput.value = '';
-    if (prodSel) prodSel.value = '';
-    if (priceInput) priceInput.value = '';
-    if (qtyInput) qtyInput.value = '1';
-    if (discountInput) discountInput.value = '0';
-    if (resultsList) {
-      resultsList.style.display = 'none';
-      resultsList.style.setProperty('display', 'none', 'important');
-    }
-    pdvOverlay?.classList.add('active');
-  });
-  document.getElementById('btnClosePdvModal')?.addEventListener('click', () => pdvOverlay?.classList.remove('active'));
-  document.getElementById('btnModalCancelSale')?.addEventListener('click', () => pdvOverlay?.classList.remove('active'));
-  document.getElementById('modalGeneralDiscount')?.addEventListener('input', () => {
-    if (typeof renderModalCart === 'function') renderModalCart();
-  });
-
-  prodSel?.addEventListener('change', () => {
-    const opt = prodSel.options[prodSel.selectedIndex];
-    if (priceInput) {
-      priceInput.value = opt ? (opt.getAttribute('data-price') || '0') : '0';
-    }
-  });
-
-  if (searchInput && !searchInput.dataset.bound) {
-    searchInput.dataset.bound = 'true';
-    searchInput.addEventListener('focus', () => {
-      if (typeof renderPdvProductSearchResults === 'function') renderPdvProductSearchResults(searchInput.value);
-    });
-    searchInput.addEventListener('click', () => {
-      if (typeof renderPdvProductSearchResults === 'function') renderPdvProductSearchResults(searchInput.value);
-    });
-    searchInput.addEventListener('input', () => {
-      if (prodSel) prodSel.value = '';
-      if (typeof renderPdvProductSearchResults === 'function') renderPdvProductSearchResults(searchInput.value);
-    });
-    searchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const firstItem = resultsList?.querySelector('li');
-        if (firstItem && resultsList.style.display !== 'none') {
-          e.preventDefault();
-          firstItem.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-        }
-      }
-    });
-  }
-        }
-      }
-    });
-  }
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('#pdvProductSearchGroup') && resultsList) {
-      resultsList.style.display = 'none';
-    }
-  });
-
-  if (addItemBtn && !addItemBtn.dataset.searchBound) {
-    addItemBtn.dataset.searchBound = 'true';
-    addItemBtn.addEventListener('click', () => {
-      if (!prodSel?.value && searchInput?.value && Array.isArray(products)) {
-        const normTyped = normalizePdvSearchText(searchInput.value);
-        const exactOrFirst =
-          products.find(p => normalizePdvSearchText(p.name) === normTyped) ||
-          products.find(p => normalizePdvSearchText(p.name).includes(normTyped));
-        if (exactOrFirst) {
-          selectPdvSearchedProduct(exactOrFirst);
-        }
-      }
-
-      setTimeout(() => {
-        if (searchInput) searchInput.value = '';
-        if (prodSel) prodSel.value = '';
-        if (priceInput) priceInput.value = '';
-        if (qtyInput) qtyInput.value = '1';
-        if (discountInput) discountInput.value = '0';
-        if (resultsList) resultsList.style.display = 'none';
-      }, 0);
-    }, true);
-  }
-
-  if (channelSelect && !channelSelect.dataset.bound) {
-    channelSelect.dataset.bound = 'true';
-    syncChannelToNotes();
-    channelSelect.addEventListener('change', syncChannelToNotes);
-  }
-
- if (confirmBtn && !confirmBtn.dataset.channelBound) {
-    confirmBtn.dataset.channelBound = 'true';
-    confirmBtn.addEventListener('click', () => {
-      syncChannelToNotes();
-    }, true);
-  }
-
- document.getElementById('btnAddModalProduct')?.addEventListener('click', () => {
+  document.getElementById('btnAddModalProduct')?.addEventListener('click', () => {
     if (prodSel && !prodSel.value && searchInput?.value) {
       const normTyped = normalizePdvSearchText(searchInput.value);
       const list = getPdvAvailableProductsList();
@@ -3450,6 +3326,7 @@ if (confirmBtn && !confirmBtn.dataset.channelBound) {
   document.getElementById('salesChannelFilter')?.addEventListener('change', renderSales);
   document.getElementById('quickStockSearch')?.addEventListener('input', renderQuickStock);
   document.getElementById('quickStockCondition')?.addEventListener('change', renderQuickStock);
+}
 
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.gm-gh-action-wrap') && !e.target.closest('.gm-gh-dropdown')) {
