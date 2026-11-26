@@ -197,9 +197,20 @@
           <i class="ph ph-calculator"></i><span>Simuladores</span>
         </button>
 
-        <button type="button" class="nav-item" data-target="financeiro" data-perm="financeiro">
-          <i class="ph ph-chart-line-up"></i><span>Financeiro</span>
-        </button>
+       <div class="nav-dropdown">
+  <button type="button" class="nav-item dropdown-toggle" data-perm="financeiro">
+    <i class="ph ph-chart-line-up"></i><span>Financeiro</span>
+    <i class="ph ph-caret-down" style="margin-left: auto;"></i>
+  </button>
+  <div class="submenu">
+    <button type="button" class="submenu-item" data-target="financeiro" data-fin-nav="overview" data-perm="financeiro">
+      <i class="ph ph-receipt"></i><span>Visão Geral &amp; Extrato</span>
+    </button>
+    <button type="button" class="submenu-item" data-target="financeiro" data-fin-nav="control" data-perm="financeiro">
+      <i class="ph ph-sliders-horizontal"></i><span>Controle Financeiro</span>
+    </button>
+  </div>
+</div>
 
         <button type="button" class="nav-item" data-target="configuracoes" data-perm="dashboard">
           <i class="ph ph-gear"></i><span>Configurações</span>
