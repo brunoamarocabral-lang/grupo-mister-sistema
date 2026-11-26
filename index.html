@@ -207,7 +207,7 @@
       <i class="ph ph-receipt"></i><span>Visão Geral &amp; Extrato</span>
     </button>
     <button type="button" class="submenu-item" data-target="financeiro" data-fin-nav="control" data-perm="financeiro">
-      <i class="ph ph-sliders-horizontal"></i><span>Controle Financeiro</span>
+      <i class="ph ph-sliders-horizontal"></i><span>Controle </span>
     </button>
   </div>
 </div>
@@ -770,33 +770,35 @@
         </div>
       </section>
 
-      <!-- 13. FINANCEIRO -->
+  <!-- 13. FINANCEIRO -->
       <section id="financeiro" class="content-section">
-        <div class="metrics-grid">
-          <div class="metric-card"><span class="metric-label">Receita Bruta</span><strong class="metric-value" id="finMetricGross">R$ 0,00</strong></div>
-          <div class="metric-card"><span class="metric-label">CMV Estimado</span><strong class="metric-value" id="finMetricCmv">R$ 0,00</strong></div>
-          <div class="metric-card"><span class="metric-label">Despesas</span><strong class="metric-value" id="finMetricExpenses">R$ 0,00</strong></div>
-          <div class="metric-card"><span class="metric-label">Lucro Líquido</span><strong class="metric-value" id="finMetricNetProfit">R$ 0,00</strong></div>
-        </div>
-        <!-- NAVEGAÇÃO DE SUBABAS DO FINANCEIRO -->
-        <div id="gmFinanceSubtabsBar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.6rem; margin-bottom:0.85rem;">
-          <div class="gm-seg-pills" id="gmFinanceSubtabPills">
-            <button type="button" class="gm-seg-btn active" data-fin-tab="overview">
-              <i class="ph ph-chart-line-up"></i> Visão Geral &amp; Extrato
-            </button>
-            <button type="button" class="gm-seg-btn" data-fin-tab="control">
-              <i class="ph ph-sliders-horizontal"></i> Controle Financeiro
-            </button>
+        <!-- PARTE 1: VISÃO GERAL & EXTRATO -->
+        <div id="gmFinanceOverviewPart" data-finance-part="overview">
+          <div class="metrics-grid">
+            <div class="metric-card"><span class="metric-label">Receita Bruta</span><strong class="metric-value" id="finMetricGross">R$ 0,00</strong></div>
+            <div class="metric-card"><span class="metric-label">CMV Estimado</span><strong class="metric-value" id="finMetricCmv">R$ 0,00</strong></div>
+            <div class="metric-card"><span class="metric-label">Despesas</span><strong class="metric-value" id="finMetricExpenses">R$ 0,00</strong></div>
+            <div class="metric-card"><span class="metric-label">Lucro Líquido</span><strong class="metric-value" id="finMetricNetProfit">R$ 0,00</strong></div>
           </div>
-          <div style="display:flex; gap:0.45rem; flex-wrap:wrap;">
+
+          <div style="display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:0.45rem; margin-bottom:0.85rem;">
             <button type="button" class="btn-primary" id="gmBtnOpenFinanceAddModal">
               <i class="ph ph-plus"></i> Adicionar Item
             </button>
           </div>
+
+          <div class="card-box">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead><tr><th>Cód.</th><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Obs.</th></tr></thead>
+                <tbody id="tableFinEntries"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        <!-- SUBABA 2: CONTROLE FINANCEIRO (CUSTOS FIXOS, VARIÁVEIS, ITENS DE CONTROLE & FORNECEDORES) -->
-        <div id="gmFinanceControlSubtab" style="display:none;">
+        <!-- PARTE 2: CONTROLE FINANCEIRO (INDEPENDENTE) -->
+        <div id="gmFinanceControlSubtab" data-finance-part="control" style="display:none;">
           <div class="metrics-grid" style="margin-bottom:0.9rem;">
             <div class="metric-card">
               <span class="metric-label">Custos Fixos (Mensal)</span>
@@ -945,14 +947,6 @@
                 <tbody id="tableFinItemSupplierCosts"></tbody>
               </table>
             </div>
-          </div>
-        </div>
-        <div class="card-box">
-          <div class="table-responsive">
-            <table class="data-table">
-              <thead><tr><th>Cód.</th><th>Data</th><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Obs.</th></tr></thead>
-              <tbody id="tableFinEntries"></tbody>
-            </table>
           </div>
         </div>
       </section>
