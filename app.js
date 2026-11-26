@@ -4841,30 +4841,35 @@ window.toggleClientActionMenu = function (event, cod) {
 function initClientsModule() {
   ensureClientSearchCustomBar();
   ensureClientFormAndViewModals();
+function initClientsModule() {
+  ensureClientSearchCustomBar();
+  ensureClientFormAndViewModals();
 
   const legacyOverlay = document.getElementById('clientModalOverlay');
   const openBtn = document.getElementById('btnOpenClientModal');
 
   const openClientCreationModal = () => {
-    if (typeof window.openNewClientModal === 'function' && window.openNewClientModal !== openClientCreationModal) {
-      return window.openNewClientModal();
-    }
-    if (typeof openClientModal === 'function') {
-      return openClientModal();
-    }
-    if (typeof openEditClientModal === 'function') {
-      return openEditClientModal('');
+    ensureClientFormAndViewModals();
+
+    const formModal = document.getElementById('clientFormModalOverlay');
+    if (formModal) {
+      document.getElementById('clientEditCod').value = '';
+      document.getElementById('clientFormModalTitle').textContent = 'Cadastrar Cliente';
+      document.getElementById('formClientFull')?.reset();
+      const agePreview = document.getElementById('clientFormAgePreview');
+      const addrPreview = document.getElementById('clientFormAddressPreview');
+      if (agePreview) agePreview.textContent = 'Data de nascimento não informada.';
+      if (addrPreview) addrPreview.innerHTML = 'Sem endereço preenchido.';
+
+      formModal.classList.add('active');
+      formModal.style.display = 'flex';
+      setTimeout(() => document.getElementById('clientFormName')?.focus(), 30);
+      return;
     }
 
-    const modal =
-      document.getElementById('newClientModalOverlay') ||
-      document.getElementById('clientFormModalOverlay') ||
-      document.getElementById('modalClientOverlay') ||
-      legacyOverlay;
-
-    if (modal) {
-      modal.classList.add('active');
-      modal.style.display = 'flex';
+    if (legacyOverlay) {
+      legacyOverlay.classList.add('active');
+      legacyOverlay.style.display = 'flex';
     }
   };
 
