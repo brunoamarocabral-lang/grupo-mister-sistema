@@ -1895,6 +1895,23 @@ function renderCommercialStockCatalog() {
 // ============================================================================
 // 5. NAVEGAÇÃO SPA
 // ============================================================================
+function openFinanceSubmenu() {
+  const finSub = document.querySelector('#sidebarNavMenu [data-target="financeiro"]');
+  const finDropdown = finSub?.closest('.nav-dropdown');
+  const finSubmenu = finDropdown?.querySelector('.submenu');
+
+  if (finDropdown) {
+    finDropdown.classList.add('open');
+  }
+  if (finSubmenu) {
+    finSubmenu.style.display = 'flex';
+    finSubmenu.style.flexDirection = 'column';
+    finSubmenu.querySelectorAll('.submenu-item').forEach(item => {
+      item.style.display = 'flex';
+    });
+  }
+}
+
 function applyFinanceSubtab(finSubtab) {
   const mode = finSubtab === 'control' ? 'control' : 'overview';
   const overviewPart = document.getElementById('gmFinanceOverviewPart');
@@ -1930,7 +1947,14 @@ window.navigateToSection = function (targetId, labelText, finSubtab) {
   if (activeBtn) {
     activeBtn.classList.add('active');
     const parentDropdown = activeBtn.closest('.nav-dropdown');
-    if (parentDropdown) parentDropdown.classList.add('open');
+    if (parentDropdown) {
+      parentDropdown.classList.add('open');
+      const sub = parentDropdown.querySelector('.submenu');
+      if (sub) {
+        sub.style.display = 'flex';
+        sub.style.flexDirection = 'column';
+      }
+    }
   }
 
   const targetSection = document.getElementById(targetId);
@@ -1954,6 +1978,7 @@ window.navigateToSection = function (targetId, labelText, finSubtab) {
     if (typeof syncSalesToFinanceEntries === 'function') syncSalesToFinanceEntries();
     if (typeof renderFinance === 'function') renderFinance();
     applyFinanceSubtab(resolvedSubtab);
+    openFinanceSubmenu();
   }
 };
 
@@ -1964,20 +1989,31 @@ function initNavigation() {
 
     toggle.addEventListener('click', (e) => {
       e.preventDefault();
+      e.stopImmediatePropagation();
+
       const dropdown = toggle.closest('.nav-dropdown');
       const finSub = dropdown?.querySelector('[data-target="financeiro"]');
 
       if (finSub) {
-        dropdown.classList.add('open');
+        openFinanceSubmenu();
         const subtab = finSub.getAttribute('data-fin-nav') || 'overview';
         const span = finSub.querySelector('span');
         const label = span ? span.textContent.trim() : 'Visão Geral & Extrato';
         window.navigateToSection('financeiro', label, subtab);
+        openFinanceSubmenu();
         return;
       }
 
-      dropdown?.classList.toggle('open');
-    });
+      if (dropdown) {
+        const willOpen = !dropdown.classList.contains('open');
+        dropdown.classList.toggle('open', willOpen);
+        const sub = dropdown.querySelector('.submenu');
+        if (sub) {
+          sub.style.display = willOpen ? 'flex' : 'none';
+          sub.style.flexDirection = 'column';
+        }
+      }
+    }, true);
   });
 
   document.querySelectorAll('.nav-item[data-target], .submenu-item[data-target]').forEach(btn => {
@@ -2000,8 +2036,16 @@ function initNavigation() {
 
     sidebarSearchInput.addEventListener('input', () => {
       const q = sidebarSearchInput.value.toLowerCase().trim();
-      const dropdown = document.querySelector('.nav-dropdown');
-      if (q && dropdown) dropdown.classList.add('open');
+      if (q) {
+        document.querySelectorAll('#sidebarNavMenu .nav-dropdown').forEach(dropdown => {
+          dropdown.classList.add('open');
+          const sub = dropdown.querySelector('.submenu');
+          if (sub) {
+            sub.style.display = 'flex';
+            sub.style.flexDirection = 'column';
+          }
+        });
+      }
       const allowed = typeof getAllowedPermissionsForAccount === 'function'
         ? getAllowedPermissionsForAccount(activeAccount)
         : [];
@@ -2018,7 +2062,6 @@ function initNavigation() {
     });
   }
 }
-
 // ============================================================================
 // STATUS, OBSERVAÇÃO, RASTREIO & EXCLUSÃO DE VENDA
 // ============================================================================
