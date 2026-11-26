@@ -621,7 +621,7 @@
         <div class="card-box">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.85rem;">
             <h3 style="font-size:0.95rem;">Registro de Trocas &amp; Devoluções (RMA)</h3>
-            <button type="button" class="btn-primary" id="btnOpenNewRmaModal"><i class="ph ph-arrows-left-right"></i> Nova Troca</button>
+          <button type="button" class="btn-primary" id="btnOpenRmaModal"><i class="ph ph-arrows-left-right"></i> Nova Troca</button>
           </div>
           <div class="table-responsive">
             <table class="data-table">
@@ -1116,7 +1116,7 @@
       </div>
       <form id="formNewRma" class="modal-body">
         <div class="form-group">
-          <label for="rmaSaleSelect">Vincular a Pedido Existente (opcional):</label>
+          <label for="rmaType">Vincular a Pedido Existente (opcional):</label>
           <select id="rmaSaleSelect"></select>
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.6rem;">
@@ -1125,8 +1125,8 @@
         </div>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.6rem;">
           <div class="form-group">
-            <label for="rmaTypeSelect">Tipo de Solicitação:</label>
-            <select id="rmaTypeSelect">
+            <label for="rmaType">Tipo de Solicitação:</label>
+            <select id="rmaType">
               <option value="Troca de Fragrância">Troca de Fragrância</option>
               <option value="Defeito no Borrifador">Defeito no Borrifador</option>
               <option value="Devolução / Estorno">Devolução / Estorno</option>
@@ -1139,9 +1139,9 @@
               <option value="avaria_descarte">Avaria / Não Retornar</option>
             </select>
           </div>
-          <div class="form-group"><label for="rmaAmountInput">Valor (R$):</label><input type="number" id="rmaAmountInput" step="0.01" value="0" /></div>
+          <div class="form-group"><label for="rmaRefundValue">Valor (R$):</label><input type="number" id="rmaRefundValue" step="0.01" value="0" /></div>
         </div>
-        <div class="form-group"><label for="rmaReasonInput">Motivo / Observação da Troca:</label><input type="text" id="rmaReasonInput" placeholder="Ex.: Cliente preferiu trocar por outro aroma" /></div>
+        <div class="form-group"><label for="rmaReason">Motivo / Observação da Troca:</label><input type="text" id="rmaReason" placeholder="Ex.: Cliente preferiu trocar por outro aroma" /></div>
         <div class="modal-footer" style="padding:0.75rem 0 0 0; gap:0.5rem;">
           <button type="button" class="btn-sm" id="btnCancelRmaModal">Cancelar</button>
           <button type="submit" class="btn-primary">Confirmar Troca</button>
@@ -1289,6 +1289,35 @@
         <button type="button" class="btn-close-modal" id="btnCloseCashTool">&times;</button>
       </div>
       <div class="modal-body" id="cashToolModalBody"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
+<!-- MODAL GENÉRICO (RECIBO / CAIXA) -->
+  <div class="modal-overlay" id="cashToolModalOverlay">
+    <div class="modal-container modal-sm">
+      <div class="modal-header">
+        <div class="modal-tab" id="cashToolModalTitle">Comprovante</div>
+        <button type="button" class="btn-close-modal" id="btnCloseCashTool">&times;</button>
+      </div>
+      <div class="modal-body" id="cashToolModalBody"></div>
+    </div>
+  </div>
+
+  <!-- MODAL RECIBO DE VENDA -->
+  <div class="modal-overlay" id="receiptModalOverlay">
+    <div class="modal-container modal-sm">
+      <div class="modal-header">
+        <div class="modal-tab"><i class="ph ph-receipt"></i> Recibo de Venda</div>
+        <button type="button" class="btn-close-modal" id="btnCloseReceiptModal">&times;</button>
+      </div>
+      <div class="modal-body" id="receiptBodyContent"></div>
+      <div class="modal-footer" style="gap:0.5rem;">
+        <button type="button" class="btn-primary" id="btnPrintReceipt"><i class="ph ph-printer"></i> Imprimir</button>
+      </div>
     </div>
   </div>
 
