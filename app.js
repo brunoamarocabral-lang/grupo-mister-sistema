@@ -6439,7 +6439,12 @@ function switchFinanceSubtab(tabKey) {
     btn.classList.toggle('active', btn.getAttribute('data-fin-tab') === gmActiveFinanceTab);
   });
 
+  const overviewEl = document.getElementById('gmFinanceOverviewPart');
   const controlEl = document.getElementById('gmFinanceControlSubtab');
+
+  if (overviewEl) {
+    overviewEl.style.display = gmActiveFinanceTab === 'overview' ? 'block' : 'none';
+  }
   if (controlEl) {
     controlEl.style.display = gmActiveFinanceTab === 'control' ? 'block' : 'none';
   }
@@ -6449,17 +6454,10 @@ function switchFinanceSubtab(tabKey) {
     enhancedEl.style.display = gmActiveFinanceTab === 'overview' ? 'block' : 'none';
   }
 
-  // Caso use o layout nativo do HTML sem gmFinanceEnhancedContainer
-  const finSec = document.getElementById('financeiro');
-  if (finSec && !enhancedEl) {
-    Array.from(finSec.children).forEach(child => {
-      if (child.id === 'gmFinanceSubtabsBar' || child.id === 'gmFinanceControlSubtab') return;
-      child.style.display = gmActiveFinanceTab === 'overview' ? '' : 'none';
-    });
-  }
-
   if (gmActiveFinanceTab === 'control') {
     renderFinanceControlSubtab();
+  } else if (typeof renderFinance === 'function') {
+    renderFinance();
   }
 }
 
