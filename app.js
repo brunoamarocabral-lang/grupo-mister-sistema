@@ -7381,3 +7381,82 @@ document.addEventListener('click', function (e) {
   }
 });
 }
+// ============================================================================
+// MELHORIA: ATALHOS DE TECLADO + FALLBACK AUTOMÁTICO DE LOGO (GRUPO MISTER)
+// ============================================================================
+(function gmSystemEnhancements() {
+  function applyLogoFallback() {
+    const candidates = [
+      'logo-grupo-mister.png',
+      'logo-grupo-mister.jpg',
+      'logo.png',
+      'logo.jpg'
+    ];
+
+    document.querySelectorAll('img').forEach((img) => {
+      if (img.dataset.gmFallbackBound) return;
+      img.dataset.gmFallbackBound = 'true';
+
+      img.addEventListener('error', function onImgError() {
+        const idx = Number(img.dataset.gmFallbackIdx || 0);
+        if (idx >= candidates.length) {
+          img.removeEventListener('error', onImgError);
+          return;
+        }
+        img.dataset.gmFallbackIdx = String(idx + 1);
+        img.src = candidates[idx];
+      });
+    });
+
+    const fav = document.querySelector('link[rel="icon"]');
+    if (fav && !fav.dataset.gmFavBound) {
+      fav.dataset.gmFavBound = 'true';
+      fav.addEventListener('error', function onFavError() {
+        const idx = Number(fav.dataset.gmFavIdx || 0);
+        if (idx >= candidates.length) {
+          fav.removeEventListener('error', onFavError);
+          return;
+        }
+        fav.dataset.gmFavIdx = String(idx + 1);
+        fav.href = candidates[idx];
+      });
+    }
+  }
+
+  function focusActiveSectionSearch() {
+    const activeSec = document.querySelector('.content-section.active');
+    if (!activeSec) return;
+
+    const searchInput = activeSec.querySelector(
+      'input[type="text"][placeholder*="Buscar"], input[type="text"][placeholder*="Pesquisar"], input[type="search"]'
+    );
+    if (searchInput) {
+      searchInput.focus();
+      searchInput.select();
+    }
+  }
+
+  function closeTopmostActiveModal() {
+    const overlays = Array.from(document.querySelectorAll('.modal-overlay.active'))
+      .filter((el) => el.id !== 'loginScreenOverlay');
+    if (overlays.length === 0) return;
+
+    const topModal = overlays[overlays.length - 1];
+    topModal.classList.remove('active');
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeTopmostActiveModal();
+    } else if (e.altKey && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      focusActiveSectionSearch();
+    }
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyLogoFallback);
+  } else {
+    applyLogoFallback();
+  }
+})();
