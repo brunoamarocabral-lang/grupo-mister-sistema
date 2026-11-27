@@ -91,15 +91,13 @@ function injectLayoutAndActionStyles() {
       line-height: 1.38;
     }
 
-    .content-section th {
+   .content-section th {
       background: rgba(255, 255, 255, 0.03);
       border-bottom: 1px solid var(--border, #252a34);
       font-weight: 700;
       letter-spacing: 0.02em;
     }
-  `;
-  document.head.appendChild(style);
-}
+
     .content-section td {
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
@@ -145,7 +143,9 @@ function injectLayoutAndActionStyles() {
       font-weight: 600 !important;
       line-height: 1.25 !important;
     }
-
+  `;
+  document.head.appendChild(style);
+}
     /* Histórico de vendas sempre apenas em cards */
     #btnToggleListModel,
     #salesTableView {
