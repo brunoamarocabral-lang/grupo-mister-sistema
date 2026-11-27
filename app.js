@@ -18,17 +18,8 @@ const STORAGE_KEYS = {
   SESSION_TOKEN: 'gm_perfume_session_token_v5'
 };
 
-function parseStoredJsonSafe(key, fallback = null) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch (_) {
-    return fallback;
-  }
-}
-
 let authToken = localStorage.getItem(STORAGE_KEYS.SESSION_TOKEN) || null;
-let activeAccount = parseStoredJsonSafe(STORAGE_KEYS.SESSION_USER, null);
+let activeAccount = JSON.parse(localStorage.getItem(STORAGE_KEYS.SESSION_USER) || 'null');
 let pendingTwoFactorToken = null;
 let serverUsersList = [];
 
@@ -61,7 +52,7 @@ function formatDateSafe(dateStr, fallback = '-') {
     ? `${String(dateStr).trim()}T00:00:00`
     : String(dateStr).trim();
   const d = new Date(isoCandidate);
-  if (Number.isNaN(d.getTime())) return String(dateStr);
+ if (Number.isNaN(d.getTime())) return String(dateStr);
   return d.toLocaleDateString('pt-BR');
 }
 
